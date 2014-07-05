@@ -25,6 +25,12 @@ int main() {
     
     //POST-example for the path /json, responds firstName+" "+lastName from the posted json
     //Responds with an appropriate error message if the posted json is not correct, or if firstName or lastName is missing
+    //Example posted json:
+    //{
+    //  "firstName": "John",
+    //  "lastName": "Smith",
+    //  "age": 25
+    //}
     httpserver.resources["^/json/?$"]["^POST$"]=[](ostream& response, const Request& request, const smatch& path_match) {
         ptree pt;
         try {
