@@ -10,7 +10,7 @@ using namespace boost::property_tree;
 
 int main() {
     //HTTP-server at port 8080 using 4 threads
-    HTTPServer httpserver(8080, 1);
+    HTTPServer httpserver(8080, 4);
     
     //Add resources using regular expressions for path and method
     //POST-example for the path /string, responds the posted string
