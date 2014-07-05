@@ -8,7 +8,7 @@ A very simple, fast, multithreaded and platform independent HTTP server implemen
 * Thread pool
 * Platform independent
 * HTTP persistent connection (for HTTP/1.1)
-* Simple way to add REST resources using regex for method and path, and anonymous functions
+* Simple way to add REST resources using regex for path and anonymous functions
 
 ###Usage
 

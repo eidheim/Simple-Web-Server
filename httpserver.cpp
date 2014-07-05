@@ -117,22 +117,18 @@ void HTTPServer::respond(shared_ptr<ip::tcp::socket> socket, shared_ptr<Request>
         regex e(res.first);
         smatch sm_res;
         if(regex_match(request->path, sm_res, e)) {
-            for(auto& res_path: res.second) {
-                e=res_path.first;
-                smatch sm_path;
-                if(regex_match(request->method, sm_path, e)) {
-                    shared_ptr<boost::asio::streambuf> write_buffer(new boost::asio::streambuf);
-                    ostream response(write_buffer.get());
-                    res_path.second(response, *request, sm_res);
+            if(res.second.count(request->method)>0) {
+                shared_ptr<boost::asio::streambuf> write_buffer(new boost::asio::streambuf);
+                ostream response(write_buffer.get());
+                res.second[request->method](response, *request, sm_res);
 
-                    //Capture write_buffer in lambda so it is not destroyed before async_write is finished
-                    async_write(*socket, *write_buffer, [this, socket, request, write_buffer](const boost::system::error_code& ec, size_t bytes_transferred) {
-                        //HTTP persistent connection (HTTP 1.1):
-                        if(!ec && stof(request->http_version)>1.05)
-                            process_request_and_respond(socket);
-                    });
-                    return;
-                }
+                //Capture write_buffer in lambda so it is not destroyed before async_write is finished
+                async_write(*socket, *write_buffer, [this, socket, request, write_buffer](const boost::system::error_code& ec, size_t bytes_transferred) {
+                    //HTTP persistent connection (HTTP 1.1):
+                    if(!ec && stof(request->http_version)>1.05)
+                        process_request_and_respond(socket);
+                });
+                return;
             }
         }
     }
