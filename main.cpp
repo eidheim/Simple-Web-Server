@@ -10,7 +10,7 @@ using namespace boost::property_tree;
 
 int main() {
     //HTTP-server at port 8080 using 4 threads
-    HTTPServer httpserver(8080, 4);
+    HTTPServer httpserver(8080, 1);
     
     //Add resources using regular expressions for path and method
     //POST-example for the path /string, responds the posted string
@@ -50,9 +50,10 @@ int main() {
         response <<  "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nRoot resource";
     };
     
-    //GET-example for the path /test, responds with the matched string in path (test) 
-    httpserver.resources["^/(test)/?$"]["^GET$"]=[](ostream& response, const Request& request, const smatch& path_match) {
-        response << "HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\n" << path_match[1];
+    //GET-example for the path /match/[number], responds with the matched string in path (number) 
+    httpserver.resources["^/match/([0-9]*)/?$"]["^GET$"]=[](ostream& response, const Request& request, const smatch& path_match) {
+        string number=path_match[1];
+        response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n" << number;
     };
     
     //Start HTTP-server
