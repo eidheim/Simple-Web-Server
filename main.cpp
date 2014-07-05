@@ -12,7 +12,7 @@ int main() {
     //HTTP-server at port 8080 using 4 threads
     HTTPServer httpserver(8080, 4);
     
-    //Add resources using regular expression for path, a method-string and an anonymous function
+    //Add resources using regular expression for path, a method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string
     httpserver.resources["^/string/?$"]["POST"]=[](ostream& response, const Request& request, const smatch& path_match) {
         //Retrieve string from istream (*request.content)
@@ -32,8 +32,8 @@ int main() {
     //  "age": 25
     //}
     httpserver.resources["^/json/?$"]["POST"]=[](ostream& response, const Request& request, const smatch& path_match) {
-        ptree pt;
         try {
+            ptree pt;
             read_json(*request.content, pt);
 
             string name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
