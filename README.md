@@ -16,6 +16,8 @@ HTTPS is not yet supported, but take a look at http://www.boost.org/doc/libs/1_5
 
 See main.cpp for example usage. 
 
+See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[number] examples, which are most relevant.
+
 ### Dependency
 
 Boost C++ libraries must be installed, go to http://www.boost.org for download and instructions. 
