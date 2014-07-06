@@ -10,7 +10,7 @@ A very simple, fast, multithreaded and platform independent HTTP server implemen
 * HTTP persistent connection (for HTTP/1.1)
 * Simple way to add REST resources using regex for path, and anonymous functions
 
-HTTPS is not yet supported, but take a look at http://www.boost.org/doc/libs/1_55_0/doc/html/boost_asio/example/cpp03/ssl/server.cpp. It does not seem that server.hpp and server.cpp require significant modifications to support HTTPS. 
+HTTPS is not yet supported, but take a look at http://www.boost.org/doc/libs/1_55_0/doc/html/boost_asio/example/cpp03/ssl/server.cpp. It does not seem that httpserver.hpp and httpserver.cpp require significant modifications to support HTTPS. 
 
 ###Usage
 
