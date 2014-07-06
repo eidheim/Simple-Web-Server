@@ -31,3 +31,5 @@ Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
 g++ -O3 -std=c++11 -lboost_system main.cpp httpserver.cpp -o httpserver
 
 Then to run the server: ./httpserver
+
+Finally, direct your favorite browser to for instance http://localhost:8080/
