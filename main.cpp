@@ -18,7 +18,7 @@ int main() {
         //Retrieve string from istream (*request.content)
         stringstream ss;
         *request.content >> ss.rdbuf();
-        string content=move(ss.str());
+        string content=ss.str();
         
         response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
     };
