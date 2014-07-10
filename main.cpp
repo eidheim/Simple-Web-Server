@@ -1,16 +1,17 @@
-#include "httpserver.hpp"
+#include "server.hpp"
 
 //Added for the json-example:
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
 using namespace std;
+using namespace SimpleWeb;
 //Added for the json-example:
 using namespace boost::property_tree;
 
 int main() {
     //HTTP-server at port 8080 using 4 threads
-    HTTPServer httpserver(8080, 4);
+    Server<HTTP> httpserver(8080, 4);
     
     //Add resources using regular expression for path, a method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string
