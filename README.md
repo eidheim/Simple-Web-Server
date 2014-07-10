@@ -10,7 +10,7 @@ A very simple, fast, multithreaded and platform independent HTTP server implemen
 * HTTP persistent connection (for HTTP/1.1)
 * Simple way to add REST resources using regex for path, and anonymous functions
 
-HTTPS is not yet supported, but take a look at http://www.boost.org/doc/libs/1_55_0/doc/html/boost_asio/example/cpp03/ssl/server.cpp. It does not seem that httpserver.hpp and httpserver.cpp require significant modifications to support HTTPS. 
+HTTPS is not yet supported, but take a look at http://www.boost.org/doc/libs/1_55_0/doc/html/boost_asio/example/cpp03/ssl/server.cpp. It does not seem that server.hpp require significant modifications to support HTTPS. 
 
 ###Usage
 
@@ -28,7 +28,7 @@ Will update to use C++17 networking instead in the future when it is supported b
 
 Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
 
-g++ -O3 -std=c++11 -lboost_system main.cpp httpserver.cpp -o httpserver
+g++ -O3 -std=c++11 -lboost_system main.cpp -o httpserver
 
 Then to run the server: ./httpserver
 
