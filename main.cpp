@@ -107,6 +107,7 @@ int main() {
             
             ifs.seekg(0, ios::beg);
 
+            //The file-content is copied to the response-stream. Should not be used for very large files.
             response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n" << ifs.rdbuf();
 
             ifs.close();
