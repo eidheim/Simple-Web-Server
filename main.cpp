@@ -74,7 +74,7 @@ int main() {
     //Default GET-example. If no other matches, this anonymous function will be called. 
     //Will respond with content in the web/-directory, and its subdirectories.
     //Default file: index.html
-    //Can be used to retrieve an HTML 5 client using REST-resources on this server
+    //Can for instance be used to retrieve a HTML 5 client that uses REST-resources on this server
     httpserver.default_resource["^/?(.*)$"]["GET"]=[](ostream& response, const Request& request, const smatch& path_match) {
         string filename="web/";
         
