@@ -21,17 +21,30 @@ namespace SimpleWeb {
         unordered_map<string, string> header;
     };
 
-    template <class type>
+    typedef map<string, unordered_map<string, function<void(ostream&, const Request&, const smatch&)> > > resource_type;
+    
+    template <class socket_type>
     class Server {
     public:
-        unordered_map<string, unordered_map<string, function<void(ostream&, const Request&, const smatch&)> > > resources;
+        resource_type resources;
 
+        resource_type default_resource;
+        
         Server(unsigned short port, size_t num_threads=1) : endpoint(ip::tcp::v4(), port), 
             acceptor(m_io_service, endpoint), num_threads(num_threads) {}
-
+        
         void start() {
-            accept();
-
+            //All resources with default_resource at the end of vector
+            //Used in the respond-method
+            for(auto it=resources.begin(); it!=resources.end();it++) {
+                all_resources.push_back(it);
+            }
+            for(auto it=default_resource.begin(); it!=default_resource.end();it++) {
+                all_resources.push_back(it);
+            }
+            
+            accept();            
+            
             //If num_threads>1, start m_io_service.run() in (num_threads-1) threads for thread-pooling
             for(size_t c=1;c<num_threads;c++) {
                 threads.emplace_back([this](){
@@ -55,10 +68,14 @@ namespace SimpleWeb {
         size_t num_threads;
         vector<thread> threads;
 
+        //All resources with default_resource at the end of vector
+        //Created in start()
+        vector<resource_type::iterator> all_resources;
+        
         void accept() {
             //Create new socket for this connection
             //Shared_ptr is used to pass temporary objects to the asynchronous functions
-            shared_ptr<type> socket(new type(m_io_service));
+            shared_ptr<socket_type> socket(new socket_type(m_io_service));
 
             acceptor.async_accept(*socket, [this, socket](const boost::system::error_code& ec) {
                 //Immediately start accepting a new connection
@@ -70,7 +87,7 @@ namespace SimpleWeb {
             });
         }
 
-        void process_request_and_respond(shared_ptr<type> socket) {
+        void process_request_and_respond(shared_ptr<socket_type> socket) {
             //Create new read_buffer for async_read_until()
             //Shared_ptr is used to pass temporary objects to the asynchronous functions
             shared_ptr<boost::asio::streambuf> read_buffer(new boost::asio::streambuf);
@@ -144,16 +161,16 @@ namespace SimpleWeb {
             return request;
         }
 
-        void respond(shared_ptr<type> socket, shared_ptr<Request> request) {
+        void respond(shared_ptr<socket_type> socket, shared_ptr<Request> request) {
             //Find path- and method-match, and generate response
-            for(auto& res: resources) {
-                regex e(res.first);
+            for(auto res_it: all_resources) {
+                regex e(res_it->first);
                 smatch sm_res;
                 if(regex_match(request->path, sm_res, e)) {
-                    if(res.second.count(request->method)>0) {
+                    if(res_it->second.count(request->method)>0) {
                         shared_ptr<boost::asio::streambuf> write_buffer(new boost::asio::streambuf);
                         ostream response(write_buffer.get());
-                        res.second[request->method](response, *request, sm_res);
+                        res_it->second[request->method](response, *request, sm_res);
 
                         //Capture write_buffer in lambda so it is not destroyed before async_write is finished
                         async_write(*socket, *write_buffer, [this, socket, request, write_buffer](const boost::system::error_code& ec, size_t bytes_transferred) {

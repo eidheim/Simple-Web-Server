@@ -4,6 +4,8 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include<fstream>
+
 using namespace std;
 using namespace SimpleWeb;
 //Added for the json-example:
@@ -46,9 +48,9 @@ int main() {
         }
     };
     
-    //GET-example for the path /
+    //GET-example for the path /info
     //Responds with request-information
-    httpserver.resources["^/$"]["GET"]=[](ostream& response, const Request& request, const smatch& path_match) {
+    httpserver.resources["^/info/?$"]["GET"]=[](ostream& response, const Request& request, const smatch& path_match) {
         stringstream content_stream;
         content_stream << "<h1>Request:</h1>";
         content_stream << request.method << " " << request.path << " HTTP/" << request.http_version << "<br>";
@@ -67,6 +69,55 @@ int main() {
     httpserver.resources["^/match/([0-9]+)/?$"]["GET"]=[](ostream& response, const Request& request, const smatch& path_match) {
         string number=path_match[1];
         response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n" << number;
+    };
+    
+    //Default GET-example. If no other matches, this anonymous function will be called. 
+    //Will respond with content in the web/-directory, and its subdirectories.
+    //Default file: index.html
+    //Can be used to retrieve an HTML 5 client using REST-resources on this server
+    httpserver.default_resource["^/?(.*)$"]["GET"]=[](ostream& response, const Request& request, const smatch& path_match) {
+        string filename="web/";
+        
+        string path=path_match[1];
+        
+        //Remove all but the last '.' (so we can't leave the web-directory)
+        size_t last_pos=path.rfind(".");
+        size_t current_pos=0;
+        size_t pos;
+        while((pos=path.find('.', current_pos))!=string::npos && pos!=last_pos) {
+            cout << pos << endl;
+            current_pos=pos;
+            path.erase(pos, 1);
+            last_pos--;
+        }
+        
+        filename+=path;
+        ifstream ifs;
+        //HTTP file-or-directory check:
+        if(filename.find('.')!=string::npos) {
+            ifs.open(filename, ifstream::in);
+        }
+        else {
+            if(filename[filename.length()-1]!='/')
+                filename+='/';
+            filename+="index.html";
+            ifs.open(filename, ifstream::in);            
+        }
+        
+        if(ifs) {
+            ifs.seekg(0, ios::end);
+            size_t length=ifs.tellg();
+            
+            ifs.seekg(0, ios::beg);
+
+            response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n" << ifs.rdbuf();
+
+            ifs.close();
+        }
+        else {
+            string content="Could not open file "+filename;
+            response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
+        }
     };
     
     //Start HTTP-server
