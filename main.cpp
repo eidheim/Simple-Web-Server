@@ -93,7 +93,7 @@ int main() {
         
         filename+=path;
         ifstream ifs;
-        //HTTP file-or-directory check:
+        //A simple platform-independent file-or-directory check do not exist, but this works in most of the cases:
         if(filename.find('.')!=string::npos) {
             ifs.open(filename, ifstream::in);
         }
