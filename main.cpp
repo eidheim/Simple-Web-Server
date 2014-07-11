@@ -94,15 +94,12 @@ int main() {
         filename+=path;
         ifstream ifs;
         //A simple platform-independent file-or-directory check do not exist, but this works in most of the cases:
-        if(filename.find('.')!=string::npos) {
-            ifs.open(filename, ifstream::in);
-        }
-        else {
+        if(filename.find('.')==string::npos) {
             if(filename[filename.length()-1]!='/')
                 filename+='/';
             filename+="index.html";
-            ifs.open(filename, ifstream::in);            
         }
+        ifs.open(filename, ifstream::in);
         
         if(ifs) {
             ifs.seekg(0, ios::end);
