@@ -41,6 +41,8 @@ Finally, direct your favorite browser to for instance http://localhost:8080/
 
 g++ -O3 -std=c++11 -lboost_system -lssl -lcrypto main_https.cpp -o https_server
 
+Before running the server, an RSA private key (server.key) and a self-signed certificate (server.crt) must be created. Follow, for instance, the instructions given here: http://www.akadia.com/services/ssh_test_certificate.html
+
 Then to run the server: ./https_server
 
 Finally, direct your favorite browser to for instance https://localhost:8080/
