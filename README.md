@@ -29,7 +29,7 @@ Will update to use C++17 networking instead in the future when it is supported b
 
 Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
 
-## HTTP
+#### HTTP
 
 g++ -O3 -std=c++11 -lboost_system main_http.cpp -o http_server
 
@@ -37,7 +37,7 @@ Then to run the server: ./http_server
 
 Finally, direct your favorite browser to for instance http://localhost:8080/
 
-## HTTPS
+#### HTTPS
 
 g++ -O3 -std=c++11 -lboost_system -lssl -lcrypto main_https.cpp -o https_server
 
