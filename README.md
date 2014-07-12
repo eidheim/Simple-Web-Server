@@ -1,7 +1,7 @@
 Simple-Web-Server
 =================
 
-A very simple, fast, multithreaded and platform independent HTTP and HTTPS server implemented using C++11 and Boost.Asio. Created to be an easy way to make REST resources available from C++ applications. 
+A very simple, fast, multithreaded, platform independent HTTP and HTTPS server implemented using C++11 and Boost.Asio. Created to be an easy way to make REST resources available from C++ applications. 
 
 ### Features
 
