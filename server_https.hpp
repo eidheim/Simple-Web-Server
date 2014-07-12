@@ -1,10 +1,3 @@
-/* 
- * File:   httpsserver.hpp
- * Author: eidheim
- *
- * Created on July 12, 2014, 7:18 PM
- */
-
 #ifndef HTTPSSERVER_HPP
 #define	HTTPSSERVER_HPP
 
