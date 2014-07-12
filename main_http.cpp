@@ -12,7 +12,7 @@ using namespace SimpleWeb;
 using namespace boost::property_tree;
 
 int main() {
-    //HTTPS-server at port 8080 using 4 threads
+    //HTTP-server at port 8080 using 4 threads
     Server<HTTP> httpserver(8080, 4);
     
     //Add resources using regular expression for path, a method-string, and an anonymous function
