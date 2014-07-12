@@ -1,5 +1,5 @@
-#ifndef HTTPSSERVER_HPP
-#define	HTTPSSERVER_HPP
+#ifndef SERVER_HTTPS_HPP
+#define	SERVER_HTTPS_HPP
 
 #include "server_http.hpp"
 #include <boost/asio/ssl.hpp>
@@ -41,5 +41,5 @@ namespace SimpleWeb {
 }
 
 
-#endif	/* HTTPSSERVER_HPP */
+#endif	/* SERVER_HTTPS_HPP */
 

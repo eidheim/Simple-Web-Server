@@ -1,5 +1,5 @@
-#ifndef SERVER_HPP
-#define	SERVER_HPP
+#ifndef SERVER_HTTP_HPP
+#define	SERVER_HTTP_HPP
 
 #include <boost/asio.hpp>
 
@@ -198,4 +198,4 @@ namespace SimpleWeb {
         }
     };
 }
-#endif	/* SERVER_HPP */
+#endif	/* SERVER_HTTP_HPP */
