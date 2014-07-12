@@ -1,4 +1,4 @@
-#include "server.hpp"
+#include "server_https.hpp"
 
 //Added for the json-example:
 #include <boost/property_tree/ptree.hpp>
@@ -12,8 +12,8 @@ using namespace SimpleWeb;
 using namespace boost::property_tree;
 
 int main() {
-    //HTTP-server at port 8080 using 4 threads
-    Server<HTTP> httpserver(8080, 4);
+    //HTTPS-server at port 8080 using 4 threads
+    Server<HTTPS> httpserver(8080, 4, "server.crt", "server.key");
     
     //Add resources using regular expression for path, a method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string

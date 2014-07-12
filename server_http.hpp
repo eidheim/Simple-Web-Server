@@ -10,9 +10,7 @@
 using namespace std;
 using namespace boost::asio;
 
-namespace SimpleWeb {
-    typedef ip::tcp::socket HTTP;
-    
+namespace SimpleWeb {    
     struct Request {
         string method, path, http_version;
 
@@ -24,14 +22,14 @@ namespace SimpleWeb {
     typedef map<string, unordered_map<string, function<void(ostream&, const Request&, const smatch&)> > > resource_type;
     
     template <class socket_type>
-    class Server {
+    class ServerBase {
     public:
         resource_type resources;
 
         resource_type default_resource;
         
-        Server(unsigned short port, size_t num_threads=1) : endpoint(ip::tcp::v4(), port), 
-            acceptor(m_io_service, endpoint), num_threads(num_threads) {}
+        ServerBase(unsigned short port, size_t num_threads=1) : endpoint(ip::tcp::v4(), port), 
+            acceptor(m_io_service, endpoint), num_threads(num_threads) {}        
         
         void start() {
             //All resources with default_resource at the end of vector
@@ -61,10 +59,11 @@ namespace SimpleWeb {
             }
         }
 
-    private:
+    protected:
         io_service m_io_service;
         ip::tcp::endpoint endpoint;
         ip::tcp::acceptor acceptor;
+        //shared_ptr<ssl::context> context;
         size_t num_threads;
         vector<thread> threads;
 
@@ -72,20 +71,7 @@ namespace SimpleWeb {
         //Created in start()
         vector<resource_type::iterator> all_resources;
         
-        void accept() {
-            //Create new socket for this connection
-            //Shared_ptr is used to pass temporary objects to the asynchronous functions
-            shared_ptr<socket_type> socket(new socket_type(m_io_service));
-
-            acceptor.async_accept(*socket, [this, socket](const boost::system::error_code& ec) {
-                //Immediately start accepting a new connection
-                accept();
-
-                if(!ec) {
-                    process_request_and_respond(socket);
-                }
-            });
-        }
+        virtual void accept() {}
 
         void process_request_and_respond(shared_ptr<socket_type> socket) {
             //Create new read_buffer for async_read_until()
@@ -184,6 +170,32 @@ namespace SimpleWeb {
             }
         }
     };
+    
+    template<class socket_type>
+    class Server : public ServerBase<socket_type> {};
+    
+    typedef ip::tcp::socket HTTP;
+    
+    template<>
+    class Server<HTTP> : public ServerBase<HTTP> {
+    public:
+        Server(unsigned short port, size_t num_threads=1) : ServerBase<HTTP>::ServerBase(port, num_threads) {};
+        
+    private:
+        void accept() {
+            //Create new socket for this connection
+            //Shared_ptr is used to pass temporary objects to the asynchronous functions
+            shared_ptr<HTTP> socket(new HTTP(m_io_service));
+
+            acceptor.async_accept(*socket, [this, socket](const boost::system::error_code& ec) {
+                //Immediately start accepting a new connection
+                accept();
+
+                if(!ec) {
+                    process_request_and_respond(socket);
+                }
+            });
+        }
+    };
 }
 #endif	/* SERVER_HPP */
-
