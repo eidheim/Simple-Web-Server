@@ -17,7 +17,7 @@ See main_http.cpp or main_https.cpp for example usage.
 
 See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[number] examples, which are most relevant.
 
-### Dependency
+### Dependencies
 
 Boost C++ libraries must be installed, go to http://www.boost.org for download and instructions. 
 
