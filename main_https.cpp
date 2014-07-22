@@ -85,7 +85,6 @@ int main() {
         size_t current_pos=0;
         size_t pos;
         while((pos=path.find('.', current_pos))!=string::npos && pos!=last_pos) {
-            cout << pos << endl;
             current_pos=pos;
             path.erase(pos, 1);
             last_pos--;
