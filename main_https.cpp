@@ -17,7 +17,7 @@ int main() {
     
     //Add resources using regular expression for path, a method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string
-    server.resources["^/string/?$"]["POST"]=[](ostream& response, const Request& request, const smatch& path_match) {
+    server.resources["^/string/?$"]["POST"]=[](ostream& response, Request& request) {
         //Retrieve string from istream (*request.content)
         stringstream ss;
         *request.content >> ss.rdbuf();
@@ -34,7 +34,7 @@ int main() {
     //  "lastName": "Smith",
     //  "age": 25
     //}
-    server.resources["^/json/?$"]["POST"]=[](ostream& response, const Request& request, const smatch& path_match) {
+    server.resources["^/json/?$"]["POST"]=[](ostream& response, Request& request) {
         try {
             ptree pt;
             read_json(*request.content, pt);
@@ -50,7 +50,7 @@ int main() {
     
     //GET-example for the path /info
     //Responds with request-information
-    server.resources["^/info/?$"]["GET"]=[](ostream& response, const Request& request, const smatch& path_match) {
+    server.resources["^/info/?$"]["GET"]=[](ostream& response, Request& request) {
         stringstream content_stream;
         content_stream << "<h1>Request:</h1>";
         content_stream << request.method << " " << request.path << " HTTP/" << request.http_version << "<br>";
@@ -66,8 +66,8 @@ int main() {
     
     //GET-example for the path /match/[number], responds with the matched string in path (number)
     //For instance a request GET /match/123 will receive: 123
-    server.resources["^/match/([0-9]+)/?$"]["GET"]=[](ostream& response, const Request& request, const smatch& path_match) {
-        string number=path_match[1];
+    server.resources["^/match/([0-9]+)/?$"]["GET"]=[](ostream& response, Request& request) {
+        string number=request.path_match[1];
         response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n" << number;
     };
     
@@ -75,10 +75,10 @@ int main() {
     //Will respond with content in the web/-directory, and its subdirectories.
     //Default file: index.html
     //Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
-    server.default_resource["^/?(.*)$"]["GET"]=[](ostream& response, const Request& request, const smatch& path_match) {
+    server.default_resource["^/?(.*)$"]["GET"]=[](ostream& response, Request& request) {
         string filename="web/";
         
-        string path=path_match[1];
+        string path=request.path_match[1];
         
         //Remove all but the last '.' (so we can't leave the web-directory)
         size_t last_pos=path.rfind(".");
@@ -117,7 +117,7 @@ int main() {
         }
     };
     
-    //Start HTTP-server
+    //Start HTTPS-server
     server.start();
     
     return 0;

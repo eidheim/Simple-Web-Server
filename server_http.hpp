@@ -14,10 +14,12 @@ namespace SimpleWeb {
         std::shared_ptr<std::istream> content;
 
         std::unordered_map<std::string, std::string> header;
+        
+        std::smatch path_match;
     };
 
     typedef std::map<std::string, std::unordered_map<std::string, 
-    std::function<void(std::ostream&, const Request&, const std::smatch&)> > > resource_type;
+    std::function<void(std::ostream&, Request&)> > > resource_type;
     
     template <class socket_type>
     class ServerBase {
@@ -61,7 +63,6 @@ namespace SimpleWeb {
         boost::asio::io_service m_io_service;
         boost::asio::ip::tcp::endpoint endpoint;
         boost::asio::ip::tcp::acceptor acceptor;
-        //shared_ptr<ssl::context> context;
         size_t num_threads;
         std::vector<std::thread> threads;
 
@@ -71,7 +72,7 @@ namespace SimpleWeb {
         
         virtual void accept() {}
 
-        void process_request_and_respond(std::shared_ptr<socket_type> socket) {
+        void process_request_and_respond(std::shared_ptr<socket_type> socket) const {
             //Create new read_buffer for async_read_until()
             //Shared_ptr is used to pass temporary objects to the asynchronous functions
             std::shared_ptr<boost::asio::streambuf> read_buffer(new boost::asio::streambuf);
@@ -113,7 +114,7 @@ namespace SimpleWeb {
             });
         }
 
-        Request parse_request(std::istream& stream) {
+        Request parse_request(std::istream& stream) const {
             Request request;
 
             std::regex e("^([^ ]*) ([^ ]*) HTTP/([^ ]*)$");
@@ -146,16 +147,18 @@ namespace SimpleWeb {
             return request;
         }
 
-        void respond(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request) {
+        void respond(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request) const {
             //Find path- and method-match, and generate response
             for(auto res_it: all_resources) {
                 std::regex e(res_it->first);
                 std::smatch sm_res;
                 if(std::regex_match(request->path, sm_res, e)) {
                     if(res_it->second.count(request->method)>0) {
+                        request->path_match=move(sm_res);
+                        
                         std::shared_ptr<boost::asio::streambuf> write_buffer(new boost::asio::streambuf);
                         std::ostream response(write_buffer.get());
-                        res_it->second[request->method](response, *request, sm_res);
+                        res_it->second[request->method](response, *request);
 
                         //Capture write_buffer in lambda so it is not destroyed before async_write is finished
                         boost::asio::async_write(*socket, *write_buffer, 
