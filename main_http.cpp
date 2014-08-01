@@ -17,7 +17,7 @@ int main() {
     
     //Add resources using regular expression for path, a method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string
-    server.resources["^/string/?$"]["POST"]=[](ostream& response, Request& request) {
+    server.resource["^/string/?$"]["POST"]=[](ostream& response, Request& request) {
         //Retrieve string from istream (*request.content)
         stringstream ss;
         *request.content >> ss.rdbuf();
@@ -34,7 +34,7 @@ int main() {
     //  "lastName": "Smith",
     //  "age": 25
     //}
-    server.resources["^/json/?$"]["POST"]=[](ostream& response, Request& request) {
+    server.resource["^/json/?$"]["POST"]=[](ostream& response, Request& request) {
         try {
             ptree pt;
             read_json(*request.content, pt);
@@ -50,7 +50,7 @@ int main() {
     
     //GET-example for the path /info
     //Responds with request-information
-    server.resources["^/info/?$"]["GET"]=[](ostream& response, Request& request) {
+    server.resource["^/info/?$"]["GET"]=[](ostream& response, Request& request) {
         stringstream content_stream;
         content_stream << "<h1>Request:</h1>";
         content_stream << request.method << " " << request.path << " HTTP/" << request.http_version << "<br>";
@@ -66,7 +66,7 @@ int main() {
     
     //GET-example for the path /match/[number], responds with the matched string in path (number)
     //For instance a request GET /match/123 will receive: 123
-    server.resources["^/match/([0-9]+)/?$"]["GET"]=[](ostream& response, Request& request) {
+    server.resource["^/match/([0-9]+)/?$"]["GET"]=[](ostream& response, Request& request) {
         string number=request.path_match[1];
         response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n" << number;
     };

@@ -24,7 +24,7 @@ namespace SimpleWeb {
     template <class socket_type>
     class ServerBase {
     public:
-        resource_type resources;
+        resource_type resource;
 
         resource_type default_resource;
         
@@ -34,7 +34,7 @@ namespace SimpleWeb {
         void start() {
             //All resources with default_resource at the end of vector
             //Used in the respond-method
-            for(auto it=resources.begin(); it!=resources.end();it++) {
+            for(auto it=resource.begin(); it!=resource.end();it++) {
                 all_resources.push_back(it);
             }
             for(auto it=default_resource.begin(); it!=default_resource.end();it++) {
