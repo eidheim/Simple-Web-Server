@@ -25,8 +25,6 @@ Boost C++ libraries must be installed, go to http://www.boost.org for download a
 
 For HTTPS: OpenSSL libraries from https://www.openssl.org are required. 
 
-Will update to use C++17 networking instead in the future when it is supported by g++. 
-
 ### Compile and run
 
 Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
