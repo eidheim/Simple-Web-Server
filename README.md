@@ -11,6 +11,7 @@ See also https://github.com/eidheim/Simple-WebSocket-Server for an easy way to m
 * Platform independent
 * HTTPS support
 * HTTP persistent connection (for HTTP/1.1)
+* Server timeouts
 * Simple way to add REST resources using regex for path, and anonymous functions
 
 ###Usage

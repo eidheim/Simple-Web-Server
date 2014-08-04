@@ -28,9 +28,6 @@ namespace SimpleWeb {
 
         resource_type default_resource;
         
-        ServerBase(unsigned short port, size_t num_threads=1) : endpoint(boost::asio::ip::tcp::v4(), port), 
-            acceptor(m_io_service, endpoint), num_threads(num_threads) {}        
-        
         void start() {
             //All resources with default_resource at the end of vector
             //Used in the respond-method
@@ -65,20 +62,33 @@ namespace SimpleWeb {
         boost::asio::ip::tcp::acceptor acceptor;
         size_t num_threads;
         std::vector<std::thread> threads;
+        
+        size_t timeout_request;
+        size_t timeout_content;
 
         //All resources with default_resource at the end of vector
         //Created in start()
         std::vector<resource_type::iterator> all_resources;
         
-        virtual void accept() {}
-
-        void process_request_and_respond(std::shared_ptr<socket_type> socket) const {
+        ServerBase(unsigned short port, size_t num_threads, size_t timeout_request, size_t timeout_send_or_receive) : endpoint(boost::asio::ip::tcp::v4(), port), 
+            acceptor(m_io_service, endpoint), num_threads(num_threads), timeout_request(timeout_request),
+            timeout_content(timeout_send_or_receive) {}
+        
+        virtual void accept()=0;
+        
+        virtual std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<socket_type> socket, size_t seconds)=0;
+        
+        void process_request_and_respond(std::shared_ptr<socket_type> socket) {
             //Create new read_buffer for async_read_until()
             //Shared_ptr is used to pass temporary objects to the asynchronous functions
             std::shared_ptr<boost::asio::streambuf> read_buffer(new boost::asio::streambuf);
 
+            //Set timeout on the following boost::asio::async-read or write function
+            auto timer=set_timeout_on_socket(socket, timeout_request);
+            
             boost::asio::async_read_until(*socket, *read_buffer, "\r\n\r\n",
-            [this, socket, read_buffer](const boost::system::error_code& ec, size_t bytes_transferred) {
+                    [this, socket, read_buffer, timer](const boost::system::error_code& ec, size_t bytes_transferred) {
+                timer->cancel();
                 if(!ec) {
                     //read_buffer->size() is not necessarily the same as bytes_transferred, from Boost-docs:
                     //"After a successful async_read_until operation, the streambuf may contain additional data beyond the delimiter"
@@ -88,17 +98,22 @@ namespace SimpleWeb {
 
                     //Convert to istream to extract string-lines
                     std::istream stream(read_buffer.get());
-
+                    
                     std::shared_ptr<Request> request(new Request());
                     *request=parse_request(stream);
 
                     size_t num_additional_bytes=total-bytes_transferred;
-
+                    
                     //If content, read that as well
                     if(request->header.count("Content-Length")>0) {
+                        //Set timeout on the following boost::asio::async-read or write function
+                        auto timer=set_timeout_on_socket(socket, timeout_content);
+                        
                         boost::asio::async_read(*socket, *read_buffer, 
-                        boost::asio::transfer_exactly(stoull(request->header["Content-Length"])-num_additional_bytes), 
-                        [this, socket, read_buffer, request](const boost::system::error_code& ec, size_t bytes_transferred) {
+                                boost::asio::transfer_exactly(stoull(request->header["Content-Length"])-num_additional_bytes), 
+                                [this, socket, read_buffer, request, timer](const boost::system::error_code& ec, 
+                                size_t bytes_transferred) {
+                            timer->cancel();
                             if(!ec) {
                                 //Store pointer to read_buffer as istream object
                                 request->content=std::shared_ptr<std::istream>(new std::istream(read_buffer.get()));
@@ -147,7 +162,7 @@ namespace SimpleWeb {
             return request;
         }
 
-        void respond(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request) const {
+        void respond(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request) {
             //Find path- and method-match, and generate response
             for(auto res_it: all_resources) {
                 std::regex e(res_it->first);
@@ -160,9 +175,14 @@ namespace SimpleWeb {
                         std::ostream response(write_buffer.get());
                         res_it->second[request->method](response, *request);
 
+                        //Set timeout on the following boost::asio::async-read or write function
+                        auto timer=set_timeout_on_socket(socket, timeout_content);
+                        
                         //Capture write_buffer in lambda so it is not destroyed before async_write is finished
                         boost::asio::async_write(*socket, *write_buffer, 
-                        [this, socket, request, write_buffer](const boost::system::error_code& ec, size_t bytes_transferred) {
+                                [this, socket, request, write_buffer, timer](const boost::system::error_code& ec, 
+                                size_t bytes_transferred) {
+                            timer->cancel();
                             //HTTP persistent connection (HTTP 1.1):
                             if(!ec && stof(request->http_version)>1.05)
                                 process_request_and_respond(socket);
@@ -182,7 +202,8 @@ namespace SimpleWeb {
     template<>
     class Server<HTTP> : public ServerBase<HTTP> {
     public:
-        Server(unsigned short port, size_t num_threads=1) : ServerBase<HTTP>::ServerBase(port, num_threads) {};
+        Server(unsigned short port, size_t num_threads=1, size_t timeout_request=5, size_t timeout_content=300) : 
+            ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content) {};
         
     private:
         void accept() {
@@ -198,6 +219,18 @@ namespace SimpleWeb {
                     process_request_and_respond(socket);
                 }
             });
+        }
+        
+        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<HTTP> socket, size_t seconds) {
+            std::shared_ptr<boost::asio::deadline_timer> timeout(new boost::asio::deadline_timer(m_io_service));
+            timeout->expires_from_now(boost::posix_time::seconds(seconds));
+            timeout->async_wait([socket](const boost::system::error_code& ec){
+                if(!ec) {
+                    socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+                    socket->close();
+                }
+            });
+            return timeout;
         }
     };
 }

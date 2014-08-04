@@ -10,8 +10,10 @@ namespace SimpleWeb {
     template<>
     class Server<HTTPS> : public ServerBase<HTTPS> {
     public:
-        Server(unsigned short port, size_t num_threads, const std::string& cert_file, const std::string& private_key_file) : 
-        ServerBase<HTTPS>::ServerBase(port, num_threads), context(boost::asio::ssl::context::sslv23) {
+        Server(unsigned short port, size_t num_threads, const std::string& cert_file, const std::string& private_key_file,
+                size_t timeout_request=5, size_t timeout_content=300) : 
+                ServerBase<HTTPS>::ServerBase(port, num_threads, timeout_request, timeout_content), 
+                context(boost::asio::ssl::context::sslv23) {
             context.use_certificate_chain_file(cert_file);
             context.use_private_key_file(private_key_file, boost::asio::ssl::context::pem);
         }
@@ -29,13 +31,28 @@ namespace SimpleWeb {
                 accept();
 
                 if(!ec) {
-                    (*socket).async_handshake(boost::asio::ssl::stream_base::server, [this, socket](const boost::system::error_code& ec) {
-                        if(!ec) {
+                    //Set timeout on the following boost::asio::ssl::stream::async_handshake
+                    auto timer=set_timeout_on_socket(socket, timeout_request);
+                    (*socket).async_handshake(boost::asio::ssl::stream_base::server, [this, socket, timer]
+                            (const boost::system::error_code& ec) {
+                        timer->cancel();
+                        if(!ec)
                             process_request_and_respond(socket);
-                        }
                     });
                 }
             });
+        }
+        
+        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<HTTPS> socket, size_t seconds) {
+            std::shared_ptr<boost::asio::deadline_timer> timeout(new boost::asio::deadline_timer(m_io_service));
+            timeout->expires_from_now(boost::posix_time::seconds(seconds));
+            timeout->async_wait([socket](const boost::system::error_code& ec){
+                if(!ec) {
+                    socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+                    socket->lowest_layer().close();
+                }
+            });
+            return timeout;
         }
     };
 }
