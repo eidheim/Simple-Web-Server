@@ -71,8 +71,8 @@ namespace SimpleWeb {
         std::vector<resource_type::iterator> all_resources;
         
         ServerBase(unsigned short port, size_t num_threads, size_t timeout_request, size_t timeout_send_or_receive) : endpoint(boost::asio::ip::tcp::v4(), port), 
-            acceptor(m_io_service, endpoint), num_threads(num_threads), timeout_request(timeout_request),
-            timeout_content(timeout_send_or_receive) {}
+                acceptor(m_io_service, endpoint), num_threads(num_threads), timeout_request(timeout_request),
+                timeout_content(timeout_send_or_receive) {}
         
         virtual void accept()=0;
         
@@ -111,8 +111,8 @@ namespace SimpleWeb {
                         
                         boost::asio::async_read(*socket, *read_buffer, 
                                 boost::asio::transfer_exactly(stoull(request->header["Content-Length"])-num_additional_bytes), 
-                                [this, socket, read_buffer, request, timer](const boost::system::error_code& ec, 
-                                size_t bytes_transferred) {
+                                [this, socket, read_buffer, request, timer]
+                                (const boost::system::error_code& ec, size_t bytes_transferred) {
                             timer->cancel();
                             if(!ec) {
                                 //Store pointer to read_buffer as istream object
@@ -180,8 +180,8 @@ namespace SimpleWeb {
                         
                         //Capture write_buffer in lambda so it is not destroyed before async_write is finished
                         boost::asio::async_write(*socket, *write_buffer, 
-                                [this, socket, request, write_buffer, timer](const boost::system::error_code& ec, 
-                                size_t bytes_transferred) {
+                                [this, socket, request, write_buffer, timer]
+                                (const boost::system::error_code& ec, size_t bytes_transferred) {
                             timer->cancel();
                             //HTTP persistent connection (HTTP 1.1):
                             if(!ec && stof(request->http_version)>1.05)
@@ -203,7 +203,7 @@ namespace SimpleWeb {
     class Server<HTTP> : public ServerBase<HTTP> {
     public:
         Server(unsigned short port, size_t num_threads=1, size_t timeout_request=5, size_t timeout_content=300) : 
-            ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content) {};
+                ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content) {};
         
     private:
         void accept() {
