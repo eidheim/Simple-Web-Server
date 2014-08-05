@@ -84,11 +84,14 @@ namespace SimpleWeb {
             std::shared_ptr<boost::asio::streambuf> read_buffer(new boost::asio::streambuf);
 
             //Set timeout on the following boost::asio::async-read or write function
-            auto timer=set_timeout_on_socket(socket, timeout_request);
+            std::shared_ptr<boost::asio::deadline_timer> timer;
+            if(timeout_request>0)
+                timer=set_timeout_on_socket(socket, timeout_request);
             
             boost::asio::async_read_until(*socket, *read_buffer, "\r\n\r\n",
                     [this, socket, read_buffer, timer](const boost::system::error_code& ec, size_t bytes_transferred) {
-                timer->cancel();
+                if(timeout_request>0)
+                    timer->cancel();
                 if(!ec) {
                     //read_buffer->size() is not necessarily the same as bytes_transferred, from Boost-docs:
                     //"After a successful async_read_until operation, the streambuf may contain additional data beyond the delimiter"
@@ -107,13 +110,16 @@ namespace SimpleWeb {
                     //If content, read that as well
                     if(request->header.count("Content-Length")>0) {
                         //Set timeout on the following boost::asio::async-read or write function
-                        auto timer=set_timeout_on_socket(socket, timeout_content);
+                        std::shared_ptr<boost::asio::deadline_timer> timer;
+                        if(timeout_content>0)
+                            timer=set_timeout_on_socket(socket, timeout_content);
                         
                         boost::asio::async_read(*socket, *read_buffer, 
                                 boost::asio::transfer_exactly(stoull(request->header["Content-Length"])-num_additional_bytes), 
                                 [this, socket, read_buffer, request, timer]
                                 (const boost::system::error_code& ec, size_t bytes_transferred) {
-                            timer->cancel();
+                            if(timeout_content>0)
+                                timer->cancel();
                             if(!ec) {
                                 //Store pointer to read_buffer as istream object
                                 request->content=std::shared_ptr<std::istream>(new std::istream(read_buffer.get()));
@@ -176,13 +182,16 @@ namespace SimpleWeb {
                         res_it->second[request->method](response, *request);
 
                         //Set timeout on the following boost::asio::async-read or write function
-                        auto timer=set_timeout_on_socket(socket, timeout_content);
+                        std::shared_ptr<boost::asio::deadline_timer> timer;
+                        if(timeout_content>0)
+                            timer=set_timeout_on_socket(socket, timeout_content);
                         
                         //Capture write_buffer in lambda so it is not destroyed before async_write is finished
                         boost::asio::async_write(*socket, *write_buffer, 
                                 [this, socket, request, write_buffer, timer]
                                 (const boost::system::error_code& ec, size_t bytes_transferred) {
-                            timer->cancel();
+                            if(timeout_content>0)
+                                timer->cancel();
                             //HTTP persistent connection (HTTP 1.1):
                             if(!ec && stof(request->http_version)>1.05)
                                 process_request_and_respond(socket);

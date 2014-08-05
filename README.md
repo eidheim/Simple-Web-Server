@@ -11,7 +11,7 @@ See also https://github.com/eidheim/Simple-WebSocket-Server for an easy way to m
 * Platform independent
 * HTTPS support
 * HTTP persistent connection (for HTTP/1.1)
-* Server timeouts
+* Timeouts, if any of Server::timeout_request and Server::timeout_content are >0 (default: Server::timeout_request=5 seconds, and Server::timeout_content=300 seconds)
 * Simple way to add REST resources using regex for path, and anonymous functions
 
 ###Usage
