@@ -47,15 +47,15 @@ namespace SimpleWeb {
         }
         
         std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<HTTPS> socket, size_t seconds) {
-            std::shared_ptr<boost::asio::deadline_timer> timeout(new boost::asio::deadline_timer(m_io_service));
-            timeout->expires_from_now(boost::posix_time::seconds(seconds));
-            timeout->async_wait([socket](const boost::system::error_code& ec){
+            std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(m_io_service));
+            timer->expires_from_now(boost::posix_time::seconds(seconds));
+            timer->async_wait([socket](const boost::system::error_code& ec){
                 if(!ec) {
                     socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
                     socket->lowest_layer().close();
                 }
             });
-            return timeout;
+            return timer;
         }
     };
 }
