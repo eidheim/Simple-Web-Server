@@ -18,8 +18,7 @@ namespace SimpleWeb {
         std::smatch path_match;
     };
 
-    typedef std::map<std::string, std::unordered_map<std::string, 
-    std::function<void(std::ostream&, Request&)> > > resource_type;
+    typedef std::map<std::string, std::unordered_map<std::string, std::function<void(std::ostream&, Request&)> > > resource_type;
     
     template <class socket_type>
     class ServerBase {
@@ -70,9 +69,9 @@ namespace SimpleWeb {
         //Created in start()
         std::vector<resource_type::iterator> all_resources;
         
-        ServerBase(unsigned short port, size_t num_threads, size_t timeout_request, size_t timeout_send_or_receive) : endpoint(boost::asio::ip::tcp::v4(), port), 
-                acceptor(m_io_service, endpoint), num_threads(num_threads), timeout_request(timeout_request),
-                timeout_content(timeout_send_or_receive) {}
+        ServerBase(unsigned short port, size_t num_threads, size_t timeout_request, size_t timeout_send_or_receive) : 
+                endpoint(boost::asio::ip::tcp::v4(), port), acceptor(m_io_service, endpoint), num_threads(num_threads), 
+                timeout_request(timeout_request), timeout_content(timeout_send_or_receive) {}
         
         virtual void accept()=0;
         
@@ -231,15 +230,15 @@ namespace SimpleWeb {
         }
         
         std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<HTTP> socket, size_t seconds) {
-            std::shared_ptr<boost::asio::deadline_timer> timeout(new boost::asio::deadline_timer(m_io_service));
-            timeout->expires_from_now(boost::posix_time::seconds(seconds));
-            timeout->async_wait([socket](const boost::system::error_code& ec){
+            std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(m_io_service));
+            timer->expires_from_now(boost::posix_time::seconds(seconds));
+            timer->async_wait([socket](const boost::system::error_code& ec){
                 if(!ec) {
                     socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both);
                     socket->close();
                 }
             });
-            return timeout;
+            return timer;
         }
     };
 }
