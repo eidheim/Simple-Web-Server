@@ -35,7 +35,7 @@ Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
 
 g++ -O3 -std=c++11 -lboost_system http_examples.cpp -o http_examples
 
-Then to run the server and client: ./http_examples
+Then to run the server and client examples: ./http_examples
 
 Also, direct your favorite browser to for instance http://localhost:8080/
 
@@ -45,7 +45,7 @@ g++ -O3 -std=c++11 -lboost_system -lssl -lcrypto https_examples.cpp -o https_exa
 
 Before running the server, an RSA private key (server.key) and an SSL certificate (server.crt) must be created. Follow, for instance, the instructions given here (for a self-signed certificate): http://www.akadia.com/services/ssh_test_certificate.html
 
-Then to run the server: ./https_examples
+Then to run the server and client examples: ./https_examples
 
 Also, direct your favorite browser to for instance https://localhost:8080/
 
