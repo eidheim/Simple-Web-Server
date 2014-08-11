@@ -13,9 +13,6 @@ using namespace SimpleWeb;
 //Added for the json-example:
 using namespace boost::property_tree;
 
-//TODO Client: support Chunked transfer encoding
-//TODO Client<HTTPS>
-
 int main() {
     //HTTP-server at port 8080 using 4 threads
     Server<HTTP> server(8080, 4);
