@@ -75,6 +75,7 @@ namespace SimpleWeb {
                     std::ostream content(&streambuf);
                     
                     size_t length;
+                    std::string buffer;
                     do {
                         size_t bytes_transferred = boost::asio::read_until(*socket, response->streambuf, "\r\n");
                         std::string line;
@@ -90,7 +91,6 @@ namespace SimpleWeb {
                                 boost::asio::transfer_exactly(2+length-num_additional_bytes));
                         }
                                                 
-                        std::string buffer;
                         buffer.resize(length);
                         response->content.read(&buffer[0], length);
                         content.write(&buffer[0], length);
