@@ -1,7 +1,7 @@
 Simple-Web-Server
 =================
 
-A very simple, fast, multithreaded, platform independent HTTP and HTTPS server library implemented using C++11 and Boost.Asio. Created to be an easy way to make REST resources available from C++ applications. 
+A very simple, fast, multithreaded, platform independent HTTP and HTTPS server and client library implemented using C++11 and Boost.Asio. Created to be an easy way to make REST resources available from C++ applications. 
 
 See also https://github.com/eidheim/Simple-WebSocket-Server for an easy way to make WebSocket/WebSocket Secure endpoints in C++. 
 
@@ -11,12 +11,13 @@ See also https://github.com/eidheim/Simple-WebSocket-Server for an easy way to m
 * Platform independent
 * HTTPS support
 * HTTP persistent connection (for HTTP/1.1)
+* Client supports chunked transfer encoding
 * Timeouts, if any of Server::timeout_request and Server::timeout_content are >0 (default: Server::timeout_request=5 seconds, and Server::timeout_content=300 seconds)
 * Simple way to add REST resources using regex for path, and anonymous functions
 
 ###Usage
 
-See main_http.cpp or main_https.cpp for example usage. 
+See http_examples.cpp or https_examples.cpp for example usage. 
 
 See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[number] examples, which are most relevant.
 
@@ -32,19 +33,19 @@ Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
 
 #### HTTP
 
-g++ -O3 -std=c++11 -lboost_system main_http.cpp -o http_server
+g++ -O3 -std=c++11 -lboost_system http_examples.cpp -o http_examples
 
-Then to run the server: ./http_server
+Then to run the server and client: ./http_examples
 
-Finally, direct your favorite browser to for instance http://localhost:8080/
+Also, direct your favorite browser to for instance http://localhost:8080/
 
 #### HTTPS
 
-g++ -O3 -std=c++11 -lboost_system -lssl -lcrypto main_https.cpp -o https_server
+g++ -O3 -std=c++11 -lboost_system -lssl -lcrypto https_examples -o https_examples
 
 Before running the server, an RSA private key (server.key) and an SSL certificate (server.crt) must be created. Follow, for instance, the instructions given here (for a self-signed certificate): http://www.akadia.com/services/ssh_test_certificate.html
 
-Then to run the server: ./https_server
+Then to run the server: ./https_examples
 
-Finally, direct your favorite browser to for instance https://localhost:8080/
+Also, direct your favorite browser to for instance https://localhost:8080/
 

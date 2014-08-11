@@ -40,7 +40,7 @@ namespace SimpleWeb {
                         if(timeout_request>0)
                             timer->cancel();
                         if(!ec)
-                            process_request_and_respond(socket);
+                            read_request_and_content(socket);
                     });
                 }
             });
