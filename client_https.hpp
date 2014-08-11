@@ -1,0 +1,39 @@
+#ifndef CLIENT_WSS_HPP
+#define	CLIENT_WSS_HPP
+
+#include "client_http.hpp"
+#include <boost/asio/ssl.hpp>
+
+namespace SimpleWeb {
+    typedef boost::asio::ssl::stream<boost::asio::ip::tcp::socket> HTTPS;
+    
+    template<>
+    class Client<HTTPS> : public ClientBase<HTTPS> {
+    public:
+        Client(const std::string& server_port_path, bool verify_certificate=true) : ClientBase<HTTPS>::ClientBase(server_port_path, 443),
+                asio_context(boost::asio::ssl::context::sslv23) {
+            if(verify_certificate)
+                asio_context.set_verify_mode(boost::asio::ssl::verify_peer);
+            else
+                asio_context.set_verify_mode(boost::asio::ssl::verify_none);
+            
+            socket=std::make_shared<HTTPS>(asio_io_service, asio_context);
+        };
+
+    private:
+        boost::asio::ssl::context asio_context;
+        
+        void connect() {
+            if(socket_error || !socket->lowest_layer().is_open()) {
+                boost::asio::ip::tcp::resolver::query query(host, std::to_string(port));
+                boost::asio::connect(socket->lowest_layer(), asio_resolver.resolve(query));
+                
+                socket->handshake(boost::asio::ssl::stream_base::client);
+                
+                socket_error=false;
+            }
+        }
+    };
+}
+
+#endif	/* CLIENT_WSS_HPP */
