@@ -23,9 +23,9 @@ namespace SimpleWeb {
             std::smatch path_match;
             
         private:
-            Request(): content(&streambuf) {}
+            Request(): content(&content_buffer) {}
             
-            boost::asio::streambuf streambuf;
+            boost::asio::streambuf content_buffer;
         };
         
         typedef std::map<std::string, std::unordered_map<std::string, 
@@ -95,7 +95,7 @@ namespace SimpleWeb {
             if(timeout_request>0)
                 timer=set_timeout_on_socket(socket, timeout_request);
             
-            boost::asio::async_read_until(*socket, request->streambuf, "\r\n\r\n",
+            boost::asio::async_read_until(*socket, request->content_buffer, "\r\n\r\n",
                     [this, socket, request, timer](const boost::system::error_code& ec, size_t bytes_transferred) {
                 if(timeout_request>0)
                     timer->cancel();
@@ -104,7 +104,7 @@ namespace SimpleWeb {
                     //"After a successful async_read_until operation, the streambuf may contain additional data beyond the delimiter"
                     //The chosen solution is to extract lines from the stream directly when parsing the header. What is left of the
                     //streambuf (maybe some bytes of the content) is appended to in the async_read-function below (for retrieving content).
-                    size_t num_additional_bytes=request->streambuf.size()-bytes_transferred;
+                    size_t num_additional_bytes=request->content_buffer.size()-bytes_transferred;
                     
                     parse_request(request, request->content);
                     
@@ -115,7 +115,7 @@ namespace SimpleWeb {
                         if(timeout_content>0)
                             timer=set_timeout_on_socket(socket, timeout_content);
                         
-                        boost::asio::async_read(*socket, request->streambuf, 
+                        boost::asio::async_read(*socket, request->content_buffer, 
                                 boost::asio::transfer_exactly(stoull(request->header["Content-Length"])-num_additional_bytes), 
                                 [this, socket, request, timer]
                                 (const boost::system::error_code& ec, size_t bytes_transferred) {

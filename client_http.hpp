@@ -23,9 +23,9 @@ namespace SimpleWeb {
             std::unordered_map<std::string, std::string> header;
             
         private:
-            boost::asio::streambuf streambuf;
+            boost::asio::streambuf content_buffer;
             
-            Response(): content(&streambuf) {};
+            Response(): content(&content_buffer) {};
         };
     
         //TODO add header parameters
@@ -60,14 +60,14 @@ namespace SimpleWeb {
                 
                 boost::asio::write(*socket, write_buffer);
 
-                size_t bytes_transferred = boost::asio::read_until(*socket, response->streambuf, "\r\n\r\n");
+                size_t bytes_transferred = boost::asio::read_until(*socket, response->content_buffer, "\r\n\r\n");
 
-                size_t num_additional_bytes=response->streambuf.size()-bytes_transferred;
+                size_t num_additional_bytes=response->content_buffer.size()-bytes_transferred;
 
                 parse_response_header(response, response->content);
                                 
                 if(response->header.count("Content-Length")>0) {
-                    boost::asio::read(*socket, response->streambuf, 
+                    boost::asio::read(*socket, response->content_buffer, 
                             boost::asio::transfer_exactly(stoull(response->header["Content-Length"])-num_additional_bytes));
                 }
                 else if(response->header.count("Transfer-Encoding")>0 && response->header["Transfer-Encoding"]=="chunked") {
@@ -77,17 +77,17 @@ namespace SimpleWeb {
                     size_t length;
                     std::string buffer;
                     do {
-                        size_t bytes_transferred = boost::asio::read_until(*socket, response->streambuf, "\r\n");
+                        size_t bytes_transferred = boost::asio::read_until(*socket, response->content_buffer, "\r\n");
                         std::string line;
                         getline(response->content, line);
                         bytes_transferred-=line.size()+1;
                         line.pop_back();
                         length=stoull(line, 0, 16);
 
-                        size_t num_additional_bytes=response->streambuf.size()-bytes_transferred;
+                        size_t num_additional_bytes=response->content_buffer.size()-bytes_transferred;
                     
                         if((2+length)>num_additional_bytes) {
-                            boost::asio::read(*socket, response->streambuf, 
+                            boost::asio::read(*socket, response->content_buffer, 
                                 boost::asio::transfer_exactly(2+length-num_additional_bytes));
                         }
                                                 
@@ -100,7 +100,7 @@ namespace SimpleWeb {
                         response->content.get();
                     } while(length>0);
                     
-                    std::ostream response_content_output_stream(&response->streambuf);
+                    std::ostream response_content_output_stream(&response->content_buffer);
                     response_content_output_stream << content.rdbuf();
                 }
             }
@@ -182,6 +182,8 @@ namespace SimpleWeb {
     public:
         Client(const std::string& server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {
             socket=std::make_shared<HTTP>(asio_io_service);
+            boost::asio::ip::tcp::no_delay option(true);
+            socket->set_option(option);
         };
         
     private:
