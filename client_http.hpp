@@ -182,8 +182,6 @@ namespace SimpleWeb {
     public:
         Client(const std::string& server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {
             socket=std::make_shared<HTTP>(asio_io_service);
-            boost::asio::ip::tcp::no_delay option(true);
-            socket->set_option(option);
         };
         
     private:
