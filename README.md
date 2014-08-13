@@ -31,6 +31,8 @@ For HTTPS: OpenSSL libraries from https://www.openssl.org are required.
 
 Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
 
+On Linux using g++: add -pthread
+
 #### HTTP
 
 g++ -O3 -std=c++11 -lboost_system http_examples.cpp -o http_examples
