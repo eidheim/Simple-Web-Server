@@ -29,7 +29,6 @@ namespace SimpleWeb {
             Response(): content(&content_buffer) {};
         };
     
-        //TODO add header parameters
         std::shared_ptr<Response> request(const std::string& request_type, const std::string& path="/", 
                 const std::map<std::string, std::string>& header={{}}) {
             std::stringstream empty_ss;
