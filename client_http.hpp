@@ -4,6 +4,7 @@
 #include <boost/asio.hpp>
 
 #include <unordered_map>
+#include <map>
 #include <iostream>
 #include <regex>
 #include <random>
@@ -29,12 +30,14 @@ namespace SimpleWeb {
         };
     
         //TODO add header parameters
-        std::shared_ptr<Response> request(const std::string& request_type, const std::string& path="/") {
+        std::shared_ptr<Response> request(const std::string& request_type, const std::string& path="/", 
+                const std::map<std::string, std::string>& header={{}}) {
             std::stringstream empty_ss;
-            return request(request_type, path, empty_ss);
+            return request(request_type, path, empty_ss, header);
         }
         
-        std::shared_ptr<Response> request(const std::string& request_type, const std::string& path, std::ostream& content) {
+        std::shared_ptr<Response> request(const std::string& request_type, const std::string& path, std::ostream& content, 
+                const std::map<std::string, std::string>& header={{}}) {
             std::string corrected_path=path;
             if(corrected_path=="")
                 corrected_path="/";
@@ -47,6 +50,9 @@ namespace SimpleWeb {
             std::ostream write_stream(&write_buffer);
             write_stream << request_type << " " << corrected_path << " HTTP/1.1\r\n";
             write_stream << "Host: " << host << "\r\n";
+            for(auto& h: header) {
+                write_stream << h.first << ": " << h.second << "\r\n";
+            }
             if(content_length>0)
                 write_stream << "Content-Length: " << std::to_string(content_length) << "\r\n";
             write_stream << "\r\n";
