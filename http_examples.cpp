@@ -83,14 +83,10 @@ int main() {
         
         string path=request->path_match[1];
         
-        //Remove all but the last '.' (so we can't leave the web-directory)
-        size_t last_pos=path.rfind(".");
-        size_t current_pos=0;
+        //Replace all ".." with "." (so we can't leave the web-directory)
         size_t pos;
-        while((pos=path.find('.', current_pos))!=string::npos && pos!=last_pos) {
-            current_pos=pos;
+        while((pos=path.find(".."))!=string::npos) {
             path.erase(pos, 1);
-            last_pos--;
         }
         
         filename+=path;
