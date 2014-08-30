@@ -117,7 +117,7 @@ int main() {
     };
     
     thread server_thread([&server](){
-        //Start WS-server
+        //Start server
         server.start();
     });
     
