@@ -62,6 +62,10 @@ namespace SimpleWeb {
                 t.join();
             }
         }
+        
+        void stop() {
+            m_io_service.stop();
+        }
 
     protected:
         boost::asio::io_service m_io_service;
