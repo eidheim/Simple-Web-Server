@@ -30,13 +30,13 @@ namespace SimpleWeb {
         };
     
         std::shared_ptr<Response> request(const std::string& request_type, const std::string& path="/", 
-                const std::map<std::string, std::string>& header={{}}) {
+                const std::map<std::string, std::string>& header=std::map<std::string, std::string>()) {
             std::stringstream empty_ss;
             return request(request_type, path, empty_ss, header);
         }
         
         std::shared_ptr<Response> request(const std::string& request_type, const std::string& path, std::ostream& content, 
-                const std::map<std::string, std::string>& header={{}}) {
+                const std::map<std::string, std::string>& header=std::map<std::string, std::string>()) {
             std::string corrected_path=path;
             if(corrected_path=="")
                 corrected_path="/";
