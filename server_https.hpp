@@ -11,11 +11,15 @@ namespace SimpleWeb {
     class Server<HTTPS> : public ServerBase<HTTPS> {
     public:
         Server(unsigned short port, size_t num_threads, const std::string& cert_file, const std::string& private_key_file,
-                size_t timeout_request=5, size_t timeout_content=300) : 
+                size_t timeout_request=5, size_t timeout_content=300, 
+                const std::string& verify_file=std::string()) : 
                 ServerBase<HTTPS>::ServerBase(port, num_threads, timeout_request, timeout_content), 
                 context(boost::asio::ssl::context::sslv23) {
             context.use_certificate_chain_file(cert_file);
             context.use_private_key_file(private_key_file, boost::asio::ssl::context::pem);
+            
+            if(verify_file.size()>0)
+                context.load_verify_file(verify_file);
         }
 
     private:
@@ -44,18 +48,6 @@ namespace SimpleWeb {
                     });
                 }
             });
-        }
-        
-        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<HTTPS> socket, size_t seconds) {
-            std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(m_io_service));
-            timer->expires_from_now(boost::posix_time::seconds(seconds));
-            timer->async_wait([socket](const boost::system::error_code& ec){
-                if(!ec) {
-                    socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-                    socket->lowest_layer().close();
-                }
-            });
-            return timer;
         }
     };
 }

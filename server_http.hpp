@@ -87,7 +87,17 @@ namespace SimpleWeb {
         
         virtual void accept()=0;
         
-        virtual std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<socket_type> socket, size_t seconds)=0;
+        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<socket_type> socket, size_t seconds) {
+            std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(m_io_service));
+            timer->expires_from_now(boost::posix_time::seconds(seconds));
+            timer->async_wait([socket](const boost::system::error_code& ec){
+                if(!ec) {
+                    socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+                    socket->lowest_layer().close();
+                }
+            });
+            return timer;
+        }
         
         void read_request_and_content(std::shared_ptr<socket_type> socket) {
             //Create new streambuf (Request::streambuf) for async_read_until()
@@ -225,18 +235,6 @@ namespace SimpleWeb {
                     read_request_and_content(socket);
                 }
             });
-        }
-        
-        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<HTTP> socket, size_t seconds) {
-            std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(m_io_service));
-            timer->expires_from_now(boost::posix_time::seconds(seconds));
-            timer->async_wait([socket](const boost::system::error_code& ec){
-                if(!ec) {
-                    socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-                    socket->close();
-                }
-            });
-            return timer;
         }
     };
 }
