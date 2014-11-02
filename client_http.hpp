@@ -1,5 +1,5 @@
-#ifndef CLIENT_WS_HPP
-#define	CLIENT_WS_HPP
+#ifndef CLIENT_HTTP_HPP
+#define	CLIENT_HTTP_HPP
 
 #include <boost/asio.hpp>
 
@@ -200,4 +200,4 @@ namespace SimpleWeb {
     };
 }
 
-#endif	/* CLIENT_WS_HPP */
+#endif	/* CLIENT_HTTP_HPP */

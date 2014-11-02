@@ -1,5 +1,5 @@
-#ifndef CLIENT_WSS_HPP
-#define	CLIENT_WSS_HPP
+#ifndef CLIENT_HTTPS_HPP
+#define	CLIENT_HTTPS_HPP
 
 #include "client_http.hpp"
 #include <boost/asio/ssl.hpp>
@@ -46,4 +46,4 @@ namespace SimpleWeb {
     };
 }
 
-#endif	/* CLIENT_WSS_HPP */
+#endif	/* CLIENT_HTTPS_HPP */
