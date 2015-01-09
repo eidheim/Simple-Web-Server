@@ -38,6 +38,7 @@ namespace SimpleWeb {
         void start() {
             //All resources with default_resource at the end of vector
             //Used in the respond-method
+            all_resources.clear();
             for(auto it=resource.begin(); it!=resource.end();it++) {
                 all_resources.push_back(it);
             }
