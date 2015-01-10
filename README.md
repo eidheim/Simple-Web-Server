@@ -33,6 +33,8 @@ Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
 
 On Linux using g++: add -pthread
 
+Note: added -lboost_thread to make the json-example thread safe. On some systems you might have to write -lboost_thread-mt instead.
+
 #### HTTP
 
 g++ -O3 -std=c++11 http_examples.cpp -lboost_system -lboost_thread -o http_examples
