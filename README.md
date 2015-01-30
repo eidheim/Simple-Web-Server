@@ -35,9 +35,14 @@ On Linux using g++: add `-pthread`
 
 Note: added `-lboost_thread` to make the json-example thread safe. On some systems you might have to use `-lboost_thread-mt` instead.
 
-#### HTTP
+You can now also compile using CMake and make:
 
-Use CMake and make, or:
+```
+cmake .
+make
+```
+
+#### HTTP
 
 `g++ -O3 -std=c++11 http_examples.cpp -lboost_system -lboost_thread -o http_examples`
 
@@ -46,8 +51,6 @@ Then to run the server and client examples: `./http_examples`
 Also, direct your favorite browser to for instance http://localhost:8080/
 
 #### HTTPS
-
-Use CMake and make, or:
 
 `g++ -O3 -std=c++11 https_examples.cpp -lboost_system -lboost_thread -lssl -lcrypto -o https_examples`
 
