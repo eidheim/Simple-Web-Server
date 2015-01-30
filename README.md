@@ -37,7 +37,7 @@ Note: added `-lboost_thread` to make the json-example thread safe. On some syste
 
 #### HTTP
 
-Use CMake or:
+Use CMake and make, or:
 
 `g++ -O3 -std=c++11 http_examples.cpp -lboost_system -lboost_thread -o http_examples`
 
@@ -47,7 +47,7 @@ Also, direct your favorite browser to for instance http://localhost:8080/
 
 #### HTTPS
 
-Use CMake or:
+Use CMake and make, or:
 
 `g++ -O3 -std=c++11 https_examples.cpp -lboost_system -lboost_thread -lssl -lcrypto -o https_examples`
 
