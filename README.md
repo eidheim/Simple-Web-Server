@@ -37,7 +37,9 @@ Note: added -lboost_thread to make the json-example thread safe. On some systems
 
 #### HTTP
 
-g++ -O3 -std=c++11 http_examples.cpp -lboost_system -lboost_thread -o http_examples
+Use CMake or:
+
+'g++ -O3 -std=c++11 http_examples.cpp -lboost_system -lboost_thread -o http_examples'
 
 Then to run the server and client examples: ./http_examples
 
@@ -45,7 +47,9 @@ Also, direct your favorite browser to for instance http://localhost:8080/
 
 #### HTTPS
 
-g++ -O3 -std=c++11 https_examples.cpp -lboost_system -lboost_thread -lssl -lcrypto -o https_examples
+Use CMake or:
+
+'g++ -O3 -std=c++11 https_examples.cpp -lboost_system -lboost_thread -lssl -lcrypto -o https_examples'
 
 Before running the server, an RSA private key (server.key) and an SSL certificate (server.crt) must be created. Follow, for instance, the instructions given here (for a self-signed certificate): http://www.akadia.com/services/ssh_test_certificate.html
 
