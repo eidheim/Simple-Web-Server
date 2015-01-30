@@ -31,7 +31,7 @@ For HTTPS: OpenSSL libraries from https://www.openssl.org are required.
 
 Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
 
-On Linux using g++: add -pthread
+On Linux using g++: add `-pthread`
 
 Note: added -lboost_thread to make the json-example thread safe. On some systems you might have to use -lboost_thread-mt instead.
 
@@ -39,9 +39,9 @@ Note: added -lboost_thread to make the json-example thread safe. On some systems
 
 Use CMake or:
 
-'g++ -O3 -std=c++11 http_examples.cpp -lboost_system -lboost_thread -o http_examples'
+`g++ -O3 -std=c++11 http_examples.cpp -lboost_system -lboost_thread -o http_examples`
 
-Then to run the server and client examples: ./http_examples
+Then to run the server and client examples: `./http_examples`
 
 Also, direct your favorite browser to for instance http://localhost:8080/
 
@@ -49,11 +49,11 @@ Also, direct your favorite browser to for instance http://localhost:8080/
 
 Use CMake or:
 
-'g++ -O3 -std=c++11 https_examples.cpp -lboost_system -lboost_thread -lssl -lcrypto -o https_examples'
+`g++ -O3 -std=c++11 https_examples.cpp -lboost_system -lboost_thread -lssl -lcrypto -o https_examples`
 
 Before running the server, an RSA private key (server.key) and an SSL certificate (server.crt) must be created. Follow, for instance, the instructions given here (for a self-signed certificate): http://www.akadia.com/services/ssh_test_certificate.html
 
-Then to run the server and client examples: ./https_examples
+Then to run the server and client examples: `./https_examples`
 
 Also, direct your favorite browser to for instance https://localhost:8080/
 
