@@ -38,6 +38,9 @@ namespace SimpleWeb {
                 boost::asio::ip::tcp::resolver::query query(host, std::to_string(port));
                 boost::asio::connect(socket->lowest_layer(), asio_resolver.resolve(query));
                 
+                boost::asio::ip::tcp::no_delay option(true);
+                socket->lowest_layer().set_option(option);
+                
                 socket->handshake(boost::asio::ssl::stream_base::client);
                 
                 socket_error=false;

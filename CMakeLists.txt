@@ -15,7 +15,7 @@ else()
 endif()
 
 #Only tested with versions 1.55 and 1.56
-find_package(Boost 1.41.0 COMPONENTS system thread REQUIRED)
+find_package(Boost 1.41.0 COMPONENTS system thread coroutine context REQUIRED)
 message("Boost include dir: ${Boost_INCLUDE_DIR}")
 message("Boost libraries: ${Boost_LIBRARIES}")
 include_directories(${Boost_INCLUDE_DIR})

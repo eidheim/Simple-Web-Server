@@ -10,19 +10,20 @@
 #include<fstream>
 
 using namespace std;
-using namespace SimpleWeb;
 //Added for the json-example:
 using namespace boost::property_tree;
 
+typedef SimpleWeb::Server<SimpleWeb::HTTPS> HttpsServer;
+typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
+
 int main() {
     //HTTPS-server at port 8080 using 4 threads
-    Server<HTTPS> server(8080, 4, "server.crt", "server.key");
+    HttpsServer server(8080, 1, "server.crt", "server.key");
     
-    //Add resources using regular expression for path, a method-string, and an anonymous function
+    //Add resources using path- and method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string
-    //  If C++14: use 'auto' instead of 'shared_ptr<Server<HTTPS>::Request>'
-    server.resource["^/string/?$"]["POST"]=[](ostream& response, shared_ptr<Server<HTTPS>::Request> request) {
-        //Retrieve string from istream (*request.content)
+    server.resource["/string"]["POST"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
+        //Retrieve string from istream (request->content)
         stringstream ss;
         request->content >> ss.rdbuf();
         string content=ss.str();
@@ -38,13 +39,13 @@ int main() {
     //  "lastName": "Smith",
     //  "age": 25
     //}
-    server.resource["^/json/?$"]["POST"]=[](ostream& response, shared_ptr<Server<HTTPS>::Request> request) {
+    server.resource["/json"]["POST"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
         try {
             ptree pt;
             read_json(request->content, pt);
 
             string name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
-
+            
             response << "HTTP/1.1 200 OK\r\nContent-Length: " << name.length() << "\r\n\r\n" << name;
         }
         catch(exception& e) {
@@ -54,7 +55,7 @@ int main() {
     
     //GET-example for the path /info
     //Responds with request-information
-    server.resource["^/info/?$"]["GET"]=[](ostream& response, shared_ptr<Server<HTTPS>::Request> request) {
+    server.resource["/info"]["GET"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
         stringstream content_stream;
         content_stream << "<h1>Request:</h1>";
         content_stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
@@ -68,9 +69,10 @@ int main() {
         response <<  "HTTP/1.1 200 OK\r\nContent-Length: " << content_stream.tellp() << "\r\n\r\n" << content_stream.rdbuf();
     };
     
-    //GET-example for the path /match/[number], responds with the matched string in path (number)
+    //GET-example for the path /match/[number] using regex, responds with the matched string in path (number)
+    //The 'r' at the beginning of the path-string indicates that the string is a regular expression
     //For instance a request GET /match/123 will receive: 123
-    server.resource["^/match/([0-9]+)/?$"]["GET"]=[](ostream& response, shared_ptr<Server<HTTPS>::Request> request) {
+    server.resource["r^/match/([0-9]+)/?$"]["GET"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
         string number=request->path_match[1];
         response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n" << number;
     };
@@ -79,10 +81,10 @@ int main() {
     //Will respond with content in the web/-directory, and its subdirectories.
     //Default file: index.html
     //Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
-    server.default_resource["^/?(.*)$"]["GET"]=[](ostream& response, shared_ptr<Server<HTTPS>::Request> request) {
-        string filename="web/";
+    server.default_resource["GET"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
+        string filename="web";
         
-        string path=request->path_match[1];
+        string path=request->path;
         
         //Replace all ".." with "." (so we can't leave the web-directory)
         size_t pos;
@@ -106,8 +108,17 @@ int main() {
             
             ifs.seekg(0, ios::beg);
 
-            //The file-content is copied to the response-stream. Should not be used for very large files.
-            response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n" << ifs.rdbuf();
+            response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
+            
+            //read and send 128 KB at a time
+            size_t buffer_size=131072;
+            vector<char> buffer(buffer_size);
+            stringstream ss;
+            size_t read_length;
+            while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
+                ss.write(&buffer[0], read_length);
+                response << ss.rdbuf() << HttpsServer::flush;
+            }
 
             ifs.close();
         }
@@ -127,7 +138,7 @@ int main() {
     
     //Client examples
     //Second Client() parameter set to false: no certificate verification
-    Client<HTTPS> client("localhost:8080", false);
+    HttpsClient client("localhost:8080", false);
     auto r1=client.request("GET", "/match/123");
     cout << r1->content.rdbuf() << endl;
 

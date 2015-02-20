@@ -5,8 +5,6 @@
 
 #include <unordered_map>
 #include <map>
-#include <iostream>
-#include <regex>
 #include <random>
 
 namespace SimpleWeb {
@@ -62,13 +60,13 @@ namespace SimpleWeb {
             
             try {
                 connect();
-                
+                              
                 boost::asio::write(*socket, write_buffer);
-
+                
                 size_t bytes_transferred = boost::asio::read_until(*socket, response->content_buffer, "\r\n\r\n");
-
+                
                 size_t num_additional_bytes=response->content_buffer.size()-bytes_transferred;
-
+                
                 parse_response_header(response, response->content);
                                 
                 if(response->header.count("Content-Length")>0) {
@@ -130,49 +128,41 @@ namespace SimpleWeb {
                 
         ClientBase(const std::string& host_port, unsigned short default_port) : 
                 asio_resolver(asio_io_service), socket_error(false) {
-            std::regex e("^([^:/]+):?([0-9]*)$");
-
-            std::smatch sm;
-
-            if(std::regex_match(host_port, sm, e)) {
-                host=sm[1];
+            size_t host_end=host_port.find(':');
+            if(host_end==std::string::npos) {
+                host=host_port;
                 port=default_port;
-                if(sm[2]!="")
-                    port=(unsigned short)std::stoul(sm[2]);
-                asio_endpoint=boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port);
             }
             else {
-                throw std::invalid_argument("Error parsing host_port");
+                host=host_port.substr(0, host_end);
+                port=(unsigned short)stoul(host_port.substr(host_end+1));
             }
+
+            asio_endpoint=boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port);
         }
         
         virtual void connect()=0;
         
-        void parse_response_header(std::shared_ptr<Response> response, std::istream& stream) const {            
-            std::smatch sm;
-
-            //Parse the first line
+        void parse_response_header(std::shared_ptr<Response> response, std::istream& stream) const {
             std::string line;
             getline(stream, line);
-            line.pop_back();
+            size_t version_end=line.find(' ');
+            if(version_end!=std::string::npos) {
+                response->http_version=line.substr(5, version_end-5);
+                response->status_code=line.substr(version_end+1, line.size()-version_end-2);
 
-            std::regex e("^HTTP/([^ ]*) (.*)$");
-            if(std::regex_match(line, sm, e)) {
-                response->http_version=sm[1];
-                response->status_code=sm[2];
-                
-                e="^([^:]*): ?(.*)$";
-                //Parse the rest of the header
-                bool matched;
-                do {
+                getline(stream, line);
+                size_t param_end=line.find(':');
+                while(param_end!=std::string::npos) {                
+                    size_t value_start=param_end+1;
+                    if(line[value_start]==' ')
+                        value_start++;
+
+                    response->header[line.substr(0, param_end)]=line.substr(value_start, line.size()-value_start-1);
+
                     getline(stream, line);
-                    line.pop_back();
-                    matched=std::regex_match(line, sm, e);
-                    if(matched) {
-                        response->header[sm[1]]=sm[2];
-                    }
-
-                } while(matched==true);
+                    param_end=line.find(':');
+                }
             }
         }
     };
@@ -187,13 +177,17 @@ namespace SimpleWeb {
     public:
         Client(const std::string& server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {
             socket=std::make_shared<HTTP>(asio_io_service);
-        };
+        }
         
     private:
         void connect() {
             if(socket_error || !socket->is_open()) {
                 boost::asio::ip::tcp::resolver::query query(host, std::to_string(port));
                 boost::asio::connect(*socket, asio_resolver.resolve(query));
+                
+                boost::asio::ip::tcp::no_delay option(true);
+                socket->set_option(option);
+                
                 socket_error=false;
             }
         }
