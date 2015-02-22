@@ -13,7 +13,7 @@ See also https://github.com/eidheim/Simple-WebSocket-Server for an easy way to m
 * HTTP persistent connection (for HTTP/1.1)
 * Client supports chunked transfer encoding
 * Timeouts, if any of Server::timeout_request and Server::timeout_content are >0 (default: Server::timeout_request=5 seconds, and Server::timeout_content=300 seconds)
-* Simple way to add REST resources using for instance regex for path, and anonymous functions
+* Simple way to add REST resources using regex for path, and anonymous functions
 * Possibility to flush response to clients both synchronously (Server::flush) and asynchronously (Server::async_flush).
 
 ###Usage
