@@ -20,9 +20,9 @@ int main() {
     //HTTP-server at port 8080 using 4 threads
     HttpServer server(8080, 4);
     
-    //Add resources using path- and method-string, and an anonymous function
+    //Add resources using path-regex and method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string
-    server.resource["/string"]["POST"]=[](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
+    server.resource["^/string$"]["POST"]=[](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
         //Retrieve string from istream (request->content)
         stringstream ss;
         request->content >> ss.rdbuf();
@@ -39,7 +39,7 @@ int main() {
     //  "lastName": "Smith",
     //  "age": 25
     //}
-    server.resource["/json"]["POST"]=[](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
+    server.resource["^/json$"]["POST"]=[](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
         try {
             ptree pt;
             read_json(request->content, pt);
@@ -55,7 +55,7 @@ int main() {
     
     //GET-example for the path /info
     //Responds with request-information
-    server.resource["/info"]["GET"]=[](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
+    server.resource["^/info$"]["GET"]=[](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
         stringstream content_stream;
         content_stream << "<h1>Request:</h1>";
         content_stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
@@ -69,10 +69,9 @@ int main() {
         response <<  "HTTP/1.1 200 OK\r\nContent-Length: " << content_stream.tellp() << "\r\n\r\n" << content_stream.rdbuf();
     };
     
-    //GET-example for the path /match/[number] using regex, responds with the matched string in path (number)
-    //The 'r' at the beginning of the path-string indicates that the following string is a regular expression
+    //GET-example for the path /match/[number], responds with the matched string in path (number)
     //For instance a request GET /match/123 will receive: 123
-    server.resource["r^/match/([0-9]+)/?$"]["GET"]=[](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
+    server.resource["^/match/([0-9]+)/?$"]["GET"]=[](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
         string number=request->path_match[1];
         response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n" << number;
     };

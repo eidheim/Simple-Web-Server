@@ -144,12 +144,8 @@ namespace SimpleWeb {
         void start() {
             //Move the resources with regular expressions to regex_resource for more efficient request processing
             for(auto it=resource.begin();it!=resource.end();) {
-                if(it->first.size()>0 && it->first[0]=='r') {
-                    regex_resource.emplace_back(std::regex(it->first.substr(1)), std::move(it->second));
-                    it=resource.erase(it);
-                }
-                else
-                    it++;
+                regex_resource.emplace_back(std::regex(it->first), std::move(it->second));
+                it=resource.erase(it);
             }
             
             accept(); 
@@ -291,14 +287,6 @@ namespace SimpleWeb {
 
         void find_resource(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request) {
             //Find path- and method-match, and call write_response
-            auto it_path=resource.find(request->path);
-            if(it_path!=resource.end()) {
-                auto it_method=it_path->second.find(request->method);
-                if(it_method!=it_path->second.end()) {
-                    write_response(socket, request, it_method->second);
-                    return;
-                }
-            }
             for(auto& res: regex_resource) {
                 auto it_method=res.second.find(request->method);
                 if(it_method!=res.second.end()) {
