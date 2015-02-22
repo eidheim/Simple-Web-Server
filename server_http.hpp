@@ -137,17 +137,31 @@ namespace SimpleWeb {
             std::function<void(ServerBase<socket_type>::Response&, std::shared_ptr<ServerBase<socket_type>::Request>)> > default_resource;
 
     private:
-        std::vector<std::pair<std::regex, std::unordered_map<std::string, 
-            std::function<void(ServerBase<socket_type>::Response&, std::shared_ptr<ServerBase<socket_type>::Request>)> > > > regex_resource;
+        std::vector<std::pair<std::string, std::vector<std::pair<std::regex, 
+            std::function<void(ServerBase<socket_type>::Response&, std::shared_ptr<ServerBase<socket_type>::Request>)> > > > > opt_resource;
         
     public:
         void start() {
-            //Move the resources with regular expressions to regex_resource for more efficient request processing
-            for(auto it=resource.begin();it!=resource.end();) {
-                regex_resource.emplace_back(std::regex(it->first), std::move(it->second));
-                it=resource.erase(it);
+            //Copy the resources to opt_resource for more efficient request processing
+            opt_resource.clear();
+            for(auto& res: resource) {
+                for(auto& res_method: res.second) {
+                    auto it=opt_resource.end();
+                    for(auto opt_it=opt_resource.begin();opt_it!=opt_resource.end();opt_it++) {
+                        if(res_method.first==opt_it->first) {
+                            it=opt_it;
+                            break;
+                        }
+                    }
+                    if(it==opt_resource.end()) {
+                        opt_resource.emplace_back();
+                        it=opt_resource.begin()+(opt_resource.size()-1);
+                        it->first=res_method.first;
+                    }
+                    it->second.emplace_back(std::regex(res.first), res_method.second);
+                }
             }
-            
+                        
             accept(); 
             
             //If num_threads>1, start m_io_service.run() in (num_threads-1) threads for thread-pooling
@@ -287,14 +301,15 @@ namespace SimpleWeb {
 
         void find_resource(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request) {
             //Find path- and method-match, and call write_response
-            for(auto& res: regex_resource) {
-                auto it_method=res.second.find(request->method);
-                if(it_method!=res.second.end()) {
-                    std::smatch sm_res;
-                    if(std::regex_match(request->path, sm_res, res.first)) {
-                        request->path_match=std::move(sm_res);
-                        write_response(socket, request, it_method->second);
-                        return;
+            for(auto& res: opt_resource) {
+                if(request->method==res.first) {
+                    for(auto& res_path: res.second) {
+                        std::smatch sm_res;
+                        if(std::regex_match(request->path, sm_res, res_path.first)) {
+                            request->path_match=std::move(sm_res);
+                            write_response(socket, request, res_path.second);
+                            return;
+                        }
                     }
                 }
             }
