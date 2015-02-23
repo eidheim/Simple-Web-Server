@@ -113,11 +113,10 @@ int main() {
             size_t buffer_size=131072;
             if(length>buffer_size) {
                 vector<char> buffer(buffer_size);
-                stringstream ss;
                 size_t read_length;
                 while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
-                    ss.write(&buffer[0], read_length);
-                    response << ss.rdbuf() << HttpsServer::flush;
+                    response.stream.write(&buffer[0], read_length);
+                    response << HttpsServer::flush;
                 }
             }
             else
