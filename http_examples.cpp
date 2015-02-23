@@ -109,15 +109,19 @@ int main() {
 
             response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
             
-            //read and send 128 KB at a time
+            //read and send 128 KB at a time if file-size>buffer_size
             size_t buffer_size=131072;
-            vector<char> buffer(buffer_size);
-            stringstream ss;
-            size_t read_length;
-            while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
-                ss.write(&buffer[0], read_length);
-                response << ss.rdbuf() << HttpServer::flush;
+            if(length>buffer_size) {
+                vector<char> buffer(buffer_size);
+                stringstream ss;
+                size_t read_length;
+                while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
+                    ss.write(&buffer[0], read_length);
+                    response << ss.rdbuf() << HttpServer::flush;
+                }
             }
+            else
+                response << ifs.rdbuf();
 
             ifs.close();
         }
