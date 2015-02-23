@@ -117,7 +117,7 @@ int main() {
                 size_t read_length;
                 while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
                     ss.write(&buffer[0], read_length);
-                    response << ss.rdbuf() << HttpServer::flush;
+                    response << ss.rdbuf() << HttpsServer::flush;
                 }
             }
             else
