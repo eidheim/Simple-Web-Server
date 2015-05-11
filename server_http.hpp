@@ -131,14 +131,14 @@ namespace SimpleWeb {
         };
         
         std::unordered_map<std::string, std::unordered_map<std::string, 
-            std::function<void(ServerBase<socket_type>::Response&, std::shared_ptr<ServerBase<socket_type>::Request>)> > >  resource;
+            std::function<void(typename ServerBase<socket_type>::Response&, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > >  resource;
         
         std::unordered_map<std::string, 
-            std::function<void(ServerBase<socket_type>::Response&, std::shared_ptr<ServerBase<socket_type>::Request>)> > default_resource;
+            std::function<void(typename ServerBase<socket_type>::Response&, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > default_resource;
 
     private:
         std::vector<std::pair<std::string, std::vector<std::pair<std::regex, 
-            std::function<void(ServerBase<socket_type>::Response&, std::shared_ptr<ServerBase<socket_type>::Request>)> > > > > opt_resource;
+            std::function<void(typename ServerBase<socket_type>::Response&, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > > > > opt_resource;
         
     public:
         void start() {
@@ -320,7 +320,7 @@ namespace SimpleWeb {
         }
         
         void write_response(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request, 
-                std::function<void(ServerBase<socket_type>::Response&, std::shared_ptr<ServerBase<socket_type>::Request>)>& resource_function) {
+            std::function<void(typename ServerBase<socket_type>::Response&, std::shared_ptr<typename ServerBase<socket_type>::Request>)>& resource_function) {
             std::shared_ptr<boost::asio::strand> strand(new boost::asio::strand(io_service));
 
             //Set timeout on the following boost::asio::async-read or write function
