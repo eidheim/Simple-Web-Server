@@ -39,3 +39,6 @@ target_link_libraries(https_examples ${CMAKE_THREAD_LIBS_INIT})
 add_executable(http_examples http_examples.cpp)
 target_link_libraries(http_examples ${Boost_LIBRARIES})
 target_link_libraries(http_examples ${CMAKE_THREAD_LIBS_INIT})
+
+enable_testing()
+add_subdirectory(test)
