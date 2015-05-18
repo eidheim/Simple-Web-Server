@@ -30,6 +30,8 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 find_package(Threads REQUIRED)
 message("Threads libraries/flag: ${CMAKE_THREAD_LIBS_INIT}")
 
+include_directories(.)
+
 add_executable(https_examples https_examples.cpp)
 target_link_libraries(https_examples ${Boost_LIBRARIES})
 target_link_libraries(https_examples ${OPENSSL_SSL_LIBRARIES})
