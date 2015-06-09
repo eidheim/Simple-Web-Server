@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <thread>
 #include <functional>
+#include <string>
 
 namespace SimpleWeb {
     template <class socket_type>
@@ -67,7 +68,7 @@ namespace SimpleWeb {
                 
                 boost::asio::async_write(*socket, *write_buffer, 
                         strand->wrap([socket_, write_buffer, callback, async_writing_, async_timer_, async_waiting_]
-                        (const boost::system::error_code& ec, size_t bytes_transferred) {
+                        (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
                     *async_writing_=false;
                     if(*async_waiting_)
                         async_timer_->cancel();
@@ -120,7 +121,7 @@ namespace SimpleWeb {
 
             std::istream content;
 
-            std::unordered_map<std::string, std::string> header;
+            std::unordered_multimap<std::string, std::string> header;
 
             std::smatch path_match;
             
@@ -251,16 +252,17 @@ namespace SimpleWeb {
                     parse_request(request, request->content);
                     
                     //If content, read that as well
-                    if(request->header.count("Content-Length")>0) {
+                    const auto it=request->header.find("Content-Length");
+                    if(it!=request->header.end()) {
                         //Set timeout on the following boost::asio::async-read or write function
                         std::shared_ptr<boost::asio::deadline_timer> timer;
                         if(timeout_content>0)
                             timer=set_timeout_on_socket(socket, timeout_content);
-                        
-                        boost::asio::async_read(*socket, request->streambuf, 
-                                boost::asio::transfer_exactly(stoull(request->header["Content-Length"])-num_additional_bytes), 
+
+                        boost::asio::async_read(*socket, request->streambuf,
+                                boost::asio::transfer_exactly(stoull(it->second)-num_additional_bytes),
                                 [this, socket, request, timer]
-                                (const boost::system::error_code& ec, size_t bytes_transferred) {
+                                (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
                             if(timeout_content>0)
                                 timer->cancel();
                             if(!ec)
@@ -291,7 +293,7 @@ namespace SimpleWeb {
                     if(line[value_start]==' ')
                         value_start++;
 
-                    request->header[line.substr(0, param_end)]=line.substr(value_start, line.size()-value_start-1);
+                    request->header.insert(std::unordered_multimap<std::string, std::string>::value_type(line.substr(0, param_end), line.substr(value_start, line.size()-value_start-1)));
 
                     getline(stream, line);
                     param_end=line.find(':');
@@ -357,7 +359,7 @@ namespace SimpleWeb {
     class Server<HTTP> : public ServerBase<HTTP> {
     public:
         Server(unsigned short port, size_t num_threads=1, size_t timeout_request=5, size_t timeout_content=300) : 
-                ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content) {};
+                ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content) {}
         
     private:
         void accept() {
