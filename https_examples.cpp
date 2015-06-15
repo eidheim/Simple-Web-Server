@@ -57,7 +57,7 @@ int main() {
     //Responds with request-information
     server.resource["^/info$"]["GET"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
         stringstream content_stream;
-        content_stream << "<h1>Request:</h1>";
+        content_stream << "<h1>Request from " << request->endpoint.address().to_string() << " (" << request->endpoint.port() << ")</h1>";
         content_stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
         for(auto& header: request->header) {
             content_stream << header.first << ": " << header.second << "<br>";
