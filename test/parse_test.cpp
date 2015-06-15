@@ -34,14 +34,11 @@ public:
         
         if(request->header.size()!=2)
             return 0;
-        if(request->header.count("TestHeader")==0)
+        auto header_it=request->header.find("TestHeader");
+        if(header_it==request->header.end() || header_it->second!="test")
             return 0;
-        if(request->header["TestHeader"]!="test")
-            return 0;
-
-        if(request->header.count("TestHeader2")==0)
-            return 0;
-        if(request->header["TestHeader2"]!="test2")
+        header_it=request->header.find("TestHeader2");
+        if(header_it==request->header.end() || header_it->second!="test2")
             return 0;
         
         return 1;
@@ -90,15 +87,13 @@ public:
         
         if(response->header.size()!=2)
             return 0;
-        if(response->header.count("TestHeader")==0)
-            return 0;
-        if(response->header["TestHeader"]!="test")
-            return 0;
 
-        if(response->header.count("TestHeader2")==0)
-            return 0;
-        if(response->header["TestHeader2"]!="test2")
-            return 0;
+        auto header_it=response->header.find("TestHeader");
+        if(header_it==response->header.end() || header_it->second!="test")
+          return 0;
+        header_it=response->header.find("TestHeader2");
+        if(header_it==response->header.end() || header_it->second!="test2")
+          return 0;
         
         return 1;
     }

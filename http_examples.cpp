@@ -57,7 +57,7 @@ int main() {
     //Responds with request-information
     server.resource["^/info$"]["GET"]=[](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
         stringstream content_stream;
-        content_stream << "<h1>Request from " << request->remote_endpoint_address.to_string() << " (" << request->remote_endpoint_port << ")</h1>";
+        content_stream << "<h1>Request from " << request->remote_endpoint_address << " (" << request->remote_endpoint_port << ")</h1>";
         content_stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
         for(auto& header: request->header) {
             content_stream << header.first << ": " << header.second << "<br>";

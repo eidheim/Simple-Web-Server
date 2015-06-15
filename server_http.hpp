@@ -121,11 +121,11 @@ namespace SimpleWeb {
 
             std::istream content;
 
-            std::unordered_map<std::string, std::string> header;
+            std::unordered_multimap<std::string, std::string> header;
 
             std::smatch path_match;
             
-            boost::asio::ip::address remote_endpoint_address;
+            std::string remote_endpoint_address;
             unsigned short remote_endpoint_port;
             
         private:
@@ -135,7 +135,7 @@ namespace SimpleWeb {
             
             void read_remote_endpoint_data(socket_type& socket) {
                 try {
-                    remote_endpoint_address=socket.lowest_layer().remote_endpoint().address();
+                    remote_endpoint_address=socket.lowest_layer().remote_endpoint().address().to_string();
                     remote_endpoint_port=socket.lowest_layer().remote_endpoint().port();
                 }
                 catch(const std::exception& e) {
@@ -266,14 +266,15 @@ namespace SimpleWeb {
                     parse_request(request, request->content);
                     
                     //If content, read that as well
-                    if(request->header.count("Content-Length")>0) {
+                    const auto it=request->header.find("Content-Length");
+                    if(it!=request->header.end()) {
                         //Set timeout on the following boost::asio::async-read or write function
                         std::shared_ptr<boost::asio::deadline_timer> timer;
                         if(timeout_content>0)
                             timer=set_timeout_on_socket(socket, timeout_content);
                         
                         boost::asio::async_read(*socket, request->streambuf, 
-                                boost::asio::transfer_exactly(stoull(request->header["Content-Length"])-num_additional_bytes), 
+                                boost::asio::transfer_exactly(stoull(it->second)-num_additional_bytes),
                                 [this, socket, request, timer]
                                 (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
                             if(timeout_content>0)
@@ -306,7 +307,8 @@ namespace SimpleWeb {
                     if(line[value_start]==' ')
                         value_start++;
 
-                    request->header[line.substr(0, param_end)]=line.substr(value_start, line.size()-value_start-1);
+                    std::string key=line.substr(0, param_end);
+                    request->header.insert(std::make_pair(key, line.substr(value_start, line.size()-value_start-1)));
 
                     getline(stream, line);
                     param_end=line.find(':');
