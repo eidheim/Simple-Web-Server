@@ -67,7 +67,7 @@ namespace SimpleWeb {
                 
                 boost::asio::async_write(*socket, *write_buffer, 
                         strand->wrap([socket_, write_buffer, callback, async_writing_, async_timer_, async_waiting_]
-                        (const boost::system::error_code& ec, size_t bytes_transferred) {
+                        (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
                     *async_writing_=false;
                     if(*async_waiting_)
                         async_timer_->cancel();
@@ -260,7 +260,7 @@ namespace SimpleWeb {
                         boost::asio::async_read(*socket, request->streambuf, 
                                 boost::asio::transfer_exactly(stoull(request->header["Content-Length"])-num_additional_bytes), 
                                 [this, socket, request, timer]
-                                (const boost::system::error_code& ec, size_t bytes_transferred) {
+                                (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
                             if(timeout_content>0)
                                 timer->cancel();
                             if(!ec)
