@@ -374,7 +374,7 @@ namespace SimpleWeb {
     class Server<HTTP> : public ServerBase<HTTP> {
     public:
         Server(unsigned short port, size_t num_threads=1, size_t timeout_request=5, size_t timeout_content=300) : 
-                ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content) {};
+                ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content) {}
         
     private:
         void accept() {
