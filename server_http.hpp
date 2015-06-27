@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <thread>
 #include <functional>
+#include <iostream>
 
 namespace SimpleWeb {
     template <class socket_type>
@@ -124,10 +125,23 @@ namespace SimpleWeb {
 
             std::smatch path_match;
             
+            boost::asio::ip::address remote_endpoint_address;
+            unsigned short remote_endpoint_port;
+            
         private:
             Request(): content(&streambuf) {}
             
             boost::asio::streambuf streambuf;
+            
+            void read_remote_endpoint_data(socket_type& socket) {
+                try {
+                    remote_endpoint_address=socket.lowest_layer().remote_endpoint().address();
+                    remote_endpoint_port=socket.lowest_layer().remote_endpoint().port();
+                }
+                catch(const std::exception& e) {
+                    std::cerr << e.what() << std::endl;
+                }
+            }
         };
         
         std::unordered_map<std::string, std::unordered_map<std::string, 
@@ -231,6 +245,7 @@ namespace SimpleWeb {
             //Create new streambuf (Request::streambuf) for async_read_until()
             //shared_ptr is used to pass temporary objects to the asynchronous functions
             std::shared_ptr<Request> request(new Request());
+            request->read_remote_endpoint_data(*socket);
 
             //Set timeout on the following boost::asio::async-read or write function
             std::shared_ptr<boost::asio::deadline_timer> timer;
