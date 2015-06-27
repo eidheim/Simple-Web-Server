@@ -38,7 +38,7 @@ Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
 
 On Linux using g++: add `-pthread`
 
-Note: added `-lboost_thread` to make the json-example thread safe. Also added `-lboost_coroutine -lboost_context` to make synchronous and asynchronous flushing of response stream work. On some systems you might have to use postfix `-mt` to link to these libraries.
+Note: added `-lboost_filesystem` for the default_resource example, and `-lboost_thread` to make the json-example thread safe. Also added `-lboost_coroutine -lboost_context` to make synchronous and asynchronous flushing of response stream work. On some systems you might have to use postfix `-mt` to link to these libraries.
 
 You can now also compile using CMake and make:
 
@@ -49,7 +49,7 @@ make
 
 #### HTTP
 
-`g++ -O3 -std=c++11 http_examples.cpp -lboost_system -lboost_thread -lboost_coroutine -lboost_context -o http_examples`
+`g++ -O3 -std=c++11 http_examples.cpp -lboost_system -lboost_thread -lboost_coroutine -lboost_context -lboost_filesystem -o http_examples`
 
 Then to run the server and client examples: `./http_examples`
 
@@ -57,7 +57,7 @@ Also, direct your favorite browser to for instance http://localhost:8080/
 
 #### HTTPS
 
-`g++ -O3 -std=c++11 https_examples.cpp -lboost_system -lboost_thread -lboost_coroutine -lboost_context -lssl -lcrypto -o https_examples`
+`g++ -O3 -std=c++11 https_examples.cpp -lboost_system -lboost_thread -lboost_coroutine -lboost_context -lboost_filesystem -lssl -lcrypto -o https_examples`
 
 Before running the server, an RSA private key (server.key) and an SSL certificate (server.crt) must be created. Follow, for instance, the instructions given here (for a self-signed certificate): http://www.akadia.com/services/ssh_test_certificate.html
 

@@ -7,7 +7,8 @@
 #include <boost/property_tree/json_parser.hpp>
 
 //Added for the default_resource example
-#include<fstream>
+#include <fstream>
+#include <boost/filesystem.hpp>
 
 using namespace std;
 //Added for the json-example:
@@ -81,53 +82,50 @@ int main() {
     //Default file: index.html
     //Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
     server.default_resource["GET"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
-        string filename="web";
-        
-        string path=request->path;
-        
-        //Replace all ".." with "." (so we can't leave the web-directory)
-        size_t pos;
-        while((pos=path.find(".."))!=string::npos) {
-            path.erase(pos, 1);
-        }
-        
-        filename+=path;
-        ifstream ifs;
-        //A simple platform-independent file-or-directory check do not exist, but this works in most of the cases:
-        if(filename.find('.')==string::npos) {
-            if(filename[filename.length()-1]!='/')
-                filename+='/';
-            filename+="index.html";
-        }
-        ifs.open(filename, ifstream::in);
-        
-        if(ifs) {
-            ifs.seekg(0, ios::end);
-            size_t length=ifs.tellg();
-            
-            ifs.seekg(0, ios::beg);
-
-            response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
-            
-            //read and send 128 KB at a time if file-size>buffer_size
-            size_t buffer_size=131072;
-            if(length>buffer_size) {
-                vector<char> buffer(buffer_size);
-                size_t read_length;
-                while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
-                    response.stream.write(&buffer[0], read_length);
-                    response << HttpsServer::flush;
-                }
-            }
-            else
-                response << ifs.rdbuf();
-
-            ifs.close();
-        }
+        boost::filesystem::path web_root_path("web");
+        if(!boost::filesystem::exists(web_root_path))
+          cerr << "Could not find web root." << endl;
         else {
-            string content="Could not open file "+filename;
-            response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
+          auto path=web_root_path;
+          path+=request->path;
+          if(boost::filesystem::exists(path)) {
+            if(boost::filesystem::canonical(web_root_path)<=boost::filesystem::canonical(path)) {
+              if(boost::filesystem::is_directory(path))
+                path+="/index.html";
+              if(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)) {
+                ifstream ifs;
+                ifs.open(path.string(), ifstream::in);
+                
+                if(ifs) {
+                  ifs.seekg(0, ios::end);
+                  size_t length=ifs.tellg();
+                  
+                  ifs.seekg(0, ios::beg);
+
+                  response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
+                  
+                  //read and send 128 KB at a time if file-size>buffer_size
+                  size_t buffer_size=131072;
+                  if(length>buffer_size) {
+                      vector<char> buffer(buffer_size);
+                      size_t read_length;
+                      while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
+                          response.stream.write(&buffer[0], read_length);
+                          response << HttpsServer::flush;
+                      }
+                  }
+                  else
+                      response << ifs.rdbuf();
+
+                  ifs.close();
+                  return;
+                }
+              }
+            }
+          }
         }
+        string content="Could not open path "+request->path;
+        response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
     };
     
     thread server_thread([&server](){
