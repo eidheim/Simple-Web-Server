@@ -273,9 +273,8 @@ namespace SimpleWeb {
                         if(timeout_content>0)
                             timer=set_timeout_on_socket(socket, timeout_content);
                         try {
-                            auto content_length=stoull(it->second);
                             boost::asio::async_read(*socket, request->streambuf, 
-                                    boost::asio::transfer_exactly(content_length-num_additional_bytes),
+                                    boost::asio::transfer_exactly(stoull(it->second)-num_additional_bytes),
                                     [this, socket, request, timer]
                                     (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
                                 if(timeout_content>0)
