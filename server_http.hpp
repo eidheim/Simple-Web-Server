@@ -272,16 +272,21 @@ namespace SimpleWeb {
                         std::shared_ptr<boost::asio::deadline_timer> timer;
                         if(timeout_content>0)
                             timer=set_timeout_on_socket(socket, timeout_content);
-                        
-                        boost::asio::async_read(*socket, request->streambuf, 
-                                boost::asio::transfer_exactly(stoull(it->second)-num_additional_bytes),
-                                [this, socket, request, timer]
-                                (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
-                            if(timeout_content>0)
-                                timer->cancel();
-                            if(!ec)
-                                find_resource(socket, request);
-                        });
+                        try {
+                            auto content_length=stoull(it->second);
+                            boost::asio::async_read(*socket, request->streambuf, 
+                                    boost::asio::transfer_exactly(stoull(it->second)-num_additional_bytes),
+                                    [this, socket, request, timer]
+                                    (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                                if(timeout_content>0)
+                                    timer->cancel();
+                                if(!ec)
+                                    find_resource(socket, request);
+                            });
+                        }
+                        catch(const std::exception& e) {
+                            std::cerr << e.what() << std::endl;
+                        }
                     }
                     else {
                         find_resource(socket, request);
