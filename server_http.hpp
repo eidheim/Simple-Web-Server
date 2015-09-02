@@ -88,9 +88,7 @@ namespace SimpleWeb {
                     remote_endpoint_address=socket.lowest_layer().remote_endpoint().address().to_string();
                     remote_endpoint_port=socket.lowest_layer().remote_endpoint().port();
                 }
-                catch(const std::exception& e) {
-                    std::cerr << e.what() << std::endl;
-                }
+                catch(const std::exception& e) {}
             }
         };
         
@@ -222,20 +220,22 @@ namespace SimpleWeb {
                         std::shared_ptr<boost::asio::deadline_timer> timer;
                         if(timeout_content>0)
                             timer=set_timeout_on_socket(socket, timeout_content);
+                        unsigned long long content_length;
                         try {
-                            boost::asio::async_read(*socket, request->streambuf, 
-                                    boost::asio::transfer_exactly(stoull(it->second)-num_additional_bytes),
-                                    [this, socket, request, timer]
-                                    (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
-                                if(timeout_content>0)
-                                    timer->cancel();
-                                if(!ec)
-                                    find_resource(socket, request);
-                            });
+                            content_length=stoull(it->second);
                         }
-                        catch(const std::exception& e) {
-                            std::cerr << e.what() << std::endl;
+                        catch(const std::exception &e) {
+                            return;
                         }
+                        boost::asio::async_read(*socket, request->streambuf, 
+                                boost::asio::transfer_exactly(content_length-num_additional_bytes),
+                                [this, socket, request, timer]
+                                (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                            if(timeout_content>0)
+                                timer->cancel();
+                            if(!ec)
+                                find_resource(socket, request);
+                        });
                     }
                     else {
                         find_resource(socket, request);

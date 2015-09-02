@@ -109,9 +109,14 @@ int main() {
                   if(length>buffer_size) {
                       vector<char> buffer(buffer_size);
                       size_t read_length;
-                      while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
-                          response.stream.write(&buffer[0], read_length);
-                          response << HttpsServer::flush;
+                      try {
+                          while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
+                              response.stream.write(&buffer[0], read_length);
+                              response << HttpsServer::flush;
+                          }
+                      }
+                      catch(const exception &e) {
+                          cerr << "Connection interrupted, closing file" << endl;
                       }
                   }
                   else
