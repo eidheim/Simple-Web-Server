@@ -25,64 +25,19 @@ namespace SimpleWeb {
 
             std::shared_ptr<socket_type> socket;
             
-            std::shared_ptr<boost::asio::deadline_timer> async_timer;
-            
-            std::shared_ptr<bool> async_writing;
-            std::shared_ptr<bool> async_waiting;
-
             Response(boost::asio::io_service& io_service, std::shared_ptr<socket_type> socket, std::shared_ptr<boost::asio::strand> strand, 
-                    boost::asio::yield_context& yield): 
-                    strand(strand), yield(yield), socket(socket), async_timer(new boost::asio::deadline_timer(io_service)), 
-                    async_writing(new bool(false)), async_waiting(new bool(false)), stream(&streambuf) {}
-
-            void async_flush(std::function<void(const boost::system::error_code&)> callback=nullptr) {
-                if(!callback && !socket->lowest_layer().is_open()) {
-                    if(*async_waiting)
-                        async_timer->cancel();
-                    throw std::runtime_error("Broken pipe.");
-                }
-                
-                std::shared_ptr<boost::asio::streambuf> write_buffer(new boost::asio::streambuf);
-                std::ostream response(write_buffer.get());
-                response << stream.rdbuf();
-                                                    
-                //Wait until previous async_flush is finished
-                strand->dispatch([this](){
-                    if(*async_writing) {
-                        *async_waiting=true;
-                        try {
-                            async_timer->async_wait(yield);
-                        }
-                        catch(std::exception& e) {
-                        }
-                        *async_waiting=false;
-                    }
-                });
-
-                *async_writing=true;
-                
-                auto socket_=this->socket;
-                auto async_writing_=this->async_writing;
-                auto async_timer_=this->async_timer;
-                auto async_waiting_=this->async_waiting;
-                
-                boost::asio::async_write(*socket, *write_buffer, 
-                        strand->wrap([socket_, write_buffer, callback, async_writing_, async_timer_, async_waiting_]
-                        (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
-                    *async_writing_=false;
-                    if(*async_waiting_)
-                        async_timer_->cancel();
-                    if(callback)
-                        callback(ec);
-                }));
-            }
+                    boost::asio::yield_context& yield): strand(strand), yield(yield), socket(socket), stream(&streambuf) {}
             
             void flush() {
                 boost::asio::streambuf write_buffer;
                 std::ostream response(&write_buffer);
                 response << stream.rdbuf();
 
-                boost::asio::async_write(*socket, write_buffer, yield);
+                boost::system::error_code ec;
+                boost::asio::async_write(*socket, write_buffer, yield[ec]);
+                
+                if(ec)
+                    throw std::runtime_error(ec.message());
             }
                         
         public:
@@ -103,12 +58,7 @@ namespace SimpleWeb {
                 return manip(*this);
             }
         };
-        
-        static Response& async_flush(Response& r) {
-            r.async_flush();
-            return r;
-        }
-        
+                
         static Response& flush(Response& r) {
             r.flush();
             return r;
@@ -355,16 +305,20 @@ namespace SimpleWeb {
                 try {
                     resource_function(response, request);
                 }
-                catch(std::exception& e) {
+                catch(const std::exception& e) {
                     return;
                 }
                 
-                response.async_flush([this, socket, request, timer](const boost::system::error_code& ec) {
-                    if(timeout_content>0)
-                        timer->cancel();
-                    if(!ec && stof(request->http_version)>1.05)
-                        read_request_and_content(socket);
-                });
+                try {
+                    response.flush();
+                }
+                catch(const std::exception &e) {
+                    return;
+                }
+                if(timeout_content>0)
+                    timer->cancel();
+                if(stof(request->http_version)>1.05)
+                    read_request_and_content(socket);
             });
         }
     };
