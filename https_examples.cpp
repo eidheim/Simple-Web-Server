@@ -94,7 +94,7 @@ int main() {
                 path+="/index.html";
               if(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)) {
                 ifstream ifs;
-                ifs.open(path.string(), ifstream::in);
+                ifs.open(path.string(), ifstream::in | ios::binary);
                 
                 if(ifs) {
                   ifs.seekg(0, ios::end);
