@@ -29,12 +29,8 @@ namespace SimpleWeb {
                     boost::asio::yield_context& yield): strand(strand), yield(yield), socket(socket), stream(&streambuf) {}
             
             void flush() {
-                boost::asio::streambuf write_buffer;
-                std::ostream response(&write_buffer);
-                response << stream.rdbuf();
-
                 boost::system::error_code ec;
-                boost::asio::async_write(*socket, write_buffer, yield[ec]);
+                boost::asio::async_write(*socket, streambuf, yield[ec]);
                 
                 if(ec)
                     throw std::runtime_error(ec.message());
