@@ -20,6 +20,10 @@ message("Boost include dir: ${Boost_INCLUDE_DIR}")
 message("Boost libraries: ${Boost_LIBRARIES}")
 include_directories(${Boost_INCLUDE_DIR})
 
+if(APPLE)
+  set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
+endif()
+
 #TODO: add requirement for version 1.0.1g (can it be done in one line?)
 find_package(OpenSSL REQUIRED)
 message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
