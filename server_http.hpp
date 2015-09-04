@@ -37,6 +37,10 @@ namespace SimpleWeb {
         public:
             std::ostream stream;
             
+            size_t size() {
+                return streambuf.size();
+            }
+            
             template <class T>
             Response& operator<<(const T& t) {
                 stream << t;
