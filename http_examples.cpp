@@ -107,7 +107,8 @@ int main() {
                   //read and send 128 KB at a time if file-size>buffer_size
                   size_t buffer_size=131072;
                   if(length>buffer_size) {
-                      vector<char> buffer(buffer_size);
+                      vector<char> buffer;
+                      buffer.reserve(buffer_size);
                       size_t read_length;
                       try {
                           while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {

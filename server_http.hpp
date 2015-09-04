@@ -17,16 +17,14 @@ namespace SimpleWeb {
         class Response {
             friend class ServerBase<socket_type>;
         private:
-            std::shared_ptr<boost::asio::strand> strand;
-            
             boost::asio::yield_context& yield;
             
             boost::asio::streambuf streambuf;
 
             std::shared_ptr<socket_type> socket;
             
-            Response(boost::asio::io_service& io_service, std::shared_ptr<socket_type> socket, std::shared_ptr<boost::asio::strand> strand, 
-                    boost::asio::yield_context& yield): strand(strand), yield(yield), socket(socket), stream(&streambuf) {}
+            Response(boost::asio::io_service& io_service, std::shared_ptr<socket_type> socket, boost::asio::yield_context& yield): 
+                    yield(yield), socket(socket), stream(&streambuf) {}
             
             void flush() {
                 boost::system::error_code ec;
@@ -147,6 +145,7 @@ namespace SimpleWeb {
         boost::asio::io_service io_service;
         boost::asio::ip::tcp::endpoint endpoint;
         boost::asio::ip::tcp::acceptor acceptor;
+        boost::asio::strand strand;
         size_t num_threads;
         std::vector<std::thread> threads;
         
@@ -154,8 +153,8 @@ namespace SimpleWeb {
         size_t timeout_content;
         
         ServerBase(unsigned short port, size_t num_threads, size_t timeout_request, size_t timeout_send_or_receive) : 
-                endpoint(boost::asio::ip::tcp::v4(), port), acceptor(io_service, endpoint), num_threads(num_threads), 
-                timeout_request(timeout_request), timeout_content(timeout_send_or_receive) {}
+                endpoint(boost::asio::ip::tcp::v4(), port), acceptor(io_service, endpoint), strand(io_service),
+                num_threads(num_threads), timeout_request(timeout_request), timeout_content(timeout_send_or_receive) {}
         
         virtual void accept()=0;
         
@@ -170,12 +169,12 @@ namespace SimpleWeb {
                 }
             });
             return timer;
-        }       
+        }
         
-        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<socket_type> socket, std::shared_ptr<boost::asio::strand> strand, size_t seconds) {
+        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket_strand_wrapped(std::shared_ptr<socket_type> socket, size_t seconds) {
             std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(io_service));
             timer->expires_from_now(boost::posix_time::seconds(seconds));
-            timer->async_wait(strand->wrap([socket](const boost::system::error_code& ec){
+            timer->async_wait(strand.wrap([socket](const boost::system::error_code& ec){
                 if(!ec) {
                     boost::system::error_code ec;
                     socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
@@ -183,7 +182,7 @@ namespace SimpleWeb {
                 }
             }));
             return timer;
-        }  
+        }
         
         void read_request_and_content(std::shared_ptr<socket_type> socket) {
             //Create new streambuf (Request::streambuf) for async_read_until()
@@ -288,15 +287,13 @@ namespace SimpleWeb {
         
         void write_response(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request, 
                 std::function<void(typename ServerBase<socket_type>::Response&, std::shared_ptr<typename ServerBase<socket_type>::Request>)>& resource_function) {
-            std::shared_ptr<boost::asio::strand> strand(new boost::asio::strand(io_service));
-
             //Set timeout on the following boost::asio::async-read or write function
             std::shared_ptr<boost::asio::deadline_timer> timer;
             if(timeout_content>0)
-                timer=set_timeout_on_socket(socket, strand, timeout_content);
+                timer=set_timeout_on_socket_strand_wrapped(socket, timeout_content);
 
-            boost::asio::spawn(*strand, [this, strand, &resource_function, socket, request, timer](boost::asio::yield_context yield) {
-                Response response(io_service, socket, strand, yield);
+            boost::asio::spawn(strand, [this, &resource_function, socket, request, timer](boost::asio::yield_context yield) {
+                Response response(io_service, socket, yield);
 
                 try {
                     resource_function(response, request);
