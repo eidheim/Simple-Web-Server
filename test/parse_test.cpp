@@ -15,7 +15,7 @@ public:
     void accept() {}
     
     bool parse_request_test() {
-        std::shared_ptr<Request> request(new Request());
+        std::shared_ptr<Request> request(new Request(io_service));
         
         stringstream ss;
         ss << "GET /test/ HTTP/1.1\r\n";
