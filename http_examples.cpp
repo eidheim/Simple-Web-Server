@@ -26,7 +26,7 @@ int main() {
     server.resource["^/string$"]["POST"]=[](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
         //Retrieve string from istream (request->content)
         stringstream ss;
-        request->content >> ss.rdbuf();
+        ss << request->content.rdbuf();
         string content=ss.str();
         
         response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
