@@ -14,7 +14,7 @@ namespace SimpleWeb {
     template <class socket_type>
     class ServerBase {
     public:
-        class Response {
+        class Response : public std::ostream {
             friend class ServerBase<socket_type>;
         private:
             boost::asio::yield_context& yield;
@@ -24,36 +24,18 @@ namespace SimpleWeb {
             socket_type &socket;
             
             Response(boost::asio::io_service& io_service, socket_type &socket, boost::asio::yield_context& yield): 
-                    yield(yield), socket(socket), stream(&streambuf) {}
-            
+                    std::ostream(&streambuf), yield(yield), socket(socket) {}
+                        
+        public:
+            size_t size() {
+                return streambuf.size();
+            }
             void flush() {
                 boost::system::error_code ec;
                 boost::asio::async_write(socket, streambuf, yield[ec]);
                 
                 if(ec)
                     throw std::runtime_error(ec.message());
-            }
-                        
-        public:
-            std::ostream stream;
-            
-            size_t size() {
-                return streambuf.size();
-            }
-            
-            template <class T>
-            Response& operator<<(const T& t) {
-                stream << t;
-                return *this;
-            }
-
-            Response& operator<<(std::ostream& (*manip)(std::ostream&)) {
-                stream << manip;
-                return *this;
-            }
-            
-            Response& operator<<(Response& (*manip)(Response&)) {
-                return manip(*this);
             }
         };
                 
@@ -307,11 +289,13 @@ namespace SimpleWeb {
                     return;
                 }
                 
-                try {
-                    response.flush();
-                }
-                catch(const std::exception &e) {
-                    return;
+                if(response.size()>0) {
+                    try {
+                        response.flush();
+                    }
+                    catch(const std::exception &e) {
+                        return;
+                    }
                 }
                 if(timeout_content>0)
                     timer->cancel();

@@ -84,51 +84,47 @@ int main() {
     server.default_resource["GET"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
         boost::filesystem::path web_root_path("web");
         if(!boost::filesystem::exists(web_root_path))
-          cerr << "Could not find web root." << endl;
+            cerr << "Could not find web root." << endl;
         else {
-          auto path=web_root_path;
-          path+=request->path;
-          if(boost::filesystem::exists(path)) {
-            if(boost::filesystem::canonical(web_root_path)<=boost::filesystem::canonical(path)) {
-              if(boost::filesystem::is_directory(path))
-                path+="/index.html";
-              if(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)) {
-                ifstream ifs;
-                ifs.open(path.string(), ifstream::in | ios::binary);
-                
-                if(ifs) {
-                  ifs.seekg(0, ios::end);
-                  size_t length=ifs.tellg();
-                  
-                  ifs.seekg(0, ios::beg);
+            auto path=web_root_path;
+            path+=request->path;
+            if(boost::filesystem::exists(path)) {
+                if(boost::filesystem::canonical(web_root_path)<=boost::filesystem::canonical(path)) {
+                    if(boost::filesystem::is_directory(path))
+                        path+="/index.html";
+                    if(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)) {
+                        ifstream ifs;
+                        ifs.open(path.string(), ifstream::in | ios::binary);
+                        
+                        if(ifs) {
+                            ifs.seekg(0, ios::end);
+                            size_t length=ifs.tellg();
+                            
+                            ifs.seekg(0, ios::beg);
+                            
+                            response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
+                            
+                            //read and send 128 KB at a time
+                            size_t buffer_size=131072;
+                            vector<char> buffer;
+                            buffer.reserve(buffer_size);
+                            size_t read_length;
+                            try {
+                                while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
+                                    response.write(&buffer[0], read_length);
+                                    response.flush();
+                                }
+                            }
+                            catch(const exception &e) {
+                                cerr << "Connection interrupted, closing file" << endl;
+                            }
 
-                  response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
-                  
-                  //read and send 128 KB at a time if file-size>buffer_size
-                  size_t buffer_size=131072;
-                  if(length>buffer_size) {
-                      vector<char> buffer;
-                      buffer.reserve(buffer_size);
-                      size_t read_length;
-                      try {
-                          while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
-                              response.stream.write(&buffer[0], read_length);
-                              response << HttpsServer::flush;
-                          }
-                      }
-                      catch(const exception &e) {
-                          cerr << "Connection interrupted, closing file" << endl;
-                      }
-                  }
-                  else
-                      response << ifs.rdbuf();
-
-                  ifs.close();
-                  return;
+                            ifs.close();
+                            return;
+                        }
+                    }
                 }
-              }
             }
-          }
         }
         string content="Could not open path "+request->path;
         response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
