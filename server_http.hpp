@@ -9,6 +9,7 @@
 #include <thread>
 #include <functional>
 #include <iostream>
+#include <sstream>
 
 namespace SimpleWeb {
     template <class socket_type>
@@ -38,18 +39,29 @@ namespace SimpleWeb {
                     throw std::runtime_error(ec.message());
             }
         };
-                
-        static Response& flush(Response& r) {
-            r.flush();
-            return r;
-        }
+        
+        class Content : public std::istream {
+            friend class ServerBase<socket_type>;
+        public:
+            size_t size() {
+                return streambuf.size();
+            }
+            std::string string() {
+                std::stringstream ss;
+                ss << rdbuf();
+                return ss.str();
+            }
+        private:
+            boost::asio::streambuf &streambuf;
+            Content(boost::asio::streambuf &streambuf): std::istream(&streambuf), streambuf(streambuf) {}
+        };
         
         class Request {
             friend class ServerBase<socket_type>;
         public:
             std::string method, path, http_version;
 
-            std::istream content;
+            Content content;
 
             std::unordered_multimap<std::string, std::string> header;
 
@@ -59,7 +71,7 @@ namespace SimpleWeb {
             unsigned short remote_endpoint_port;
             
         private:
-            Request(boost::asio::io_service &io_service): content(&streambuf), strand(io_service) {}
+            Request(boost::asio::io_service &io_service): content(streambuf), strand(io_service) {}
             
             boost::asio::streambuf streambuf;
             
