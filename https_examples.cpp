@@ -19,7 +19,7 @@ typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
 
 int main() {
     //HTTPS-server at port 8080 using 4 threads
-    HttpsServer server(8080, 1, "server.crt", "server.key");
+    HttpsServer server(8080, 4, "server.crt", "server.key");
     
     //Add resources using path-regex and method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string
