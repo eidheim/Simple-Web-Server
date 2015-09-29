@@ -26,9 +26,8 @@ The default_resource includes example use of Server::flush.
 
 ### Dependencies
 
-Boost C++ libraries must be installed. 
-
-For HTTPS: OpenSSL libraries are required. 
+* Boost C++ libraries
+* For HTTPS: OpenSSL libraries 
 
 ### Compile and run
 
