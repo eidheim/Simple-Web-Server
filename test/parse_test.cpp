@@ -1,5 +1,3 @@
-#define private public
-
 #include "server_http.hpp"
 #include "client_http.hpp"
 #include <iostream>
