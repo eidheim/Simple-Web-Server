@@ -31,7 +31,7 @@ The default_resource includes example use of Server::flush.
 
 ### Compile and run
 
-Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
+Compile with a C++11 compliant compiler (for instance g++ 4.9):
 ```
 cmake .
 make
