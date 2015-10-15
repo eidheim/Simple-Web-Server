@@ -20,9 +20,6 @@ include_directories(.)
 
 find_package(Threads REQUIRED)
 
-set(Boost_USE_STATIC_LIBS        ON)
-set(Boost_USE_MULTITHREADED      ON)
-set(Boost_USE_STATIC_RUNTIME    OFF)
 #Only tested with versions 1.59.0
 find_package(Boost 1.59.0 COMPONENTS regex system thread coroutine context filesystem date_time REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
