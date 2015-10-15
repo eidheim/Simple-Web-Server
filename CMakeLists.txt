@@ -10,11 +10,15 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.3)
         message(FATAL_ERROR "Clang version >=3.3 required.")
     endif()
+elseif (MSVC14)
 else()
     message(WARNING "Your compiler (${CMAKE_CXX_COMPILER_ID}) has not been tested on this project. Only Clang and GCC has been tested. Please report any problems at the project page on GitHub.")
 endif()
 
-OPTION(ENABLE_SSL "Use ssl" ON)
+
+include_directories(.)
+
+find_package(Threads REQUIRED)
 
 set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
@@ -27,21 +31,12 @@ if(APPLE)
     set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
 endif()
 
-if(MSVC)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
-endif()
+#TODO: add requirement for version 1.0.1g (can it be done in one line?)
+find_package(OpenSSL QUIET)
 
-if(ENABLE_SSL)
-    #TODO: add requirement for version 1.0.1g (can it be done in one line?)
-    find_package(OpenSSL REQUIRED)
+if(OpenSSL_FOUND)
     include_directories(${OPENSSL_INCLUDE_DIR})
-endif()
 
-find_package(Threads REQUIRED)
-
-include_directories(.)
-
-if(ENABLE_SSL)
     add_executable(https_examples https_examples.cpp)
     target_link_libraries(https_examples ${Boost_LIBRARIES})
     target_link_libraries(https_examples ${OPENSSL_LIBRARIES})
