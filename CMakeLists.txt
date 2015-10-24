@@ -10,12 +10,18 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.3)
         message(FATAL_ERROR "Clang version >=3.3 required.")
     endif()
+elseif (MSVC14)
 else()
     message(WARNING "Your compiler (${CMAKE_CXX_COMPILER_ID}) has not been tested on this project. Only Clang and GCC has been tested. Please report any problems at the project page on GitHub.")
 endif()
 
-#Only tested with versions 1.55 and 1.56
-find_package(Boost 1.54.0 COMPONENTS regex system thread coroutine context filesystem REQUIRED)
+
+include_directories(.)
+
+find_package(Threads REQUIRED)
+
+#Only tested with versions 1.59.0
+find_package(Boost 1.59.0 COMPONENTS regex system thread coroutine context filesystem date_time REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
 
 if(APPLE)
@@ -23,17 +29,16 @@ if(APPLE)
 endif()
 
 #TODO: add requirement for version 1.0.1g (can it be done in one line?)
-find_package(OpenSSL REQUIRED)
-include_directories(${OPENSSL_INCLUDE_DIR})
+find_package(OpenSSL QUIET)
 
-find_package(Threads REQUIRED)
+if(OpenSSL_FOUND)
+    include_directories(${OPENSSL_INCLUDE_DIR})
 
-include_directories(.)
-
-add_executable(https_examples https_examples.cpp)
-target_link_libraries(https_examples ${Boost_LIBRARIES})
-target_link_libraries(https_examples ${OPENSSL_LIBRARIES})
-target_link_libraries(https_examples ${CMAKE_THREAD_LIBS_INIT})
+    add_executable(https_examples https_examples.cpp)
+    target_link_libraries(https_examples ${Boost_LIBRARIES})
+    target_link_libraries(https_examples ${OPENSSL_LIBRARIES})
+    target_link_libraries(https_examples ${CMAKE_THREAD_LIBS_INIT})
+endif()
 
 add_executable(http_examples http_examples.cpp)
 target_link_libraries(http_examples ${Boost_LIBRARIES})
