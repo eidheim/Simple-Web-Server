@@ -30,7 +30,7 @@ endif()
 #TODO: add requirement for version 1.0.1g (can it be done in one line?)
 find_package(OpenSSL)
 
-if(OpenSSL_FOUND)
+if(OPENSSL_FOUND)
     include_directories(${OPENSSL_INCLUDE_DIR})
 
     add_executable(https_examples https_examples.cpp)
