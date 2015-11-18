@@ -24,7 +24,7 @@ namespace SimpleWeb {
 
             socket_type &socket;
             
-            Response(boost::asio::io_service& io_service, socket_type &socket, boost::asio::yield_context& yield): 
+            Response(socket_type &socket, boost::asio::yield_context& yield):
                     std::ostream(&streambuf), yield(yield), socket(socket) {}
                         
         public:
@@ -292,7 +292,7 @@ namespace SimpleWeb {
                 timer=set_timeout_on_socket(socket, request, timeout_content);
 
             boost::asio::spawn(request->strand, [this, &resource_function, socket, request, timer](boost::asio::yield_context yield) {
-                Response response(io_service, *socket, yield);
+                Response response(*socket, yield);
 
                 try {
                     resource_function(response, request);
