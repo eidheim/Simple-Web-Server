@@ -14,7 +14,7 @@ See also https://github.com/eidheim/Simple-WebSocket-Server for an easy way to m
 * Client supports chunked transfer encoding
 * Timeouts, if any of Server::timeout_request and Server::timeout_content are >0 (default: Server::timeout_request=5 seconds, and Server::timeout_content=300 seconds)
 * Simple way to add REST resources using regex for path, and anonymous functions
-* Possibility to flush response to clients synchronously (Server::flush).
+* Possibility to flush response to clients synchronously (HttpServer::Response::flush).
 
 ###Usage
 
@@ -22,7 +22,7 @@ See http_examples.cpp or https_examples.cpp for example usage.
 
 See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[number] examples, which are most relevant.
 
-The default_resource includes example use of Server::flush. 
+The default_resource includes example use of HttpServer::Response::flush. 
 
 ### Dependencies
 
@@ -31,7 +31,7 @@ The default_resource includes example use of Server::flush.
 
 ### Compile and run
 
-Compile with a C++11 compliant compiler (for instance g++ 4.9):
+Compile with a C++11 compliant compiler:
 ```
 cmake .
 make
