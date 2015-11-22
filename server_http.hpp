@@ -86,6 +86,22 @@ namespace SimpleWeb {
             }
         };
         
+        class Config {
+            friend class ServerBase<socket_type>;
+        private:
+            Config(unsigned short port, size_t num_threads): port(port), num_threads(num_threads) {}
+            unsigned short port;
+            size_t num_threads;
+        public:
+            ///IPv4 address in dotted decimal form or IPv6 address in hexadecimal notation.
+            ///If empty, the address will be any address.
+            std::string address;
+            ///Set to false to avoid binding the socket to an address that is already in use.
+            bool reuse_address=true;
+        };
+        ///Set before calling start().
+        Config config;
+        
         std::unordered_map<std::string, std::unordered_map<std::string, 
             std::function<void(typename ServerBase<socket_type>::Response&, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > >  resource;
         
@@ -117,12 +133,22 @@ namespace SimpleWeb {
                     it->second.emplace_back(boost::regex(res.first), res_method.second);
                 }
             }
-                        
+
+            std::unique_ptr<boost::asio::ip::tcp::endpoint> endpoint;
+            if(config.address.size()>0)
+                endpoint=std::unique_ptr<boost::asio::ip::tcp::endpoint>(new boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(config.address), config.port));
+            else
+                endpoint=std::unique_ptr<boost::asio::ip::tcp::endpoint>(new boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), config.port));
+            acceptor.open(endpoint->protocol());
+            acceptor.set_option(boost::asio::socket_base::reuse_address(config.reuse_address));
+            acceptor.bind(*endpoint);
+            acceptor.listen();
+     
             accept(); 
             
             //If num_threads>1, start m_io_service.run() in (num_threads-1) threads for thread-pooling
             threads.clear();
-            for(size_t c=1;c<num_threads;c++) {
+            for(size_t c=1;c<config.num_threads;c++) {
                 threads.emplace_back([this](){
                     io_service.run();
                 });
@@ -143,17 +169,15 @@ namespace SimpleWeb {
 
     protected:
         boost::asio::io_service io_service;
-        boost::asio::ip::tcp::endpoint endpoint;
         boost::asio::ip::tcp::acceptor acceptor;
-        size_t num_threads;
         std::vector<std::thread> threads;
         
         size_t timeout_request;
         size_t timeout_content;
         
         ServerBase(unsigned short port, size_t num_threads, size_t timeout_request, size_t timeout_send_or_receive) : 
-                endpoint(boost::asio::ip::tcp::v4(), port), acceptor(io_service, endpoint),
-                num_threads(num_threads), timeout_request(timeout_request), timeout_content(timeout_send_or_receive) {}
+                config(port, num_threads), acceptor(io_service),
+                timeout_request(timeout_request), timeout_content(timeout_send_or_receive) {}
         
         virtual void accept()=0;
         
