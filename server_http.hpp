@@ -146,6 +146,8 @@ namespace SimpleWeb {
      
             accept(); 
             
+            if(io_service.stopped())
+                io_service.reset();
             //If num_threads>1, start m_io_service.run() in (num_threads-1) threads for thread-pooling
             threads.clear();
             for(size_t c=1;c<config.num_threads;c++) {
@@ -164,6 +166,7 @@ namespace SimpleWeb {
         }
         
         void stop() {
+            acceptor.close();
             io_service.stop();
         }
 
