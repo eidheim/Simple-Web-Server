@@ -134,6 +134,9 @@ namespace SimpleWeb {
                 }
             }
 
+            if(io_service.stopped())
+                io_service.reset();
+
             std::unique_ptr<boost::asio::ip::tcp::endpoint> endpoint;
             if(config.address.size()>0)
                 endpoint=std::unique_ptr<boost::asio::ip::tcp::endpoint>(new boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(config.address), config.port));
@@ -146,8 +149,6 @@ namespace SimpleWeb {
      
             accept(); 
             
-            if(io_service.stopped())
-                io_service.reset();
             //If num_threads>1, start m_io_service.run() in (num_threads-1) threads for thread-pooling
             threads.clear();
             for(size_t c=1;c<config.num_threads;c++) {
