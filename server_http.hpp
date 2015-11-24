@@ -269,25 +269,30 @@ namespace SimpleWeb {
         void parse_request(std::shared_ptr<Request> request, std::istream& stream) const {
             std::string line;
             getline(stream, line);
-            size_t method_end=line.find(' ');
-            size_t path_end=line.find(' ', method_end+1);
-            if(method_end!=std::string::npos && path_end!=std::string::npos) {
-                request->method=line.substr(0, method_end);
-                request->path=line.substr(method_end+1, path_end-method_end-1);
-                request->http_version=line.substr(path_end+6, line.size()-path_end-7);
-
-                getline(stream, line);
-                size_t param_end=line.find(':');
-                while(param_end!=std::string::npos) {                
-                    size_t value_start=param_end+1;
-                    if(line[value_start]==' ')
-                        value_start++;
-
-                    std::string key=line.substr(0, param_end);
-                    request->header.insert(std::make_pair(key, line.substr(value_start, line.size()-value_start-1)));
+            size_t method_end;
+            if((method_end=line.find(' '))!=std::string::npos) {
+                size_t path_end;
+                if((path_end=line.find(' ', method_end+1))!=std::string::npos) {
+                    request->method=line.substr(0, method_end);
+                    request->path=line.substr(method_end+1, path_end-method_end-1);
+                    if((path_end+6)<line.size())
+                        request->http_version=line.substr(path_end+6, line.size()-(path_end+6)-1);
+                    else
+                        request->http_version="1.0";
 
                     getline(stream, line);
-                    param_end=line.find(':');
+                    size_t param_end;
+                    while((param_end=line.find(':'))!=std::string::npos) {
+                        size_t value_start=param_end+1;
+                        if((value_start)<line.size()) {
+                            if(line[value_start]==' ')
+                                value_start++;
+                            if(value_start<line.size())
+                                request->header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size()-value_start-1)));
+                        }
+    
+                        getline(stream, line);
+                    }
                 }
             }
         }
@@ -339,7 +344,14 @@ namespace SimpleWeb {
                 }
                 if(timeout_content>0)
                     timer->cancel();
-                if(stof(request->http_version)>1.05)
+                float http_version;
+                try {
+                    http_version=stof(request->http_version);
+                }
+                catch(const std::exception &e) {
+                    return;
+                }
+                if(http_version>1.05)
                     read_request_and_content(socket);
             });
         }
