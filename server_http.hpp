@@ -137,14 +137,14 @@ namespace SimpleWeb {
             if(io_service.stopped())
                 io_service.reset();
 
-            std::unique_ptr<boost::asio::ip::tcp::endpoint> endpoint;
+            boost::asio::ip::tcp::endpoint endpoint;
             if(config.address.size()>0)
-                endpoint=std::unique_ptr<boost::asio::ip::tcp::endpoint>(new boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(config.address), config.port));
+                endpoint=boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(config.address), config.port);
             else
-                endpoint=std::unique_ptr<boost::asio::ip::tcp::endpoint>(new boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), config.port));
-            acceptor.open(endpoint->protocol());
+                endpoint=boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), config.port);
+            acceptor.open(endpoint.protocol());
             acceptor.set_option(boost::asio::socket_base::reuse_address(config.reuse_address));
-            acceptor.bind(*endpoint);
+            acceptor.bind(endpoint);
             acceptor.listen();
      
             accept(); 

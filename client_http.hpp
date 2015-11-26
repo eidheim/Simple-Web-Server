@@ -148,20 +148,23 @@ namespace SimpleWeb {
             getline(stream, line);
             size_t version_end=line.find(' ');
             if(version_end!=std::string::npos) {
-                response->http_version=line.substr(5, version_end-5);
-                response->status_code=line.substr(version_end+1, line.size()-version_end-2);
+                if(5<line.size())
+                    response->http_version=line.substr(5, version_end-5);
+                if((version_end+1)<line.size())
+                    response->status_code=line.substr(version_end+1, line.size()-(version_end+1)-1);
 
                 getline(stream, line);
-                size_t param_end=line.find(':');
-                while(param_end!=std::string::npos) {                
+                size_t param_end;
+                while((param_end=line.find(':'))!=std::string::npos) {
                     size_t value_start=param_end+1;
-                    if(line[value_start]==' ')
-                        value_start++;
-
-                    response->header[line.substr(0, param_end)]=line.substr(value_start, line.size()-value_start-1);
+                    if((value_start)<line.size()) {
+                        if(line[value_start]==' ')
+                            value_start++;
+                        if(value_start<line.size())
+                            response->header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size()-value_start-1)));
+                    }
 
                     getline(stream, line);
-                    param_end=line.find(':');
                 }
             }
         }
