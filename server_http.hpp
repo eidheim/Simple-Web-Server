@@ -89,7 +89,7 @@ namespace SimpleWeb {
         class Config {
             friend class ServerBase<socket_type>;
         private:
-            Config(unsigned short port, size_t num_threads): port(port), num_threads(num_threads) {}
+            Config(unsigned short port, size_t num_threads): port(port), num_threads(num_threads), reuse_address(true) {}
             unsigned short port;
             size_t num_threads;
         public:
@@ -97,7 +97,7 @@ namespace SimpleWeb {
             ///If empty, the address will be any address.
             std::string address;
             ///Set to false to avoid binding the socket to an address that is already in use.
-            bool reuse_address=true;
+            bool reuse_address;
         };
         ///Set before calling start().
         Config config;
