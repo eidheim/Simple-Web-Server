@@ -249,15 +249,22 @@ namespace SimpleWeb {
                         catch(const std::exception &e) {
                             return;
                         }
-                        boost::asio::async_read(*socket, request->streambuf, 
-                                boost::asio::transfer_exactly(content_length-num_additional_bytes),
-                                [this, socket, request, timer]
-                                (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                        if(content_length>num_additional_bytes) {
+                            boost::asio::async_read(*socket, request->streambuf,
+                                    boost::asio::transfer_exactly(content_length-num_additional_bytes),
+                                    [this, socket, request, timer]
+                                    (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                                if(timeout_content>0)
+                                    timer->cancel();
+                                if(!ec)
+                                    find_resource(socket, request);
+                            });
+                        }
+                        else {
                             if(timeout_content>0)
                                 timer->cancel();
-                            if(!ec)
-                                find_resource(socket, request);
-                        });
+                            find_resource(socket, request);
+                        }
                     }
                     else {
                         find_resource(socket, request);
