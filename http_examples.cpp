@@ -1,5 +1,6 @@
 #include "server_http.hpp"
 #include "client_http.hpp"
+#include "server_upload_file.hpp"
 
 //Added for the json-example
 #define BOOST_SPIRIT_THREADSAFE
@@ -55,6 +56,28 @@ int main() {
             response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << strlen(e.what()) << "\r\n\r\n" << e.what();
         }
     };
+
+	//POST-example for upload file, responds the upload success info
+	server.resource["^/uploadfile$"]["POST"] = [](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
+		try {
+			SimpleWeb::UploadFile<SimpleWeb::HTTP> upload_file;
+			if (upload_file.parse_upload_request(request) == 0)
+			{
+				std::string writeFileName = upload_file.filename;
+				upload_file.save_content_to_file(writeFileName);
+
+				std::string uploadRet = std::string("Upload File:") + upload_file.filename + std::string(" complete\r\n");
+				response << "HTTP/1.1 200 OK\r\nContent-Length: " << uploadRet.length() << "\r\n\r\n" << uploadRet;
+			}
+			else
+			{
+				response << "HTTP/1.1 200 OK\r\nContent-Length: " << upload_file.error_message.length() << "\r\n\r\n" << upload_file.error_message;
+			}
+		}
+		catch (exception& e) {
+			response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << strlen(e.what()) << "\r\n\r\n" << e.what();
+		}
+	};
     
     //GET-example for the path /info
     //Responds with request-information
@@ -109,7 +132,7 @@ int main() {
                             //read and send 128 KB at a time
                             size_t buffer_size=131072;
                             vector<char> buffer;
-                            buffer.reserve(buffer_size);
+                            buffer.resize(buffer_size);
                             size_t read_length;
                             try {
                                 while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {

@@ -178,10 +178,11 @@ namespace SimpleWeb {
         
         size_t timeout_request;
         size_t timeout_content;
+		size_t max_content_length;
         
-        ServerBase(unsigned short port, size_t num_threads, size_t timeout_request, size_t timeout_send_or_receive) : 
+		ServerBase(unsigned short port, size_t num_threads, size_t timeout_request, size_t timeout_send_or_receive, size_t max_content_length) :
                 config(port, num_threads), acceptor(io_service),
-                timeout_request(timeout_request), timeout_content(timeout_send_or_receive) {}
+				timeout_request(timeout_request), timeout_content(timeout_send_or_receive), max_content_length(max_content_length){}
         
         virtual void accept()=0;
         
@@ -249,6 +250,13 @@ namespace SimpleWeb {
                         catch(const std::exception &e) {
                             return;
                         }
+						if (content_length > max_content_length)
+						{//not accept larger posts than max_content_length
+							if (timeout_content > 0)
+								timer->cancel();
+							find_resource(socket, request);
+							return;
+						}
                         if(content_length>num_additional_bytes) {
                             boost::asio::async_read(*socket, request->streambuf,
                                     boost::asio::transfer_exactly(content_length-num_additional_bytes),
@@ -372,8 +380,8 @@ namespace SimpleWeb {
     template<>
     class Server<HTTP> : public ServerBase<HTTP> {
     public:
-        Server(unsigned short port, size_t num_threads=1, size_t timeout_request=5, size_t timeout_content=300) : 
-                ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content) {}
+        Server(unsigned short port, size_t num_threads=1, size_t timeout_request=5, size_t timeout_content=300, size_t max_content_length=1024*1024*5) : 
+			ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content, max_content_length) {}
         
     private:
         void accept() {
