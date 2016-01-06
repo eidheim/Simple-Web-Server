@@ -146,13 +146,11 @@ int main() {
     auto r1=client.request("GET", "/match/123");
     cout << r1->content.rdbuf() << endl;
 
-    string json="{\"firstName\": \"John\",\"lastName\": \"Smith\",\"age\": 25}";
-    stringstream ss(json);    
-    auto r2=client.request("POST", "/string", ss);
+    string json_string="{\"firstName\": \"John\",\"lastName\": \"Smith\",\"age\": 25}";
+    auto r2=client.request("POST", "/string", json_string);
     cout << r2->content.rdbuf() << endl;
     
-    ss.str(json);
-    auto r3=client.request("POST", "/json", ss);
+    auto r3=client.request("POST", "/json", json_string);
     cout << r3->content.rdbuf() << endl;
     
     server_thread.join();
