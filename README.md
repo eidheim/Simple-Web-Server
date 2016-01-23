@@ -14,6 +14,7 @@ See also https://github.com/eidheim/Simple-WebSocket-Server for an easy way to m
 * Client supports chunked transfer encoding
 * Timeouts, if any of Server::timeout_request and Server::timeout_content are >0 (default: Server::timeout_request=5 seconds, and Server::timeout_content=300 seconds)
 * Simple way to add REST resources using regex for path, and anonymous functions
+* Possibility to flush response to clients synchronously (Server::Response::flush).
 
 ###Usage
 
@@ -21,22 +22,16 @@ See http_examples.cpp or https_examples.cpp for example usage.
 
 See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[number] examples, which are most relevant.
 
+The default_resource includes example use of Server::Response::flush. 
+
 ### Dependencies
 
-Boost C++ libraries must be installed, go to http://www.boost.org for download and instructions. 
-
-For HTTPS: OpenSSL libraries from https://www.openssl.org are required. 
+* Boost C++ libraries
+* For HTTPS: OpenSSL libraries 
 
 ### Compile and run
 
-Compile with a C++11 compiler supporting regex (for instance g++ 4.9):
-
-On Linux using g++: add `-pthread`
-
-Note: added `-lboost_thread` to make the json-example thread safe. On some systems you might have to use `-lboost_thread-mt` instead.
-
-You can now also compile using CMake and make:
-
+Compile with a C++11 compliant compiler:
 ```
 cmake .
 make
@@ -44,19 +39,15 @@ make
 
 #### HTTP
 
-`g++ -O3 -std=c++11 http_examples.cpp -lboost_system -lboost_thread -o http_examples`
+Run the server and client examples: `./http_examples`
 
-Then to run the server and client examples: `./http_examples`
-
-Also, direct your favorite browser to for instance http://localhost:8080/
+Direct your favorite browser to for instance http://localhost:8080/
 
 #### HTTPS
 
-`g++ -O3 -std=c++11 https_examples.cpp -lboost_system -lboost_thread -lssl -lcrypto -o https_examples`
-
 Before running the server, an RSA private key (server.key) and an SSL certificate (server.crt) must be created. Follow, for instance, the instructions given here (for a self-signed certificate): http://www.akadia.com/services/ssh_test_certificate.html
 
-Then to run the server and client examples: `./https_examples`
+Run the server and client examples: `./https_examples`
 
-Also, direct your favorite browser to for instance https://localhost:8080/
+Direct your favorite browser to for instance https://localhost:8080/
 
