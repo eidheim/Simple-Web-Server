@@ -59,7 +59,8 @@ namespace SimpleWeb {
         class Request {
             friend class ServerBase<socket_type>;
         public:
-            std::string method, path, http_version;
+	    std::string method, path, protocol, http_version;
+	    bool con_close;
 
             Content content;
 
@@ -282,10 +283,19 @@ namespace SimpleWeb {
                 if((path_end=line.find(' ', method_end+1))!=std::string::npos) {
                     request->method=line.substr(0, method_end);
                     request->path=line.substr(method_end+1, path_end-method_end-1);
-                    if((path_end+6)<line.size())
-                        request->http_version=line.substr(path_end+6, line.size()-(path_end+6)-1);
+
+		    request->con_close = false;
+		    request->protocol.clear();
+		    request->http_version.clear();
+
+		    size_t proto_end;
+		    if((proto_end=line.find('/', path_end+1))!=std::string::npos) {
+		      request->protocol=line.substr(path_end+1, proto_end-path_end-1);
+		      request->http_version=line.substr(proto_end+1, line.size()-(proto_end)-1);
+		    }
                     else
-                        request->http_version="1.0";
+		      request->http_version="1.0";
+
 
                     getline(stream, line);
                     size_t param_end;
@@ -294,8 +304,15 @@ namespace SimpleWeb {
                         if((value_start)<line.size()) {
                             if(line[value_start]==' ')
                                 value_start++;
-                            if(value_start<line.size())
-                                request->header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size()-value_start-1)));
+                            if(value_start<line.size()) {
+			      std::string key = line.substr(0, param_end);
+			      std::string value = line.substr(value_start, line.size()-value_start-1);
+
+			      request->header.insert(std::make_pair(key, value));
+
+			      if(boost::iequals(key, "Connection") && boost::iequals(value, "close"))
+				request->con_close = true;
+			    }
                         }
     
                         getline(stream, line);
@@ -358,7 +375,7 @@ namespace SimpleWeb {
                 catch(const std::exception &e) {
                     return;
                 }
-                if(http_version>1.05)
+                if(http_version>1.05 && !request->con_close)
                     read_request_and_content(socket);
             });
         }
