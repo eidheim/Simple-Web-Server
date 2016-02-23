@@ -162,8 +162,11 @@ namespace SimpleWeb {
                 parse_response_header(response, response->content);
                 
                 if(response->header.count("Content-Length")>0) {
-                    boost::asio::read(*socket, response->content_buffer, 
-                            boost::asio::transfer_exactly(stoull(response->header["Content-Length"])-num_additional_bytes));
+                    auto content_length=stoull(response->header["Content-Length"]);
+                    if(content_length>num_additional_bytes) {
+                        boost::asio::read(*socket, response->content_buffer, 
+                                boost::asio::transfer_exactly(content_length-num_additional_bytes));
+                    }
                 }
                 else if(response->header.count("Transfer-Encoding")>0 && response->header["Transfer-Encoding"]=="chunked") {
                     boost::asio::streambuf streambuf;
