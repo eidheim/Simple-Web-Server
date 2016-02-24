@@ -3,6 +3,8 @@
 
 #include <boost/asio.hpp>
 #include <boost/utility/string_ref.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/functional/hash.hpp>
 
 #include <unordered_map>
 #include <map>
@@ -15,12 +17,27 @@ namespace SimpleWeb {
         class Response {
             friend class ClientBase<socket_type>;
             
+            class iequal_to {
+            public:
+              bool operator()(const std::string &key1, const std::string &key2) const {
+                return boost::algorithm::iequals(key1, key2);
+              }
+            };
+            class ihash {
+            public:
+              size_t operator()(const std::string &key) const {
+                std::size_t seed=0;
+                for(auto &c: key)
+                  boost::hash_combine(seed, std::tolower(c));
+                return seed;
+              }
+            };
         public:
             std::string http_version, status_code;
 
             std::istream content;
 
-            std::unordered_map<std::string, std::string> header;
+            std::unordered_multimap<std::string, std::string, ihash, iequal_to> header;
             
         private:
             boost::asio::streambuf content_buffer;
@@ -161,14 +178,15 @@ namespace SimpleWeb {
                 
                 parse_response_header(response, response->content);
                 
-                if(response->header.count("Content-Length")>0) {
-                    auto content_length=stoull(response->header["Content-Length"]);
+                auto header_it=response->header.find("Content-Length");
+                if(header_it!=response->header.end()) {
+                    auto content_length=stoull(header_it->second);
                     if(content_length>num_additional_bytes) {
                         boost::asio::read(*socket, response->content_buffer, 
                                 boost::asio::transfer_exactly(content_length-num_additional_bytes));
                     }
                 }
-                else if(response->header.count("Transfer-Encoding")>0 && response->header["Transfer-Encoding"]=="chunked") {
+                else if((header_it=response->header.find("Transfer-Encoding"))!=response->header.end() && header_it->second=="chunked") {
                     boost::asio::streambuf streambuf;
                     std::ostream content(&streambuf);
                     

@@ -4,6 +4,8 @@
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/regex.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/functional/hash.hpp>
 
 #include <unordered_map>
 #include <thread>
@@ -58,12 +60,28 @@ namespace SimpleWeb {
         
         class Request {
             friend class ServerBase<socket_type>;
+            
+            class iequal_to {
+            public:
+              bool operator()(const std::string &key1, const std::string &key2) const {
+                return boost::algorithm::iequals(key1, key2);
+              }
+            };
+            class ihash {
+            public:
+              size_t operator()(const std::string &key) const {
+                std::size_t seed=0;
+                for(auto &c: key)
+                  boost::hash_combine(seed, std::tolower(c));
+                return seed;
+              }
+            };
         public:
             std::string method, path, http_version;
 
             Content content;
 
-            std::unordered_multimap<std::string, std::string> header;
+            std::unordered_multimap<std::string, std::string, ihash, iequal_to> header;
 
             boost::smatch path_match;
             
@@ -236,7 +254,7 @@ namespace SimpleWeb {
                     parse_request(request, request->content);
                     
                     //If content, read that as well
-                    const auto it=request->header.find("Content-Length");
+                    auto it=request->header.find("Content-Length");
                     if(it!=request->header.end()) {
                         //Set timeout on the following boost::asio::async-read or write function
                         std::shared_ptr<boost::asio::deadline_timer> timer;
