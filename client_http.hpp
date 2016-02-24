@@ -17,6 +17,7 @@ namespace SimpleWeb {
         class Response {
             friend class ClientBase<socket_type>;
             
+            //Based on http://www.boost.org/doc/libs/1_60_0/doc/html/unordered/hash_equality.html
             class iequal_to {
             public:
               bool operator()(const std::string &key1, const std::string &key2) const {
