@@ -93,7 +93,6 @@ int main() {
                 if(boost::filesystem::is_directory(path))
                     path/="index.html";
                 if(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)) {
-                    cout << "test" << endl;
                     ifstream ifs;
                     ifs.open(path.string(), ifstream::in | ios::binary);
                     
