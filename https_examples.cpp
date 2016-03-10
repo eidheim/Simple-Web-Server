@@ -84,46 +84,44 @@ int main() {
     //Default file: index.html
     //Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
     server.default_resource["GET"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
-        boost::filesystem::path web_root_path("web");
-        if(!boost::filesystem::exists(web_root_path))
-            cerr << "Could not find web root." << endl;
-        else {
-            auto path=web_root_path;
-            path+=request->path;
-            if(boost::filesystem::exists(path)) {
-                if(boost::filesystem::canonical(web_root_path)<=boost::filesystem::canonical(path)) {
-                    if(boost::filesystem::is_directory(path))
-                        path+="/index.html";
-                    if(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)) {
-                        ifstream ifs;
-                        ifs.open(path.string(), ifstream::in | ios::binary);
+        string web_root_path=boost::filesystem::canonical("web").string();
+        boost::filesystem::path path=web_root_path;
+        path/=request->path;
+        if(boost::filesystem::exists(path)) {
+            auto path_str=boost::filesystem::canonical(path).string();
+            if(path_str.substr(0, web_root_path.size())==web_root_path) {
+                if(boost::filesystem::is_directory(path))
+                    path/="index.html";
+                if(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)) {
+                    cout << "test" << endl;
+                    ifstream ifs;
+                    ifs.open(path.string(), ifstream::in | ios::binary);
+                    
+                    if(ifs) {
+                        ifs.seekg(0, ios::end);
+                        size_t length=ifs.tellg();
                         
-                        if(ifs) {
-                            ifs.seekg(0, ios::end);
-                            size_t length=ifs.tellg();
-                            
-                            ifs.seekg(0, ios::beg);
-                            
-                            response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
-                            
-                            //read and send 128 KB at a time
-                            size_t buffer_size=131072;
-                            vector<char> buffer;
-                            buffer.reserve(buffer_size);
-                            size_t read_length;
-                            try {
-                                while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
-                                    response.write(&buffer[0], read_length);
-                                    response.flush();
-                                }
+                        ifs.seekg(0, ios::beg);
+                        
+                        response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
+                        
+                        //read and send 128 KB at a time
+                        size_t buffer_size=131072;
+                        vector<char> buffer;
+                        buffer.reserve(buffer_size);
+                        size_t read_length;
+                        try {
+                            while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
+                                response.write(&buffer[0], read_length);
+                                response.flush();
                             }
-                            catch(const exception &e) {
-                                cerr << "Connection interrupted, closing file" << endl;
-                            }
-
-                            ifs.close();
-                            return;
                         }
+                        catch(const exception &e) {
+                            cerr << "Connection interrupted, closing file" << endl;
+                        }
+        
+                        ifs.close();
+                        return;
                     }
                 }
             }
