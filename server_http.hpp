@@ -78,8 +78,7 @@ namespace SimpleWeb {
               }
             };
         public:
-            std::string method, path, protocol, http_version;
-            bool con_close;
+            std::string method, path, http_version;
 
             Content content;
 
@@ -253,7 +252,8 @@ namespace SimpleWeb {
                     //streambuf (maybe some bytes of the content) is appended to in the async_read-function below (for retrieving content).
                     size_t num_additional_bytes=request->streambuf.size()-bytes_transferred;
                     
-                    parse_request(request, request->content);
+                    if(!parse_request(request, request->content))
+                        return;
                     
                     //If content, read that as well
                     auto it=request->header.find("Content-Length");
@@ -293,7 +293,7 @@ namespace SimpleWeb {
             });
         }
 
-        void parse_request(std::shared_ptr<Request> request, std::istream& stream) const {
+        bool parse_request(std::shared_ptr<Request> request, std::istream& stream) const {
             std::string line;
             getline(stream, line);
             size_t method_end;
@@ -303,17 +303,14 @@ namespace SimpleWeb {
                     request->method=line.substr(0, method_end);
                     request->path=line.substr(method_end+1, path_end-method_end-1);
 
-                    request->con_close = false;
-                    request->protocol.clear();
-                    request->http_version.clear();
-
-                    size_t proto_end;
-                    if((proto_end=line.find('/', path_end+1))!=std::string::npos) {
-                        request->protocol=line.substr(path_end+1, proto_end-path_end-1);
-                        request->http_version=line.substr(proto_end+1, line.size()-(proto_end)-1);
+                    size_t protocol_end;
+                    if((protocol_end=line.find('/', path_end+1))!=std::string::npos) {
+                        if(line.substr(path_end+1, protocol_end-path_end-1)!="HTTP")
+                            return false;
+                        request->http_version=line.substr(protocol_end+1, line.size()-protocol_end-2);
                     }
                     else
-                        request->http_version="1.0";
+                        return false;
 
 
                     getline(stream, line);
@@ -323,21 +320,19 @@ namespace SimpleWeb {
                         if((value_start)<line.size()) {
                             if(line[value_start]==' ')
                                 value_start++;
-                            if(value_start<line.size()) {
-                                std::string key = line.substr(0, param_end);
-                                std::string value = line.substr(value_start, line.size()-value_start-1);
-
-                                request->header.insert(std::make_pair(key, value));
-
-                                if(boost::iequals(key, "Connection") && boost::iequals(value, "close"))
-                                    request->con_close = true;
-			    }
+                            if(value_start<line.size())
+                                request->header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size()-value_start-1)));
                         }
     
                         getline(stream, line);
                     }
                 }
+                else
+                    return false;
             }
+            else
+                return false;
+            return true;
         }
 
         void find_resource(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request) {
@@ -394,7 +389,13 @@ namespace SimpleWeb {
                 catch(const std::exception &e) {
                     return;
                 }
-                if(http_version>1.05 && !request->con_close)
+                
+                auto range=request->header.equal_range("Connection");
+                for(auto it=range.first;it!=range.second;it++) {
+                    if(boost::iequals(it->second, "close"))
+                        return;
+                }
+                if(http_version>1.05)
                     read_request_and_content(socket);
             });
         }

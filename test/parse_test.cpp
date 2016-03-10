@@ -21,7 +21,8 @@ public:
         ss << "TestHeader2:test2\r\n";
         ss << "\r\n";
         
-        parse_request(request, ss);
+        if(!parse_request(request, ss))
+            return 0;
         
         if(request->method!="GET")
             return 0;
