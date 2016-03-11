@@ -9,6 +9,7 @@
 //Added for the default_resource example
 #include <fstream>
 #include <boost/filesystem.hpp>
+#include <array>
 
 using namespace std;
 //Added for the json-example:
@@ -105,9 +106,8 @@ int main() {
                         response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
                         
                         //read and send 128 KB at a time
-                        size_t buffer_size=131072;
-                        vector<char> buffer;
-                        buffer.reserve(buffer_size);
+                        const size_t buffer_size=131072;
+                        array<char, buffer_size> buffer;
                         size_t read_length;
                         try {
                             while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
