@@ -10,6 +10,7 @@
 #include <fstream>
 #include <boost/filesystem.hpp>
 #include <array>
+#include <algorithm>
 
 using namespace std;
 //Added for the json-example:
@@ -85,12 +86,14 @@ int main() {
     //Default file: index.html
     //Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
     server.default_resource["GET"]=[](HttpServer::Response& response, shared_ptr<HttpServer::Request> request) {
-        string web_root_path=boost::filesystem::canonical("web").string();
+        const auto web_root_path=boost::filesystem::canonical("web");
         boost::filesystem::path path=web_root_path;
         path/=request->path;
         if(boost::filesystem::exists(path)) {
-            auto path_str=boost::filesystem::canonical(path).string();
-            if(path_str.substr(0, web_root_path.size())==web_root_path) {
+            path=boost::filesystem::canonical(path);
+            //Check if path is within web_root_path
+            if(distance(web_root_path.begin(), web_root_path.end())<=distance(path.begin(), path.end()) &&
+               equal(web_root_path.begin(), web_root_path.end(), path.begin())) {
                 if(boost::filesystem::is_directory(path))
                     path/="index.html";
                 if(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)) {
