@@ -9,7 +9,7 @@
 //Added for the default_resource example
 #include <fstream>
 #include <boost/filesystem.hpp>
-#include <array>
+#include <vector>
 #include <algorithm>
 
 using namespace std;
@@ -110,7 +110,7 @@ int main() {
                         
                         //read and send 128 KB at a time
                         const size_t buffer_size=131072;
-                        array<char, buffer_size> buffer;
+                        vector<char> buffer(buffer_size);
                         size_t read_length;
                         try {
                             while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
