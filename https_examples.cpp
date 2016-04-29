@@ -22,7 +22,7 @@ typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
 int main() {
     //HTTPS-server at port 8080 using 4 threads
     HttpsServer server(8080, 4, "server.crt", "server.key");
-    
+
     //Add resources using path-regex and method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string
     server.resource["^/string$"]["POST"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
@@ -32,10 +32,10 @@ int main() {
         //stringstream ss;
         //ss << request->content.rdbuf();
         //string content=ss.str();
-        
+
         response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
     };
-    
+
     //POST-example for the path /json, responds firstName+" "+lastName from the posted json
     //Responds with an appropriate error message if the posted json is not valid, or if firstName or lastName is missing
     //Example posted json:
@@ -50,14 +50,14 @@ int main() {
             read_json(request->content, pt);
 
             string name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
-            
+
             response << "HTTP/1.1 200 OK\r\nContent-Length: " << name.length() << "\r\n\r\n" << name;
         }
         catch(exception& e) {
             response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << strlen(e.what()) << "\r\n\r\n" << e.what();
         }
     };
-    
+
     //GET-example for the path /info
     //Responds with request-information
     server.resource["^/info$"]["GET"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
@@ -67,21 +67,21 @@ int main() {
         for(auto& header: request->header) {
             content_stream << header.first << ": " << header.second << "<br>";
         }
-        
+
         //find length of content_stream (length received using content_stream.tellp())
         content_stream.seekp(0, ios::end);
-        
+
         response <<  "HTTP/1.1 200 OK\r\nContent-Length: " << content_stream.tellp() << "\r\n\r\n" << content_stream.rdbuf();
     };
-    
+
     //GET-example for the path /match/[number], responds with the matched string in path (number)
     //For instance a request GET /match/123 will receive: 123
     server.resource["^/match/([0-9]+)$"]["GET"]=[](HttpsServer::Response& response, shared_ptr<HttpsServer::Request> request) {
         string number=request->path_match[1];
         response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n" << number;
     };
-    
-    //Default GET-example. If no other matches, this anonymous function will be called. 
+
+    //Default GET-example. If no other matches, this anonymous function will be called.
     //Will respond with content in the web/-directory, and its subdirectories.
     //Default file: index.html
     //Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
@@ -99,29 +99,29 @@ int main() {
                 if(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)) {
                     ifstream ifs;
                     ifs.open(path.string(), ifstream::in | ios::binary);
-                    
+
                     if(ifs) {
                         ifs.seekg(0, ios::end);
-                        size_t length=ifs.tellg();
-                        
+                        size_t length=static_cast<size_t>(ifs.tellg());
+
                         ifs.seekg(0, ios::beg);
-                        
+
                         response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
-                        
+
                         //read and send 128 KB at a time
                         const size_t buffer_size=131072;
                         vector<char> buffer(buffer_size);
                         size_t read_length;
                         try {
-                            while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
-                                response.write(&buffer[0], read_length);
+                            while((read_length=static_cast<size_t>(ifs.read(&buffer[0], static_cast<long>(buffer_size)).gcount()))>0) {
+                                response.write(&buffer[0], static_cast<long>(read_length));
                                 response.flush();
                             }
                         }
-                        catch(const exception &e) {
+                        catch(const exception &) {
                             cerr << "Connection interrupted, closing file" << endl;
                         }
-        
+
                         ifs.close();
                         return;
                     }
@@ -131,15 +131,15 @@ int main() {
         string content="Could not open path "+request->path;
         response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
     };
-    
+
     thread server_thread([&server](){
         //Start server
         server.start();
     });
-    
+
     //Wait for server to start so that the client can connect
     this_thread::sleep_for(chrono::seconds(1));
-    
+
     //Client examples
     //Second Client() parameter set to false: no certificate verification
     HttpsClient client("localhost:8080", false);
@@ -149,11 +149,11 @@ int main() {
     string json_string="{\"firstName\": \"John\",\"lastName\": \"Smith\",\"age\": 25}";
     auto r2=client.request("POST", "/string", json_string);
     cout << r2->content.rdbuf() << endl;
-    
+
     auto r3=client.request("POST", "/json", json_string);
     cout << r3->content.rdbuf() << endl;
-    
+
     server_thread.join();
-    
+
     return 0;
 }
