@@ -119,6 +119,8 @@ namespace SimpleWeb {
             std::string address;
             ///Set to false to avoid binding the socket to an address that is already in use.
             bool reuse_address;
+
+            unsigned short get_port() const { return port_; }
         };
         ///Set before calling start().
         Config config;
