@@ -102,7 +102,7 @@ int main() {
                     
                     if(ifs) {
                         ifs.seekg(0, ios::end);
-                        size_t length=ifs.tellg();
+                        auto length=ifs.tellg();
                         
                         ifs.seekg(0, ios::beg);
                         
@@ -111,14 +111,14 @@ int main() {
                         //read and send 128 KB at a time
                         const size_t buffer_size=131072;
                         vector<char> buffer(buffer_size);
-                        size_t read_length;
+                        streamsize read_length;
                         try {
                             while((read_length=ifs.read(&buffer[0], buffer_size).gcount())>0) {
                                 response.write(&buffer[0], read_length);
                                 response.flush();
                             }
                         }
-                        catch(const exception &e) {
+                        catch(const exception &) {
                             cerr << "Connection interrupted, closing file" << endl;
                         }
 

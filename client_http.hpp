@@ -14,6 +14,8 @@ namespace SimpleWeb {
     template <class socket_type>
     class ClientBase {
     public:
+        virtual ~ClientBase() {}
+
         class Response {
             friend class ClientBase<socket_type>;
             
@@ -43,7 +45,7 @@ namespace SimpleWeb {
         private:
             boost::asio::streambuf content_buffer;
             
-            Response(): content(&content_buffer) {};
+            Response(): content(&content_buffer) {}
         };
         
         std::shared_ptr<Response> request(const std::string& request_type, const std::string& path="/", boost::string_ref content="",
@@ -86,7 +88,7 @@ namespace SimpleWeb {
                 corrected_path="/";
             
             content.seekp(0, std::ios::end);
-            size_t content_length=content.tellp();
+            auto content_length=content.tellp();
             content.seekp(0, std::ios::beg);
             
             boost::asio::streambuf write_buffer;
@@ -135,7 +137,7 @@ namespace SimpleWeb {
             }
             else {
                 host=host_port.substr(0, host_end);
-                port=(unsigned short)stoul(host_port.substr(host_end+1));
+                port=static_cast<unsigned short>(stoul(host_port.substr(host_end+1)));
             }
 
             asio_endpoint=boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port);
@@ -191,7 +193,7 @@ namespace SimpleWeb {
                     boost::asio::streambuf streambuf;
                     std::ostream content(&streambuf);
                     
-                    size_t length;
+                    std::streamsize length;
                     std::string buffer;
                     do {
                         size_t bytes_transferred = boost::asio::read_until(*socket, response->content_buffer, "\r\n");
@@ -199,16 +201,16 @@ namespace SimpleWeb {
                         getline(response->content, line);
                         bytes_transferred-=line.size()+1;
                         line.pop_back();
-                        length=stoull(line, 0, 16);
+                        length=stol(line, 0, 16);
             
-                        size_t num_additional_bytes=response->content_buffer.size()-bytes_transferred;
+                        auto num_additional_bytes=static_cast<std::streamsize>(response->content_buffer.size()-bytes_transferred);
                     
                         if((2+length)>num_additional_bytes) {
                             boost::asio::read(*socket, response->content_buffer, 
                                 boost::asio::transfer_exactly(2+length-num_additional_bytes));
                         }
 
-                        buffer.resize(length);
+                        buffer.resize(static_cast<size_t>(length));
                         response->content.read(&buffer[0], length);
                         content.write(&buffer[0], length);
             

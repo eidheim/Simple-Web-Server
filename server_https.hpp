@@ -11,7 +11,7 @@ namespace SimpleWeb {
     class Server<HTTPS> : public ServerBase<HTTPS> {
     public:
         Server(unsigned short port, size_t num_threads, const std::string& cert_file, const std::string& private_key_file,
-                size_t timeout_request=5, size_t timeout_content=300, 
+                long timeout_request=5, long timeout_content=300,
                 const std::string& verify_file=std::string()) : 
                 ServerBase<HTTPS>::ServerBase(port, num_threads, timeout_request, timeout_content), 
                 context(boost::asio::ssl::context::sslv23) {

@@ -17,6 +17,8 @@ namespace SimpleWeb {
     template <class socket_type>
     class ServerBase {
     public:
+        virtual ~ServerBase() {}
+
         class Response : public std::ostream {
             friend class ServerBase<socket_type>;
         private:
@@ -101,7 +103,7 @@ namespace SimpleWeb {
                     remote_endpoint_address=socket.lowest_layer().remote_endpoint().address().to_string();
                     remote_endpoint_port=socket.lowest_layer().remote_endpoint().port();
                 }
-                catch(const std::exception& e) {}
+                catch(const std::exception&) {}
             }
         };
         
@@ -195,16 +197,16 @@ namespace SimpleWeb {
         boost::asio::ip::tcp::acceptor acceptor;
         std::vector<std::thread> threads;
         
-        size_t timeout_request;
-        size_t timeout_content;
+        long timeout_request;
+        long timeout_content;
         
-        ServerBase(unsigned short port, size_t num_threads, size_t timeout_request, size_t timeout_send_or_receive) : 
+        ServerBase(unsigned short port, size_t num_threads, long timeout_request, long timeout_send_or_receive) :
                 config(port, num_threads), acceptor(io_service),
                 timeout_request(timeout_request), timeout_content(timeout_send_or_receive) {}
         
         virtual void accept()=0;
         
-        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<socket_type> socket, size_t seconds) {
+        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<socket_type> socket, long seconds) {
             std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(io_service));
             timer->expires_from_now(boost::posix_time::seconds(seconds));
             timer->async_wait([socket](const boost::system::error_code& ec){
@@ -217,7 +219,7 @@ namespace SimpleWeb {
             return timer;
         }
         
-        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request, size_t seconds) {
+        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request, long seconds) {
             std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(io_service));
             timer->expires_from_now(boost::posix_time::seconds(seconds));
             timer->async_wait(request->strand.wrap([socket](const boost::system::error_code& ec){
@@ -266,7 +268,7 @@ namespace SimpleWeb {
                         try {
                             content_length=stoull(it->second);
                         }
-                        catch(const std::exception &e) {
+                        catch(const std::exception &) {
                             return;
                         }
                         if(content_length>num_additional_bytes) {
@@ -367,7 +369,7 @@ namespace SimpleWeb {
                 try {
                     resource_function(response, request);
                 }
-                catch(const std::exception& e) {
+                catch(const std::exception&) {
                     return;
                 }
                 
@@ -375,7 +377,7 @@ namespace SimpleWeb {
                     try {
                         response.flush();
                     }
-                    catch(const std::exception &e) {
+                    catch(const std::exception &) {
                         return;
                     }
                 }
@@ -385,7 +387,7 @@ namespace SimpleWeb {
                 try {
                     http_version=stof(request->http_version);
                 }
-                catch(const std::exception &e) {
+                catch(const std::exception &) {
                     return;
                 }
                 
@@ -408,7 +410,7 @@ namespace SimpleWeb {
     template<>
     class Server<HTTP> : public ServerBase<HTTP> {
     public:
-        Server(unsigned short port, size_t num_threads=1, size_t timeout_request=5, size_t timeout_content=300) : 
+        Server(unsigned short port, size_t num_threads=1, long timeout_request=5, long timeout_content=300) :
                 ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content) {}
         
     private:

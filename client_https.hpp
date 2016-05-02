@@ -28,7 +28,7 @@ namespace SimpleWeb {
                 asio_context.load_verify_file(verify_file);
             
             socket=std::make_shared<HTTPS>(asio_io_service, asio_context);
-        };
+        }
 
     private:
         boost::asio::ssl::context asio_context;

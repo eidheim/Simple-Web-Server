@@ -98,7 +98,7 @@ public:
     }
 };
 
-int main(int argc, char** argv) {
+int main() {
     ServerTest serverTest;
     
     if(!serverTest.parse_request_test()) {
