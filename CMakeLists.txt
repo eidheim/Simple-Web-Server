@@ -1,6 +1,6 @@
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 2.8.8)
 project (Simple-Web-Server)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -Wall -Wextra")
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8)
@@ -21,7 +21,7 @@ include_directories(.)
 find_package(Threads REQUIRED)
 
 find_package(Boost 1.54.0 COMPONENTS regex system thread coroutine context filesystem date_time REQUIRED)
-include_directories(${Boost_INCLUDE_DIR})
+include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 if(APPLE)
     set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
@@ -31,7 +31,7 @@ endif()
 find_package(OpenSSL)
 
 if(OPENSSL_FOUND)
-    include_directories(${OPENSSL_INCLUDE_DIR})
+    include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 
     add_executable(https_examples https_examples.cpp)
     target_link_libraries(https_examples ${Boost_LIBRARIES})
