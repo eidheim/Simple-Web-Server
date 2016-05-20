@@ -211,8 +211,7 @@ namespace SimpleWeb {
             timer->expires_from_now(boost::posix_time::seconds(seconds));
             timer->async_wait([socket](const boost::system::error_code& ec){
                 if(!ec) {
-                    boost::system::error_code ec;
-                    socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+                    socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
                     socket->lowest_layer().close();
                 }
             });
@@ -224,8 +223,7 @@ namespace SimpleWeb {
             timer->expires_from_now(boost::posix_time::seconds(seconds));
             timer->async_wait(request->strand.wrap([socket](const boost::system::error_code& ec){
                 if(!ec) {
-                    boost::system::error_code ec;
-                    socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+                    socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
                     socket->lowest_layer().close();
                 }
             }));
