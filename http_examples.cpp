@@ -19,6 +19,10 @@ using namespace boost::property_tree;
 typedef SimpleWeb::Server<SimpleWeb::HTTP> HttpServer;
 typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
+//Added for the default_resource example
+void default_resource_send(const HttpServer &server, shared_ptr<HttpServer::Response> response,
+                           shared_ptr<ifstream> ifs, shared_ptr<vector<char> > buffer);
+
 int main() {
     //HTTP-server at port 8080 using 1 thread
     //Unless you do more heavy non-threaded processing in the resources,
@@ -104,21 +108,8 @@ int main() {
                     
                     if(ifs) {
                         //read and send 128 KB at a time
-                        size_t buffer_size=131072;
+                        streamsize buffer_size=131072;
                         auto buffer=make_shared<vector<char>>(buffer_size);
-                        
-                        auto send_callback=make_shared<std::function<void(const boost::system::error_code&)> >(nullptr);
-                        *send_callback=[&server, response, ifs, buffer, buffer_size, send_callback](const boost::system::error_code &ec) {
-                            if(!ec) {
-                                streamsize read_length;
-                                if((read_length=ifs->read(&(*buffer)[0], buffer_size).gcount())>0) {
-                                    response->write(&(*buffer)[0], read_length);
-                                    server.send(response, *send_callback);
-                                }
-                            }
-                            else
-                                cerr << "Connection interrupted" << endl;
-                        };
                         
                         ifs->seekg(0, ios::end);
                         auto length=ifs->tellg();
@@ -126,7 +117,12 @@ int main() {
                         ifs->seekg(0, ios::beg);
                         
                         *response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
-                        server.send(response, *send_callback);
+                        server.send(response, [&server, response, ifs, buffer](const boost::system::error_code &ec) {
+                            if(!ec)
+                                default_resource_send(server, response, ifs, buffer);
+                            else
+                                cerr << "Connection interrupted" << endl;
+                        });
                         return;
                     }
                 }
@@ -159,4 +155,20 @@ int main() {
     server_thread.join();
     
     return 0;
+}
+
+void default_resource_send(const HttpServer &server, shared_ptr<HttpServer::Response> response,
+                           shared_ptr<ifstream> ifs, shared_ptr<vector<char> > buffer) {
+    streamsize read_length;
+    if((read_length=ifs->read(&(*buffer)[0], buffer->size()).gcount())>0) {
+        response->write(&(*buffer)[0], read_length);
+        if(read_length==static_cast<streamsize>(buffer->size())) {
+            server.send(response, [&server, response, ifs, buffer](const boost::system::error_code &ec) {
+                if(!ec)
+                    default_resource_send(server, response, ifs, buffer);
+                else
+                    cerr << "Connection interrupted" << endl;
+            });
+        }
+    }
 }
