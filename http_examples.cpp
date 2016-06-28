@@ -106,10 +106,10 @@ int main() {
                     auto ifs=make_shared<ifstream>();
                     ifs->open(path.string(), ifstream::in | ios::binary);
                     
-                    if(ifs) {
+                    if(*ifs) {
                         //read and send 128 KB at a time
                         streamsize buffer_size=131072;
-                        auto buffer=make_shared<vector<char>>(buffer_size);
+                        auto buffer=make_shared<vector<char> >(buffer_size);
                         
                         ifs->seekg(0, ios::end);
                         auto length=ifs->tellg();
@@ -117,12 +117,7 @@ int main() {
                         ifs->seekg(0, ios::beg);
                         
                         *response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
-                        server.send(response, [&server, response, ifs, buffer](const boost::system::error_code &ec) {
-                            if(!ec)
-                                default_resource_send(server, response, ifs, buffer);
-                            else
-                                cerr << "Connection interrupted" << endl;
-                        });
+                        default_resource_send(server, response, ifs, buffer);
                         return;
                     }
                 }
