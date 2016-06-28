@@ -20,7 +20,7 @@ include_directories(.)
 
 find_package(Threads REQUIRED)
 
-find_package(Boost 1.54.0 COMPONENTS regex system thread coroutine context filesystem date_time REQUIRED)
+find_package(Boost 1.54.0 COMPONENTS regex system thread filesystem date_time REQUIRED)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 if(APPLE)
