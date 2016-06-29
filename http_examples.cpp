@@ -89,11 +89,10 @@ int main() {
     
     //Get example simulating heavy work in a separate thread
     server.resource["^/work$"]["GET"]=[&server](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
-        *response << "HTTP/1.1 200 OK\r\n";
         thread work_thread([response] {
             this_thread::sleep_for(chrono::seconds(5));
             string message="Work done";
-            *response << "Content-Length: " << message.length() << "\r\n\r\n" << message;
+            *response << "HTTP/1.1 200 OK\r\nContent-Length: " << message.length() << "\r\n\r\n" << message;
         });
         work_thread.detach();
     };
