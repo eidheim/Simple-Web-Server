@@ -181,6 +181,7 @@ namespace SimpleWeb {
             io_service.stop();
         }
         
+        ///Use this function if you need to recursively send parts of a longer message
         void send(std::shared_ptr<Response> response, const std::function<void(const boost::system::error_code&)>& callback=nullptr) const {
             boost::asio::async_write(*response->socket, response->streambuf, [this, response, callback](const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
                 if(callback)
