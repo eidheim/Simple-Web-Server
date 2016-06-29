@@ -7,8 +7,8 @@ See https://github.com/eidheim/Simple-WebSocket-Server for an easy way to make W
 
 ### Features
 
-* Asynchronous
-* Thread pool
+* Asynchronous request handling
+* Thread pool if needed
 * Platform independent
 * HTTPS support
 * HTTP persistent connection (for HTTP/1.1)
