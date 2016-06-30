@@ -65,7 +65,7 @@ namespace SimpleWeb {
                 write_stream << "Content-Length: " << content.size() << "\r\n";
             write_stream << "\r\n";
             
-             try {
+            try {
                 connect();
                 
                 boost::asio::write(*socket, write_buffer);

@@ -81,11 +81,9 @@ namespace SimpleWeb {
             unsigned short remote_endpoint_port;
             
         private:
-            Request(boost::asio::io_service &io_service): content(streambuf), strand(io_service) {}
+            Request(): content(streambuf) {}
             
             boost::asio::streambuf streambuf;
-            
-            boost::asio::strand strand;
             
             void read_remote_endpoint_data(socket_type& socket) {
                 try {
@@ -216,23 +214,10 @@ namespace SimpleWeb {
             return timer;
         }
         
-        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request, long seconds) {
-            std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(io_service));
-            timer->expires_from_now(boost::posix_time::seconds(seconds));
-            timer->async_wait(request->strand.wrap([socket](const boost::system::error_code& ec){
-                if(!ec) {
-                    boost::system::error_code ec;
-                    socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-                    socket->lowest_layer().close();
-                }
-            }));
-            return timer;
-        }
-        
         void read_request_and_content(std::shared_ptr<socket_type> socket) {
             //Create new streambuf (Request::streambuf) for async_read_until()
             //shared_ptr is used to pass temporary objects to the asynchronous functions
-            std::shared_ptr<Request> request(new Request(io_service));
+            std::shared_ptr<Request> request(new Request());
             request->read_remote_endpoint_data(*socket);
 
             //Set timeout on the following boost::asio::async-read or write function
@@ -359,7 +344,7 @@ namespace SimpleWeb {
             //Set timeout on the following boost::asio::async-read or write function
             std::shared_ptr<boost::asio::deadline_timer> timer;
             if(timeout_content>0)
-                timer=set_timeout_on_socket(socket, request, timeout_content);
+                timer=set_timeout_on_socket(socket, timeout_content);
 
             auto response=std::shared_ptr<Response>(new Response(socket), [this, request, timer](Response *response_ptr) {
                 auto response=std::shared_ptr<Response>(response_ptr);
