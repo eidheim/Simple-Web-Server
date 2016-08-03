@@ -13,4 +13,5 @@ compile_commands.json
 # executables
 http_examples
 https_examples
+io_test
 parse_test
