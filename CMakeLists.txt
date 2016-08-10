@@ -51,4 +51,4 @@ endif()
 enable_testing()
 add_subdirectory(tests)
 
-install(FILES server_http.hpp client_http.hpp server_https.hpp client_https.hpp DESTINATION include/simplewebserver)
+install(FILES server_http.hpp client_http.hpp server_https.hpp client_https.hpp DESTINATION include/simple-web-server)
