@@ -7,9 +7,9 @@ using namespace SimpleWeb;
 
 class ServerTest : public ServerBase<HTTP> {
 public:
-    ServerTest() : 
-            ServerBase<HTTP>::ServerBase(8080, 1, 5, 300) {}
-            
+    ServerTest(boost::asio::io_service& ios) :
+            ServerBase<HTTP>::ServerBase(ios, 8080, 1, 5, 300) {}
+
     void accept() {}
     
     bool parse_request_test() {
@@ -99,8 +99,9 @@ public:
 };
 
 int main() {
-    ServerTest serverTest;
-    
+    boost::asio::io_service ios;
+    ServerTest serverTest(ios);
+
     if(!serverTest.parse_request_test()) {
         cerr << "FAIL Server::parse_request" << endl;
         return 1;

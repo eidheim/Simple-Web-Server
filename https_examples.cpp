@@ -23,12 +23,49 @@ typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
 void default_resource_send(const HttpsServer &server, shared_ptr<HttpsServer::Response> response,
                            shared_ptr<ifstream> ifs, shared_ptr<vector<char> > buffer);
 
+const int cnPort = 443;
+const string cstr_server_url("localhost:443");
+
+class Controller
+{
+public:
+    Controller(boost::asio::io_service& ios) : ios_(ios), timer_(ios) { start_timer(); }
+
+    void start_timer()
+    {
+        timer_.expires_from_now(boost::posix_time::milliseconds(50));
+        timer_.async_wait(boost::bind(&Controller::main_loop,this,boost::asio::placeholders::error));
+    }
+
+    void main_loop(const boost::system::error_code& error)
+    {
+        // MANDATORY, boost will make unsolicited calls with error set.
+        if (error) return;
+
+
+        // Do any controller-like things, including handling timer events,
+        // handling any incoming data from https server, exiting, etc.
+        cout << "Timer fired..." << std::endl;
+
+
+        // Prime the next loop.
+        timer_.expires_from_now(boost::posix_time::milliseconds(300));
+        timer_.async_wait(boost::bind(&Controller::main_loop,this,boost::asio::placeholders::error));
+    }
+
+    boost::asio::io_service& ios_;
+    boost::asio::deadline_timer timer_;
+};
+
+
 int main() {
     //HTTPS-server at port 8080 using 1 thread
     //Unless you do more heavy non-threaded processing in the resources,
     //1 thread is usually faster than several threads
-    HttpsServer server(8080, 1, "server.crt", "server.key");
-    
+
+    boost::asio::io_service ios;
+    HttpsServer server(ios, cnPort, 1,"server_chainbundle.crt","server.key");
+
     //Add resources using path-regex and method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string
     server.resource["^/string$"]["POST"]=[](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> request) {
@@ -142,12 +179,15 @@ int main() {
         server.start();
     });
     
+    // The controller provides the main loop, including an additional ios timer.
+    Controller c(ios);
+
     //Wait for server to start so that the client can connect
     this_thread::sleep_for(chrono::seconds(1));
     
     //Client examples
     //Second Client() parameter set to false: no certificate verification
-    HttpsClient client("localhost:8080", false);
+    HttpsClient client(cstr_server_url, false);
     auto r1=client.request("GET", "/match/123");
     cout << r1->content.rdbuf() << endl;
 

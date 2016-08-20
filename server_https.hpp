@@ -10,11 +10,11 @@ namespace SimpleWeb {
     template<>
     class Server<HTTPS> : public ServerBase<HTTPS> {
     public:
-        Server(unsigned short port, size_t num_threads, const std::string& cert_file, const std::string& private_key_file,
+        Server(boost::asio::io_service& ios, unsigned short port, size_t num_threads, const std::string& cert_file, const std::string& private_key_file,
                 long timeout_request=5, long timeout_content=300,
                 const std::string& verify_file=std::string()) : 
-                ServerBase<HTTPS>::ServerBase(port, num_threads, timeout_request, timeout_content), 
-                context(boost::asio::ssl::context::sslv23) {
+                ServerBase<HTTPS>::ServerBase(ios, port, num_threads, timeout_request, timeout_content),
+                context(boost::asio::ssl::context::tlsv12) { // 2016/08/13 only use tls12, see https://www.ssllabs.com/ssltest
             context.use_certificate_chain_file(cert_file);
             context.use_private_key_file(private_key_file, boost::asio::ssl::context::pem);
             

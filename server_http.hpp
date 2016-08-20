@@ -188,15 +188,18 @@ namespace SimpleWeb {
         }
 
     protected:
-        boost::asio::io_service io_service;
+
+        boost::asio::io_service& io_service;
+
         boost::asio::ip::tcp::acceptor acceptor;
         std::vector<std::thread> threads;
         
         long timeout_request;
         long timeout_content;
         
-        ServerBase(unsigned short port, size_t num_threads, long timeout_request, long timeout_send_or_receive) :
-                config(port, num_threads), acceptor(io_service),
+        ServerBase(boost::asio::io_service& ios, unsigned short port, size_t num_threads, long timeout_request, long timeout_send_or_receive) :
+                config(port, num_threads), io_service(ios), acceptor(ios),
+
                 timeout_request(timeout_request), timeout_content(timeout_send_or_receive) {}
         
         virtual void accept()=0;
@@ -388,9 +391,10 @@ namespace SimpleWeb {
     template<>
     class Server<HTTP> : public ServerBase<HTTP> {
     public:
-        Server(unsigned short port, size_t num_threads=1, long timeout_request=5, long timeout_content=300) :
-                ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content) {}
-        
+
+        Server(boost::asio::io_service& ios, unsigned short port, size_t num_threads=1, long timeout_request=5, long timeout_content=300) :
+                ServerBase<HTTP>::ServerBase(ios, port, num_threads, timeout_request, timeout_content) {}
+
     private:
         void accept() {
             //Create new socket for this connection
