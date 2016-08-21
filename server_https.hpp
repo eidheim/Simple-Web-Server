@@ -14,7 +14,7 @@ namespace SimpleWeb {
                 long timeout_request=5, long timeout_content=300,
                 const std::string& verify_file=std::string()) : 
                 ServerBase<HTTPS>::ServerBase(port, num_threads, timeout_request, timeout_content), 
-                context(boost::asio::ssl::context::sslv23) {
+                context(boost::asio::ssl::context::tlsv12) { // 2016/08/13 only use tls12, see https://www.ssllabs.com/ssltest
             context.use_certificate_chain_file(cert_file);
             context.use_private_key_file(private_key_file, boost::asio::ssl::context::pem);
             
