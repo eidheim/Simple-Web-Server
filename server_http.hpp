@@ -391,7 +391,7 @@ namespace SimpleWeb {
         Server(unsigned short port, size_t num_threads=1, long timeout_request=5, long timeout_content=300) :
                 ServerBase<HTTP>::ServerBase(port, num_threads, timeout_request, timeout_content) {}
         
-    private:
+    protected:
         void accept() {
             //Create new socket for this connection
             //Shared_ptr is used to pass temporary objects to the asynchronous functions

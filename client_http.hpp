@@ -118,9 +118,9 @@ namespace SimpleWeb {
         }
         
     protected:
-        boost::asio::io_service asio_io_service;
-        boost::asio::ip::tcp::endpoint asio_endpoint;
-        boost::asio::ip::tcp::resolver asio_resolver;
+        boost::asio::io_service io_service;
+        boost::asio::ip::tcp::endpoint endpoint;
+        boost::asio::ip::tcp::resolver resolver;
         
         std::shared_ptr<socket_type> socket;
         bool socket_error;
@@ -129,7 +129,7 @@ namespace SimpleWeb {
         unsigned short port;
                 
         ClientBase(const std::string& host_port, unsigned short default_port) : 
-                asio_resolver(asio_io_service), socket_error(false) {
+                resolver(io_service), socket_error(false) {
             size_t host_end=host_port.find(':');
             if(host_end==std::string::npos) {
                 host=host_port;
@@ -140,7 +140,7 @@ namespace SimpleWeb {
                 port=static_cast<unsigned short>(stoul(host_port.substr(host_end+1)));
             }
 
-            asio_endpoint=boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port);
+            endpoint=boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port);
         }
         
         virtual void connect()=0;
@@ -241,14 +241,14 @@ namespace SimpleWeb {
     class Client<HTTP> : public ClientBase<HTTP> {
     public:
         Client(const std::string& server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {
-            socket=std::make_shared<HTTP>(asio_io_service);
+            socket=std::make_shared<HTTP>(io_service);
         }
         
-    private:
+    protected:
         void connect() {
             if(socket_error || !socket->is_open()) {
                 boost::asio::ip::tcp::resolver::query query(host, std::to_string(port));
-                boost::asio::connect(*socket, asio_resolver.resolve(query));
+                boost::asio::connect(*socket, resolver.resolve(query));
                 
                 boost::asio::ip::tcp::no_delay option(true);
                 socket->set_option(option);

@@ -22,7 +22,7 @@ namespace SimpleWeb {
                 context.load_verify_file(verify_file);
         }
 
-    private:
+    protected:
         boost::asio::ssl::context context;
         
         void accept() {
