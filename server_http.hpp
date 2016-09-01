@@ -80,6 +80,7 @@ namespace SimpleWeb {
             std::string remote_endpoint_address;
             unsigned short remote_endpoint_port;
             
+            std::function<void(const std::exception&)> exception_handler;
         private:
             Request(): content(streambuf) {}
             
@@ -90,7 +91,10 @@ namespace SimpleWeb {
                     remote_endpoint_address=socket.lowest_layer().remote_endpoint().address().to_string();
                     remote_endpoint_port=socket.lowest_layer().remote_endpoint().port();
                 }
-                catch(const std::exception&) {}
+                catch(const std::exception&e) {
+                    if(exception_handler)
+                       exception_handler(e);
+                }
             }
         };
         
@@ -186,6 +190,7 @@ namespace SimpleWeb {
                     callback(ec);
             });
         }
+        std::function<void(const std::exception&)> exception_handler;
 
     protected:
         boost::asio::io_service io_service;
@@ -250,7 +255,9 @@ namespace SimpleWeb {
                         try {
                             content_length=stoull(it->second);
                         }
-                        catch(const std::exception &) {
+                        catch(const std::exception &e) {
+                            if(exception_handler)
+                                exception_handler(e);
                             return;
                         }
                         if(content_length>num_additional_bytes) {
@@ -356,7 +363,9 @@ namespace SimpleWeb {
                         try {
                             http_version=stof(request->http_version);
                         }
-                        catch(const std::exception &) {
+                        catch(const std::exception &e){
+                            if(exception_handler)
+                                exception_handler(e);
                             return;
                         }
                         
@@ -374,7 +383,9 @@ namespace SimpleWeb {
             try {
                 resource_function(response, request);
             }
-            catch(const std::exception&) {
+            catch(const std::exception&e) {
+                if(exception_handler)
+                    exception_handler(e);
                 return;
             }
         }
