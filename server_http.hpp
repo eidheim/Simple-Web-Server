@@ -80,21 +80,14 @@ namespace SimpleWeb {
             std::string remote_endpoint_address;
             unsigned short remote_endpoint_port;
             
-            std::function<void(const std::exception&)> exception_handler;
         private:
             Request(): content(streambuf) {}
             
             boost::asio::streambuf streambuf;
             
             void read_remote_endpoint_data(socket_type& socket) {
-                try {
-                    remote_endpoint_address=socket.lowest_layer().remote_endpoint().address().to_string();
-                    remote_endpoint_port=socket.lowest_layer().remote_endpoint().port();
-                }
-                catch(const std::exception&e) {
-                    if(exception_handler)
-                       exception_handler(e);
-                }
+                remote_endpoint_address=socket.lowest_layer().remote_endpoint().address().to_string();
+                remote_endpoint_port=socket.lowest_layer().remote_endpoint().port();
             }
         };
         
@@ -223,7 +216,13 @@ namespace SimpleWeb {
             //Create new streambuf (Request::streambuf) for async_read_until()
             //shared_ptr is used to pass temporary objects to the asynchronous functions
             std::shared_ptr<Request> request(new Request());
-            request->read_remote_endpoint_data(*socket);
+            try {
+               request->read_remote_endpoint_data(*socket);
+            }
+            catch(const std::exception &e) {
+                if(exception_handler)
+                   exception_handler(e);
+            }
 
             //Set timeout on the following boost::asio::async-read or write function
             std::shared_ptr<boost::asio::deadline_timer> timer;
@@ -383,7 +382,7 @@ namespace SimpleWeb {
             try {
                 resource_function(response, request);
             }
-            catch(const std::exception&e) {
+            catch(const std::exception &e) {
                 if(exception_handler)
                     exception_handler(e);
                 return;
