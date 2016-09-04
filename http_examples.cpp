@@ -57,9 +57,9 @@ int main() {
 
             string name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
 
-            *response << "HTTP/1.1 200 OK\r\nContent-Length: " << name.length() << "\r\n" 
-                      << "Access-Control-Allow-Origin: *" << "\r\n" 
-                      << "Content-Type: application/json" << "\r\n\r\n" 
+            *response << "Access-Control-Allow-Origin: *" << "\r\n" 
+                      << "Content-Type: application/json" << "\r\n" 
+                      << "HTTP/1.1 200 OK\r\nContent-Length: " << name.length() << "\r\n\r\n"
                       << name;
         }
         catch(exception& e) {
