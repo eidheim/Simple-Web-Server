@@ -60,8 +60,8 @@ int main() {
             *response << "HTTP/1.1 200 OK" << "\r\n"
                       << "Access-Control-Allow-Origin: *" << "\r\n" 
                       << "Content-Type: application/json" << "\r\n" 
-                      <<"Content-Length: " << name.length() << "\r\n"
-                      <<"\r\n"
+                      << "Content-Length: " << name.length() << "\r\n"
+                      << "\r\n"
                       << name;
         }
         catch(exception& e) {
