@@ -105,39 +105,41 @@ int main() {
     //Default file: index.html
     //Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
     server.default_resource["GET"]=[&server](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> request) {
-        const auto web_root_path=boost::filesystem::canonical("web");
-        boost::filesystem::path path=web_root_path;
-        path/=request->path;
-        if(boost::filesystem::exists(path)) {
-            path=boost::filesystem::canonical(path);
+        try {
+            auto web_root_path=boost::filesystem::canonical("web");
+            auto path=boost::filesystem::canonical(web_root_path/request->path);
             //Check if path is within web_root_path
-            if(distance(web_root_path.begin(), web_root_path.end())<=distance(path.begin(), path.end()) &&
-               equal(web_root_path.begin(), web_root_path.end(), path.begin())) {
-                if(boost::filesystem::is_directory(path))
-                    path/="index.html";
-                if(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)) {
-                    auto ifs=make_shared<ifstream>();
-                    ifs->open(path.string(), ifstream::in | ios::binary);
-                    
-                    if(*ifs) {
-                        //read and send 128 KB at a time
-                        streamsize buffer_size=131072;
-                        auto buffer=make_shared<vector<char> >(buffer_size);
-                        
-                        ifs->seekg(0, ios::end);
-                        auto length=ifs->tellg();
-                        
-                        ifs->seekg(0, ios::beg);
-                        
-                        *response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
-                        default_resource_send(server, response, ifs, buffer);
-                        return;
-                    }
-                }
+            if(distance(web_root_path.begin(), web_root_path.end())>distance(path.begin(), path.end()) ||
+               !equal(web_root_path.begin(), web_root_path.end(), path.begin()))
+                throw invalid_argument("path must be within root path");
+            if(boost::filesystem::is_directory(path))
+                path/="index.html";
+            if(!(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)))
+                throw invalid_argument("file does not exist");
+            
+            auto ifs=make_shared<ifstream>();
+            ifs->open(path.string(), ifstream::in | ios::binary);
+            
+            if(*ifs) {
+                //read and send 128 KB at a time
+                streamsize buffer_size=131072;
+                auto buffer=make_shared<vector<char> >(buffer_size);
+                
+                ifs->seekg(0, ios::end);
+                auto length=ifs->tellg();
+                
+                ifs->seekg(0, ios::beg);
+                
+                *response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
+                default_resource_send(server, response, ifs, buffer);
             }
+            else
+                throw invalid_argument("coult not read file");
         }
-        string content="Could not open path "+request->path;
-        *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
+        catch(const exception &e) {
+            string content="Could not open path "+request->path+": "+e.what();
+            *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
+        }
     };
     
     thread server_thread([&server](){
