@@ -134,7 +134,7 @@ int main() {
                 default_resource_send(server, response, ifs, buffer);
             }
             else
-                throw invalid_argument("coult not read file");
+                throw invalid_argument("could not read file");
         }
         catch(const exception &e) {
             string content="Could not open path "+request->path+": "+e.what();
