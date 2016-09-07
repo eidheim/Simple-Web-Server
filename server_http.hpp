@@ -84,11 +84,6 @@ namespace SimpleWeb {
             Request(): content(streambuf) {}
             
             boost::asio::streambuf streambuf;
-            
-            void read_remote_endpoint_data(socket_type& socket) {
-                remote_endpoint_address=socket.lowest_layer().remote_endpoint().address().to_string();
-                remote_endpoint_port=socket.lowest_layer().remote_endpoint().port();
-            }
         };
         
         class Config {
@@ -112,6 +107,8 @@ namespace SimpleWeb {
         
         std::unordered_map<std::string, 
             std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > default_resource;
+        
+        std::function<void(const std::exception&)> exception_handler;
 
     private:
         std::vector<std::pair<std::string, std::vector<std::pair<boost::regex,
@@ -183,7 +180,6 @@ namespace SimpleWeb {
                     callback(ec);
             });
         }
-        std::function<void(const std::exception&)> exception_handler;
 
     protected:
         boost::asio::io_service io_service;
@@ -217,7 +213,8 @@ namespace SimpleWeb {
             //shared_ptr is used to pass temporary objects to the asynchronous functions
             std::shared_ptr<Request> request(new Request());
             try {
-               request->read_remote_endpoint_data(*socket);
+                request->remote_endpoint_address=socket->lowest_layer().remote_endpoint().address().to_string();
+                request->remote_endpoint_port=socket->lowest_layer().remote_endpoint().port();
             }
             catch(const std::exception &e) {
                 if(exception_handler)
