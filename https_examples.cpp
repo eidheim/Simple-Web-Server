@@ -56,8 +56,11 @@ int main() {
             read_json(request->content, pt);
 
             string name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
-            
-            *response << "HTTP/1.1 200 OK\r\nContent-Length: " << name.length() << "\r\n\r\n" << name;
+
+            *response << "HTTP/1.1 200 OK\r\n"
+                      << "Content-Type: application/json\r\n"
+                      << "Content-Length: " << name.length() << "\r\n\r\n"
+                      << name;
         }
         catch(exception& e) {
             *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << strlen(e.what()) << "\r\n\r\n" << e.what();
