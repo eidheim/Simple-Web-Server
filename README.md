@@ -31,13 +31,16 @@ See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[nu
 
 Compile with a C++11 compliant compiler:
 ```
-cmake .
+mkdir build
+cd build
+cmake ..
 make
+cd ..
 ```
 
 #### HTTP
 
-Run the server and client examples: `./http_examples`
+Run the server and client examples: `./build/http_examples`
 
 Direct your favorite browser to for instance http://localhost:8080/
 
@@ -45,7 +48,7 @@ Direct your favorite browser to for instance http://localhost:8080/
 
 Before running the server, an RSA private key (server.key) and an SSL certificate (server.crt) must be created. Follow, for instance, the instructions given here (for a self-signed certificate): http://www.akadia.com/services/ssh_test_certificate.html
 
-Run the server and client examples: `./https_examples`
+Run the server and client examples: `./build/https_examples`
 
 Direct your favorite browser to for instance https://localhost:8080/
 
