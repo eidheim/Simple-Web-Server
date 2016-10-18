@@ -30,7 +30,7 @@ See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[nu
 ### Compile and run
 
 Compile with a C++11 compliant compiler:
-```
+```sh
 mkdir build
 cd build
 cmake ..
