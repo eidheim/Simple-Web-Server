@@ -145,7 +145,7 @@ namespace SimpleWeb {
         
         virtual void connect()=0;
         
-        void parse_response_header(std::shared_ptr<Response> response, std::istream& stream) const {
+        void parse_response_header(const std::shared_ptr<Response> &response, std::istream& stream) const {
             std::string line;
             getline(stream, line);
             size_t version_end=line.find(' ');

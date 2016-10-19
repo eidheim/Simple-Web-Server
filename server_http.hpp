@@ -25,7 +25,7 @@ namespace SimpleWeb {
 
             std::shared_ptr<socket_type> socket;
 
-            Response(std::shared_ptr<socket_type> socket): std::ostream(&streambuf), socket(socket) {}
+            Response(const std::shared_ptr<socket_type> &socket): std::ostream(&streambuf), socket(socket) {}
 
         public:
             size_t size() {
@@ -174,7 +174,7 @@ namespace SimpleWeb {
         }
         
         ///Use this function if you need to recursively send parts of a longer message
-        void send(std::shared_ptr<Response> response, const std::function<void(const boost::system::error_code&)>& callback=nullptr) const {
+        void send(const std::shared_ptr<Response> &response, const std::function<void(const boost::system::error_code&)>& callback=nullptr) const {
             boost::asio::async_write(*response->socket, response->streambuf, [this, response, callback](const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
                 if(callback)
                     callback(ec);
@@ -195,7 +195,7 @@ namespace SimpleWeb {
         
         virtual void accept()=0;
         
-        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(std::shared_ptr<socket_type> socket, long seconds) {
+        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(const std::shared_ptr<socket_type> &socket, long seconds) {
             std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(io_service));
             timer->expires_from_now(boost::posix_time::seconds(seconds));
             timer->async_wait([socket](const boost::system::error_code& ec){
@@ -208,7 +208,7 @@ namespace SimpleWeb {
             return timer;
         }
         
-        void read_request_and_content(std::shared_ptr<socket_type> socket) {
+        void read_request_and_content(const std::shared_ptr<socket_type> &socket) {
             //Create new streambuf (Request::streambuf) for async_read_until()
             //shared_ptr is used to pass temporary objects to the asynchronous functions
             std::shared_ptr<Request> request(new Request());
@@ -280,7 +280,7 @@ namespace SimpleWeb {
             });
         }
 
-        bool parse_request(std::shared_ptr<Request> request, std::istream& stream) const {
+        bool parse_request(const std::shared_ptr<Request> &request, std::istream& stream) const {
             std::string line;
             getline(stream, line);
             size_t method_end;
@@ -321,7 +321,7 @@ namespace SimpleWeb {
             return true;
         }
 
-        void find_resource(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request) {
+        void find_resource(const std::shared_ptr<socket_type> &socket, const std::shared_ptr<Request> &request) {
             //Find path- and method-match, and call write_response
             for(auto& res: opt_resource) {
                 if(request->method==res.first) {
@@ -341,7 +341,7 @@ namespace SimpleWeb {
             }
         }
         
-        void write_response(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request, 
+        void write_response(const std::shared_ptr<socket_type> &socket, const std::shared_ptr<Request> &request, 
                 std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>,
                                    std::shared_ptr<typename ServerBase<socket_type>::Request>)>& resource_function) {
             //Set timeout on the following boost::asio::async-read or write function

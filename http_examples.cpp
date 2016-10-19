@@ -20,8 +20,8 @@ typedef SimpleWeb::Server<SimpleWeb::HTTP> HttpServer;
 typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
 //Added for the default_resource example
-void default_resource_send(const HttpServer &server, shared_ptr<HttpServer::Response> response,
-                           shared_ptr<ifstream> ifs, shared_ptr<vector<char> > buffer);
+void default_resource_send(const HttpServer &server, const shared_ptr<HttpServer::Response> &response,
+                           const shared_ptr<ifstream> &ifs, const shared_ptr<vector<char> > &buffer);
 
 int main() {
     //HTTP-server at port 8080 using 1 thread
@@ -167,8 +167,8 @@ int main() {
     return 0;
 }
 
-void default_resource_send(const HttpServer &server, shared_ptr<HttpServer::Response> response,
-                           shared_ptr<ifstream> ifs, shared_ptr<vector<char> > buffer) {
+void default_resource_send(const HttpServer &server, const shared_ptr<HttpServer::Response> &response,
+                           const shared_ptr<ifstream> &ifs, const shared_ptr<vector<char> > &buffer) {
     streamsize read_length;
     if((read_length=ifs->read(&(*buffer)[0], buffer->size()).gcount())>0) {
         response->write(&(*buffer)[0], read_length);
