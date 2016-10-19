@@ -106,7 +106,7 @@ int main() {
     //Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
     server.default_resource["GET"]=[&server](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
         try {
-            auto web_root_path=boost::filesystem::canonical("web");
+            static auto web_root_path=boost::filesystem::canonical("web");
             auto path=boost::filesystem::canonical(web_root_path/request->path);
             //Check if path is within web_root_path
             if(distance(web_root_path.begin(), web_root_path.end())>distance(path.begin(), path.end()) ||
@@ -114,8 +114,6 @@ int main() {
                 throw invalid_argument("path must be within root path");
             if(boost::filesystem::is_directory(path))
                 path/="index.html";
-            if(!(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)))
-                throw invalid_argument("file does not exist");
             
             auto ifs=make_shared<ifstream>();
             ifs->open(path.string(), ifstream::in | ios::binary);
