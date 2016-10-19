@@ -136,7 +136,10 @@ namespace SimpleWeb {
                 }
             }
 
-            if(io_service.stopped())
+            if(!io_service)
+                io_service=std::make_shared<boost::asio::io_service>();
+
+            if(io_service->stopped())
                 io_service.reset();
 
             boost::asio::ip::tcp::endpoint endpoint;
@@ -144,10 +147,13 @@ namespace SimpleWeb {
                 endpoint=boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string(config.address), config.port);
             else
                 endpoint=boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), config.port);
-            acceptor.open(endpoint.protocol());
-            acceptor.set_option(boost::asio::socket_base::reuse_address(config.reuse_address));
-            acceptor.bind(endpoint);
-            acceptor.listen();
+            
+            if(!acceptor)
+                acceptor=std::unique_ptr<boost::asio::ip::tcp::acceptor>(new boost::asio::ip::tcp::acceptor(*io_service));
+            acceptor->open(endpoint.protocol());
+            acceptor->set_option(boost::asio::socket_base::reuse_address(config.reuse_address));
+            acceptor->bind(endpoint);
+            acceptor->listen();
      
             accept(); 
             
@@ -155,12 +161,13 @@ namespace SimpleWeb {
             threads.clear();
             for(size_t c=1;c<config.num_threads;c++) {
                 threads.emplace_back([this](){
-                    io_service.run();
+                    io_service->run();
                 });
             }
 
             //Main thread
-            io_service.run();
+            if(config.num_threads>0)
+                io_service->run();
 
             //Wait for the rest of the threads, if any, to finish as well
             for(auto& t: threads) {
@@ -169,8 +176,9 @@ namespace SimpleWeb {
         }
         
         void stop() {
-            acceptor.close();
-            io_service.stop();
+            acceptor->close();
+            if(config.num_threads>0)
+                io_service->stop();
         }
         
         ///Use this function if you need to recursively send parts of a longer message
@@ -181,22 +189,23 @@ namespace SimpleWeb {
             });
         }
 
+        /// If you have your own boost::asio::io_service, store its pointer here before running start().
+        /// You might also want to set config.num_threads to 0.
+        std::shared_ptr<boost::asio::io_service> io_service;
     protected:
-        boost::asio::io_service io_service;
-        boost::asio::ip::tcp::acceptor acceptor;
+        std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor;
         std::vector<std::thread> threads;
         
         long timeout_request;
         long timeout_content;
         
         ServerBase(unsigned short port, size_t num_threads, long timeout_request, long timeout_send_or_receive) :
-                config(port, num_threads), acceptor(io_service),
-                timeout_request(timeout_request), timeout_content(timeout_send_or_receive) {}
+                config(port, num_threads), timeout_request(timeout_request), timeout_content(timeout_send_or_receive) {}
         
         virtual void accept()=0;
         
         std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(const std::shared_ptr<socket_type> &socket, long seconds) {
-            std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(io_service));
+            std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(*io_service));
             timer->expires_from_now(boost::posix_time::seconds(seconds));
             timer->async_wait([socket](const boost::system::error_code& ec){
                 if(!ec) {
@@ -402,9 +411,9 @@ namespace SimpleWeb {
         void accept() {
             //Create new socket for this connection
             //Shared_ptr is used to pass temporary objects to the asynchronous functions
-            std::shared_ptr<HTTP> socket(new HTTP(io_service));
+            std::shared_ptr<HTTP> socket(new HTTP(*io_service));
                         
-            acceptor.async_accept(*socket, [this, socket](const boost::system::error_code& ec){
+            acceptor->async_accept(*socket, [this, socket](const boost::system::error_code& ec){
                 //Immediately start accepting a new connection
                 accept();
                                 
