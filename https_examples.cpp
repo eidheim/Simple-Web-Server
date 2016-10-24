@@ -21,7 +21,7 @@ typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
 
 //Added for the default_resource example
 void default_resource_send(const HttpsServer &server, const shared_ptr<HttpsServer::Response> &response,
-                           const shared_ptr<ifstream> &ifs, const shared_ptr<vector<char> > &buffer);
+                           const shared_ptr<ifstream> &ifs);
 
 int main() {
     //HTTPS-server at port 8080 using 1 thread
@@ -121,17 +121,13 @@ int main() {
             ifs->open(path.string(), ifstream::in | ios::binary);
             
             if(*ifs) {
-                //read and send 128 KB at a time
-                streamsize buffer_size=131072;
-                auto buffer=make_shared<vector<char> >(buffer_size);
-                
                 ifs->seekg(0, ios::end);
                 auto length=ifs->tellg();
                 
                 ifs->seekg(0, ios::beg);
                 
                 *response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
-                default_resource_send(server, response, ifs, buffer);
+                default_resource_send(server, response, ifs);
             }
             else
                 throw invalid_argument("could not read file");
@@ -169,14 +165,16 @@ int main() {
 }
 
 void default_resource_send(const HttpsServer &server, const shared_ptr<HttpsServer::Response> &response,
-                           const shared_ptr<ifstream> &ifs, const shared_ptr<vector<char> > &buffer) {
+                           const shared_ptr<ifstream> &ifs) {
+    //read and send 128 KB at a time
+    static vector<char> buffer(131072); // Safe when server is running on one thread
     streamsize read_length;
-    if((read_length=ifs->read(&(*buffer)[0], buffer->size()).gcount())>0) {
-        response->write(&(*buffer)[0], read_length);
-        if(read_length==static_cast<streamsize>(buffer->size())) {
-            server.send(response, [&server, response, ifs, buffer](const boost::system::error_code &ec) {
+    if((read_length=ifs->read(&buffer[0], buffer.size()).gcount())>0) {
+        response->write(&buffer[0], read_length);
+        if(read_length==static_cast<streamsize>(buffer.size())) {
+            server.send(response, [&server, response, ifs](const boost::system::error_code &ec) {
                 if(!ec)
-                    default_resource_send(server, response, ifs, buffer);
+                    default_resource_send(server, response, ifs);
                 else
                     cerr << "Connection interrupted" << endl;
             });
