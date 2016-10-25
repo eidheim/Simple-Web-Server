@@ -6,11 +6,19 @@
 #include <boost/functional/hash.hpp>
 
 #include <unordered_map>
-#include <regex>
 #include <thread>
 #include <functional>
 #include <iostream>
 #include <sstream>
+
+// Late 2017 TODO: remove the following checks and always use std::regex
+#ifdef USE_BOOST_REGEX
+#include <boost/regex.hpp>
+#define REGEX_NS boost
+#else
+#include <regex>
+#define REGEX_NS std
+#endif
 
 namespace SimpleWeb {
     template <class socket_type>
@@ -75,7 +83,7 @@ namespace SimpleWeb {
 
             std::unordered_multimap<std::string, std::string, ihash, iequal_to> header;
 
-            std::smatch path_match;
+            REGEX_NS::smatch path_match;
             
             std::string remote_endpoint_address;
             unsigned short remote_endpoint_port;
@@ -111,7 +119,7 @@ namespace SimpleWeb {
         std::function<void(const std::exception&)> exception_handler;
 
     private:
-        std::vector<std::pair<std::string, std::vector<std::pair<std::regex,
+        std::vector<std::pair<std::string, std::vector<std::pair<REGEX_NS::regex,
             std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > > > > opt_resource;
         
     public:
@@ -132,7 +140,7 @@ namespace SimpleWeb {
                         it=opt_resource.begin()+(opt_resource.size()-1);
                         it->first=res_method.first;
                     }
-                    it->second.emplace_back(std::regex(res.first), res_method.second);
+                    it->second.emplace_back(REGEX_NS::regex(res.first), res_method.second);
                 }
             }
 
@@ -335,8 +343,8 @@ namespace SimpleWeb {
             for(auto& res: opt_resource) {
                 if(request->method==res.first) {
                     for(auto& res_path: res.second) {
-                        std::smatch sm_res;
-                        if(std::regex_match(request->path, sm_res, res_path.first)) {
+                        REGEX_NS::smatch sm_res;
+                        if(REGEX_NS::regex_match(request->path, sm_res, res_path.first)) {
                             request->path_match=std::move(sm_res);
                             write_response(socket, request, res_path.second);
                             return;
