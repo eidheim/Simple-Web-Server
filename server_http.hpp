@@ -123,7 +123,7 @@ namespace SimpleWeb {
             std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > > > > opt_resource;
         
     public:
-        void start() {
+	void reload() {
             //Copy the resources to opt_resource for more efficient request processing
             opt_resource.clear();
             for(auto& res: resource) {
@@ -143,7 +143,10 @@ namespace SimpleWeb {
                     it->second.emplace_back(REGEX_NS::regex(res.first), res_method.second);
                 }
             }
+	}
 
+        void start() {
+	    reload();
             if(!io_service)
                 io_service=std::make_shared<boost::asio::io_service>();
 
