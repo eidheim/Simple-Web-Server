@@ -10,6 +10,7 @@
 #include <functional>
 #include <iostream>
 #include <sstream>
+#include <mutex>
 
 // Late 2017 TODO: remove the following checks and always use std::regex
 #ifdef USE_BOOST_REGEX
@@ -119,11 +120,43 @@ namespace SimpleWeb {
         std::function<void(const std::exception&)> exception_handler;
 
     private:
+	std::mutex opt_res_mutex;
         std::vector<std::pair<std::string, std::vector<std::pair<REGEX_NS::regex,
             std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > > > > opt_resource;
         
     public:
+	void addResource(std::string method, std::string regex, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> func) {
+	    auto r = resource.find(regex);
+	    if (r != resource.end()) {
+		if (r->second.find(method) != r->second.end())
+			return; // already loaded, skipping
+		r->second[method] = func;
+	    } else {
+		resource[regex][method] = func;
+		    
+	    }
+
+            auto it=opt_resource.end();
+            for(auto opt_it=opt_resource.begin();opt_it!=opt_resource.end();opt_it++) {
+                if(method==opt_it->first) {
+                    it=opt_it;
+                    break;
+                }
+            }
+            if(it==opt_resource.end()) {
+                opt_resource.emplace_back();
+                it=opt_resource.begin()+(opt_resource.size()-1);
+                it->first=method;
+            }
+            
+	    opt_res_mutex.lock();
+            it->second.emplace_back(REGEX_NS::regex(regex), func);
+	    opt_res_mutex.unlock();
+	    
+	}
+
 	void reload() {
+	    opt_res_mutex.lock();
             //Copy the resources to opt_resource for more efficient request processing
             opt_resource.clear();
             for(auto& res: resource) {
@@ -143,6 +176,7 @@ namespace SimpleWeb {
                     it->second.emplace_back(REGEX_NS::regex(res.first), res_method.second);
                 }
             }
+            opt_res_mutex.unlock();
 	}
 
         void start() {
@@ -343,11 +377,13 @@ namespace SimpleWeb {
 
         void find_resource(const std::shared_ptr<socket_type> &socket, const std::shared_ptr<Request> &request) {
             //Find path- and method-match, and call write_response
+	    opt_res_mutex.lock();
             for(auto& res: opt_resource) {
                 if(request->method==res.first) {
                     for(auto& res_path: res.second) {
                         REGEX_NS::smatch sm_res;
                         if(REGEX_NS::regex_match(request->path, sm_res, res_path.first)) {
+			    opt_res_mutex.unlock();
                             request->path_match=std::move(sm_res);
                             write_response(socket, request, res_path.second);
                             return;
@@ -355,6 +391,7 @@ namespace SimpleWeb {
                     }
                 }
             }
+            opt_res_mutex.unlock();
             auto it_method=default_resource.find(request->method);
             if(it_method!=default_resource.end()) {
                 write_response(socket, request, it_method->second);
