@@ -148,7 +148,7 @@ namespace SimpleWeb {
                 io_service=std::make_shared<boost::asio::io_service>();
 
             if(io_service->stopped())
-                io_service.reset();
+                io_service->reset();
 
             boost::asio::ip::tcp::endpoint endpoint;
             if(config.address.size()>0)
