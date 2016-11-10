@@ -49,6 +49,8 @@ public:
     ClientTest(const std::string& server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
     
     void connect() {}
+
+    void proxy_connect() {}
     
     bool constructor_parse_test1() {
         if(host!="test.org")
