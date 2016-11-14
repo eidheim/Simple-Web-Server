@@ -149,25 +149,25 @@ namespace SimpleWeb {
             std::string line;
             getline(stream, line);
             size_t version_end=line.find(' ');
-            if(version_end!=std::string::npos) {
-                if(5<line.size())
-                    response->http_version=line.substr(5, version_end-5);
-                if((version_end+1)<line.size())
-                    response->status_code=line.substr(version_end+1, line.size()-(version_end+1)-1);
+            if(version_end != std::string::npos) {
+                if(5 < line.size())
+                    response->http_version = line.substr(5, version_end - 5);
+                if((version_end + 1) < line.size())
+                    response->status_code = line.substr(version_end + 1);
 
                 getline(stream, line);
                 size_t param_end;
-                while((param_end=line.find(':'))!=std::string::npos) {
-                    size_t value_start=param_end+1;
-                    if((value_start)<line.size()) {
-                        if(line[value_start]==' ')
-                            value_start++;
-                        if(value_start<line.size())
-                            response->header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size()-value_start-1)));
-                    }
+                while((param_end = line.find(':')) != std::string::npos)
+                {
+                    std::string param = line.substr(0, param_end);
+                    std::string value = line.substr(param_end + 1);
+                    boost::algorithm::trim(param);
+                    boost::algorithm::trim(value);
+                    response->header.insert(std::make_pair(param, value));
 
                     getline(stream, line);
                 }
+
             }
         }
         
@@ -175,7 +175,8 @@ namespace SimpleWeb {
             std::shared_ptr<Response> response(new Response());
             
             try {
-                size_t bytes_transferred = boost::asio::read_until(*socket, response->content_buffer, "\r\n\r\n");
+                boost::regex r("((\r)?\n){2}");
+                size_t bytes_transferred = boost::asio::read_until(*socket, response->content_buffer, r);
                 
                 size_t num_additional_bytes=response->content_buffer.size()-bytes_transferred;
                 
@@ -196,7 +197,8 @@ namespace SimpleWeb {
                     std::streamsize length;
                     std::string buffer;
                     do {
-                        size_t bytes_transferred = boost::asio::read_until(*socket, response->content_buffer, "\r\n");
+                        boost::regex re("((\r)?\n)");
+                        size_t bytes_transferred = boost::asio::read_until(*socket, response->content_buffer, re);
                         std::string line;
                         getline(response->content, line);
                         bytes_transferred-=line.size()+1;
