@@ -29,23 +29,46 @@ namespace SimpleWeb {
             if(verify_file.size()>0)
                 context.load_verify_file(verify_file);
             
-            socket=std::make_shared<HTTPS>(io_service, context);
+            socket=std::unique_ptr<HTTPS>(new HTTPS(io_service, context));
         }
 
     protected:
         boost::asio::ssl::context context;
         
         void connect() {
-            if(socket_error || !socket->lowest_layer().is_open()) {
+            if(!socket || !socket->lowest_layer().is_open()) {
                 boost::asio::ip::tcp::resolver::query query(host, std::to_string(port));
-                boost::asio::connect(socket->lowest_layer(), resolver.resolve(query));
                 
-                boost::asio::ip::tcp::no_delay option(true);
-                socket->lowest_layer().set_option(option);
-                
-                socket->handshake(boost::asio::ssl::stream_base::client);
-                
-                socket_error=false;
+                resolver.async_resolve(query, [this]
+                                       (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator it){
+                    if(!ec) {
+                        boost::asio::async_connect(socket->lowest_layer(), it, [this]
+                                                   (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator /*it*/){
+                            if(!ec) {
+                                boost::asio::ip::tcp::no_delay option(true);
+                                socket->lowest_layer().set_option(option);
+                                
+                                socket->async_handshake(boost::asio::ssl::stream_base::client,
+                                                        [this](const boost::system::error_code& ec) {
+                                    if(ec) {
+                                        socket=nullptr;
+                                        throw boost::system::system_error(ec);
+                                    }
+                                });
+                            }
+                            else {
+                                socket=nullptr;
+                                throw boost::system::system_error(ec);
+                            }
+                        });
+                    }
+                    else {
+                        socket=nullptr;
+                        throw boost::system::system_error(ec);
+                    }
+                });
+                io_service.reset();
+                io_service.run();
             }
         }
     };

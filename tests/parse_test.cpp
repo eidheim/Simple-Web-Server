@@ -71,13 +71,13 @@ public:
     bool parse_response_header_test() {
         std::shared_ptr<Response> response(new Response());
         
-        stringstream ss;
-        ss << "HTTP/1.1 200 OK\r\n";
-        ss << "TestHeader: test\r\n";
-        ss << "TestHeader2:test2\r\n";
-        ss << "\r\n";
+        ostream stream(&response->content_buffer);
+        stream << "HTTP/1.1 200 OK\r\n";
+        stream << "TestHeader: test\r\n";
+        stream << "TestHeader2:test2\r\n";
+        stream << "\r\n";
         
-        parse_response_header(response, ss);
+        parse_response_header(response);
         
         if(response->http_version!="1.1")
             return 0;
