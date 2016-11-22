@@ -261,12 +261,12 @@ namespace SimpleWeb {
                     auto it=request->header.find("Content-Length");
                     if(it!=request->header.end()) {
                         //Set timeout on the following boost::asio::async-read or write function
-                        std::shared_ptr<boost::asio::deadline_timer> timer;
+                        std::shared_ptr<boost::asio::deadline_timer> deadline_timer;
                         if(timeout_content>0)
-                            timer=set_timeout_on_socket(socket, timeout_content);
-                        unsigned long long content_length;
+                            deadline_timer=set_timeout_on_socket(socket, timeout_content);
+                        size_t content_length;
                         try {
-                            content_length=stoull(it->second);
+                            content_length=(size_t)stoull(it->second);
                         }
                         catch(const std::exception &e) {
                             if(exception_handler)
@@ -276,17 +276,17 @@ namespace SimpleWeb {
                         if(content_length>num_additional_bytes) {
                             boost::asio::async_read(*socket, request->streambuf,
                                     boost::asio::transfer_exactly(content_length-num_additional_bytes),
-                                    [this, socket, request, timer]
+                                    [this, socket, request, deadline_timer]
                                     (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
                                 if(timeout_content>0)
-                                    timer->cancel();
+                                    deadline_timer->cancel();
                                 if(!ec)
                                     find_resource(socket, request);
                             });
                         }
                         else {
                             if(timeout_content>0)
-                                timer->cancel();
+                                deadline_timer->cancel();
                             find_resource(socket, request);
                         }
                     }
