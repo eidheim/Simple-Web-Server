@@ -135,6 +135,8 @@ namespace SimpleWeb {
             if(content_length>0)
                 write_stream << content.rdbuf();
             
+            connect();
+            
             auto timer=get_timeout_timer();
             boost::asio::async_write(*socket, write_buffer,
                                      [this, timer](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
