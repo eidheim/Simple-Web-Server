@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <map>
 #include <random>
+#include <mutex>
 
 namespace SimpleWeb {
     template <class socket_type>
@@ -92,13 +93,15 @@ namespace SimpleWeb {
                             if(timer)
                                 timer->cancel();
                             if(ec) {
-                               socket=nullptr;
-                               throw boost::system::system_error(ec);
-                           }
+                                std::lock_guard<std::mutex> lock(socket_mutex);
+                                socket=nullptr;
+                                throw boost::system::system_error(ec);
+                            }
                         });
                     }
                 }
                 else {
+                    std::lock_guard<std::mutex> lock(socket_mutex);
                     socket=nullptr;
                     throw boost::system::system_error(ec);
                 }
@@ -138,6 +141,7 @@ namespace SimpleWeb {
                 if(timer)
                     timer->cancel();
                 if(ec) {
+                    std::lock_guard<std::mutex> lock(socket_mutex);
                     socket=nullptr;
                     throw boost::system::system_error(ec);
                 }
@@ -149,6 +153,7 @@ namespace SimpleWeb {
         }
         
         void close() {
+            std::lock_guard<std::mutex> lock(socket_mutex);
             if(socket) {
                 boost::system::error_code ec;
                 socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
@@ -162,6 +167,7 @@ namespace SimpleWeb {
         boost::asio::ip::tcp::resolver resolver;
         
         std::unique_ptr<socket_type> socket;
+        std::mutex socket_mutex;
         
         std::string host;
         unsigned short port;
@@ -248,6 +254,7 @@ namespace SimpleWeb {
                                 if(timer)
                                     timer->cancel();
                                 if(ec) {
+                                    std::lock_guard<std::mutex> lock(socket_mutex);
                                     this->socket=nullptr;
                                     throw boost::system::system_error(ec);
                                 }
@@ -259,6 +266,7 @@ namespace SimpleWeb {
                     }
                 }
                 else {
+                    std::lock_guard<std::mutex> lock(socket_mutex);
                     socket=nullptr;
                     throw boost::system::system_error(ec);
                 }
@@ -313,6 +321,7 @@ namespace SimpleWeb {
                                 post_process();
                             }
                             else {
+                                std::lock_guard<std::mutex> lock(socket_mutex);
                                 this->socket=nullptr;
                                 throw boost::system::system_error(ec);
                             }
@@ -322,6 +331,7 @@ namespace SimpleWeb {
                         post_process();
                 }
                 else {
+                    std::lock_guard<std::mutex> lock(socket_mutex);
                     socket=nullptr;
                     throw boost::system::system_error(ec);
                 }
@@ -347,7 +357,10 @@ namespace SimpleWeb {
                 resolver.async_resolve(query, [this](const boost::system::error_code &ec,
                                                       boost::asio::ip::tcp::resolver::iterator it){
                     if(!ec) {
-                        socket=std::unique_ptr<HTTP>(new HTTP(io_service));
+                        {
+                            std::lock_guard<std::mutex> lock(socket_mutex);
+                            socket=std::unique_ptr<HTTP>(new HTTP(io_service));
+                        }
                         
                         boost::asio::async_connect(*socket, it, [this]
                                 (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator /*it*/){
@@ -356,12 +369,14 @@ namespace SimpleWeb {
                                 this->socket->set_option(option);
                             }
                             else {
+                                std::lock_guard<std::mutex> lock(socket_mutex);
                                 this->socket=nullptr;
                                 throw boost::system::system_error(ec);
                             }
                         });
                     }
                     else {
+                        std::lock_guard<std::mutex> lock(socket_mutex);
                         socket=nullptr;
                         throw boost::system::system_error(ec);
                     }

@@ -40,7 +40,10 @@ namespace SimpleWeb {
                 resolver.async_resolve(query, [this]
                                        (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator it){
                     if(!ec) {
-                        socket=std::unique_ptr<HTTPS>(new HTTPS(io_service, context));
+                        {
+                            std::lock_guard<std::mutex> lock(socket_mutex);
+                            socket=std::unique_ptr<HTTPS>(new HTTPS(io_service, context));
+                        }
                         
                         boost::asio::async_connect(socket->lowest_layer(), it, [this]
                                                    (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator /*it*/){
@@ -54,18 +57,21 @@ namespace SimpleWeb {
                                     if(timer)
                                         timer->cancel();
                                     if(ec) {
+                                        std::lock_guard<std::mutex> lock(socket_mutex);
                                         this->socket=nullptr;
                                         throw boost::system::system_error(ec);
                                     }
                                 });
                             }
                             else {
+                                std::lock_guard<std::mutex> lock(socket_mutex);
                                 this->socket=nullptr;
                                 throw boost::system::system_error(ec);
                             }
                         });
                     }
                     else {
+                        std::lock_guard<std::mutex> lock(socket_mutex);
                         socket=nullptr;
                         throw boost::system::system_error(ec);
                     }
