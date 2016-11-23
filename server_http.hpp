@@ -261,8 +261,6 @@ namespace SimpleWeb {
                     //If content, read that as well
                     auto it=request->header.find("Content-Length");
                     if(it!=request->header.end()) {
-                        //Set timeout on the following boost::asio::async-read or write function
-                        auto timer=get_timeout_timer(socket, timeout_content);
                         unsigned long long content_length;
                         try {
                             content_length=stoull(it->second);
@@ -273,6 +271,8 @@ namespace SimpleWeb {
                             return;
                         }
                         if(content_length>num_additional_bytes) {
+                            //Set timeout on the following boost::asio::async-read or write function
+                            auto timer=get_timeout_timer(socket, timeout_content);
                             boost::asio::async_read(*socket, request->streambuf,
                                     boost::asio::transfer_exactly(content_length-num_additional_bytes),
                                     [this, socket, request, timer]
@@ -283,15 +283,11 @@ namespace SimpleWeb {
                                     find_resource(socket, request);
                             });
                         }
-                        else {
-                            if(timer)
-                                timer->cancel();
+                        else
                             find_resource(socket, request);
-                        }
                     }
-                    else {
+                    else
                         find_resource(socket, request);
-                    }
                 }
             });
         }
@@ -366,9 +362,9 @@ namespace SimpleWeb {
             auto response=std::shared_ptr<Response>(new Response(socket), [this, request, timer](Response *response_ptr) {
                 auto response=std::shared_ptr<Response>(response_ptr);
                 send(response, [this, response, request, timer](const boost::system::error_code& ec) {
+                    if(timer)
+                        timer->cancel();
                     if(!ec) {
-                        if(timer)
-                            timer->cancel();
                         float http_version;
                         try {
                             http_version=stof(request->http_version);
