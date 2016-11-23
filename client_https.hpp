@@ -48,8 +48,11 @@ namespace SimpleWeb {
                                 boost::asio::ip::tcp::no_delay option(true);
                                 socket->lowest_layer().set_option(option);
                                 
+                                auto timer=get_timeout_timer();
                                 socket->async_handshake(boost::asio::ssl::stream_base::client,
-                                                        [this](const boost::system::error_code& ec) {
+                                                        [this, timer](const boost::system::error_code& ec) {
+                                    if(timer)
+                                        timer->cancel();
                                     if(ec) {
                                         socket=nullptr;
                                         throw boost::system::system_error(ec);

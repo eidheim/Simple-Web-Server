@@ -28,7 +28,7 @@ namespace SimpleWeb {
         void accept() {
             //Create new socket for this connection
             //Shared_ptr is used to pass temporary objects to the asynchronous functions
-            std::shared_ptr<HTTPS> socket(new HTTPS(*io_service, context));
+            auto socket=std::make_shared<HTTPS>(*io_service, context);
 
             acceptor->async_accept((*socket).lowest_layer(), [this, socket](const boost::system::error_code& ec) {
                 //Immediately start accepting a new connection (if io_service hasn't been stopped)
@@ -41,12 +41,10 @@ namespace SimpleWeb {
                     socket->lowest_layer().set_option(option);
                     
                     //Set timeout on the following boost::asio::ssl::stream::async_handshake
-                    std::shared_ptr<boost::asio::deadline_timer> timer;
-                    if(timeout_request>0)
-                        timer=set_timeout_on_socket(socket, timeout_request);
+                    auto timer=get_timeout_timer(socket, timeout_request);
                     (*socket).async_handshake(boost::asio::ssl::stream_base::server, [this, socket, timer]
                             (const boost::system::error_code& ec) {
-                        if(timeout_request>0)
+                        if(timer)
                             timer->cancel();
                         if(!ec)
                             read_request_and_content(socket);

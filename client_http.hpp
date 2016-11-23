@@ -48,6 +48,18 @@ namespace SimpleWeb {
             Response(): content(&content_buffer) {}
         };
         
+        class Config {
+            friend class ClientBase<socket_type>;
+        private:
+            Config() {}
+        public:
+            /// Set timeout on requests in seconds. Default value: 0 (no timeout). 
+            size_t timeout=0;
+        };
+        
+        /// Set before calling request
+        Config config;
+        
         std::shared_ptr<Response> request(const std::string& request_type, const std::string& path="/", boost::string_ref content="",
                 const std::map<std::string, std::string>& header=std::map<std::string, std::string>()) {
             std::string corrected_path=path;
@@ -67,12 +79,18 @@ namespace SimpleWeb {
             
             connect();
             
+            auto timer=get_timeout_timer();
             boost::asio::async_write(*socket, write_buffer,
-                                     [this, &content](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
+                                     [this, &content, timer](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
+                if(timer)
+                    timer->cancel();
                 if(!ec) {
                     if(!content.empty()) {
+                        auto timer=get_timeout_timer();
                         boost::asio::async_write(*socket, boost::asio::buffer(content.data(), content.size()),
-                                             [this](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
+                                             [this, timer](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
+                            if(timer)
+                                timer->cancel();
                             if(ec) {
                                socket=nullptr;
                                throw boost::system::system_error(ec);
@@ -114,8 +132,11 @@ namespace SimpleWeb {
             if(content_length>0)
                 write_stream << content.rdbuf();
             
+            auto timer=get_timeout_timer();
             boost::asio::async_write(*socket, write_buffer,
-                                     [this](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
+                                     [this, timer](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
+                if(timer)
+                    timer->cancel();
                 if(ec) {
                     socket=nullptr;
                     throw boost::system::system_error(ec);
@@ -153,6 +174,22 @@ namespace SimpleWeb {
         
         virtual void connect()=0;
         
+        std::shared_ptr<boost::asio::deadline_timer> get_timeout_timer() {
+            if(config.timeout==0)
+                return nullptr;
+            
+            auto timer=std::make_shared<boost::asio::deadline_timer>(io_service);
+            timer->expires_from_now(boost::posix_time::seconds(config.timeout));
+            timer->async_wait([this](const boost::system::error_code& ec) {
+                if(!ec) {
+                    boost::system::error_code ec;
+                    socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+                    socket->lowest_layer().close();
+                }
+            });
+            return timer;
+        }
+        
         void parse_response_header(const std::shared_ptr<Response> &response) const {
             std::string line;
             getline(response->content, line);
@@ -184,8 +221,11 @@ namespace SimpleWeb {
             
             boost::asio::streambuf chunked_streambuf;
             
+            auto timer=get_timeout_timer();
             boost::asio::async_read_until(*socket, response->content_buffer, "\r\n\r\n",
-                                          [this, &response, &chunked_streambuf](const boost::system::error_code& ec, size_t bytes_transferred) {
+                                          [this, &response, &chunked_streambuf, timer](const boost::system::error_code& ec, size_t bytes_transferred) {
+                if(timer)
+                    timer->cancel();
                 if(!ec) {
                     size_t num_additional_bytes=response->content_buffer.size()-bytes_transferred;
                     
@@ -195,9 +235,12 @@ namespace SimpleWeb {
                     if(header_it!=response->header.end()) {
                         auto content_length=stoull(header_it->second);
                         if(content_length>num_additional_bytes) {
+                            auto timer=get_timeout_timer();
                             boost::asio::async_read(*socket, response->content_buffer,
                                                     boost::asio::transfer_exactly(content_length-num_additional_bytes),
-                                                    [this](const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                                                    [this, timer](const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                                if(timer)
+                                    timer->cancel();
                                 if(ec) {
                                     socket=nullptr;
                                     throw boost::system::system_error(ec);
@@ -221,8 +264,11 @@ namespace SimpleWeb {
         }
         
         void request_read_chunked(const std::shared_ptr<Response> &response, boost::asio::streambuf &streambuf) {
+            auto timer=get_timeout_timer();
             boost::asio::async_read_until(*socket, response->content_buffer, "\r\n",
-                                      [this, &response, &streambuf](const boost::system::error_code& ec, size_t bytes_transferred) {
+                                      [this, &response, &streambuf, timer](const boost::system::error_code& ec, size_t bytes_transferred) {
+                if(timer)
+                    timer->cancel();
                 if(!ec) {
                     std::string line;
                     getline(response->content, line);
@@ -251,9 +297,12 @@ namespace SimpleWeb {
                     };
                     
                     if((2+length)>num_additional_bytes) {
+                        auto timer=get_timeout_timer();
                         boost::asio::async_read(*socket, response->content_buffer,
                                                 boost::asio::transfer_exactly(2+length-num_additional_bytes),
-                                                [this, post_process](const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                                                [this, post_process, timer](const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                            if(timer)
+                                timer->cancel();
                             if(!ec) {
                                 post_process();
                             }

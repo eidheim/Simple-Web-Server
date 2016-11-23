@@ -212,8 +212,11 @@ namespace SimpleWeb {
         
         virtual void accept()=0;
         
-        std::shared_ptr<boost::asio::deadline_timer> set_timeout_on_socket(const std::shared_ptr<socket_type> &socket, long seconds) {
-            std::shared_ptr<boost::asio::deadline_timer> timer(new boost::asio::deadline_timer(*io_service));
+        std::shared_ptr<boost::asio::deadline_timer> get_timeout_timer(const std::shared_ptr<socket_type> &socket, long seconds) {
+            if(seconds==0)
+                return nullptr;
+            
+            auto timer=std::make_shared<boost::asio::deadline_timer>(*io_service);
             timer->expires_from_now(boost::posix_time::seconds(seconds));
             timer->async_wait([socket](const boost::system::error_code& ec){
                 if(!ec) {
@@ -239,13 +242,11 @@ namespace SimpleWeb {
             }
 
             //Set timeout on the following boost::asio::async-read or write function
-            std::shared_ptr<boost::asio::deadline_timer> timer;
-            if(timeout_request>0)
-                timer=set_timeout_on_socket(socket, timeout_request);
+            auto timer=get_timeout_timer(socket, timeout_request);
                         
             boost::asio::async_read_until(*socket, request->streambuf, "\r\n\r\n",
                     [this, socket, request, timer](const boost::system::error_code& ec, size_t bytes_transferred) {
-                if(timeout_request>0)
+                if(timer)
                     timer->cancel();
                 if(!ec) {
                     //request->streambuf.size() is not necessarily the same as bytes_transferred, from Boost-docs:
@@ -261,9 +262,7 @@ namespace SimpleWeb {
                     auto it=request->header.find("Content-Length");
                     if(it!=request->header.end()) {
                         //Set timeout on the following boost::asio::async-read or write function
-                        std::shared_ptr<boost::asio::deadline_timer> timer;
-                        if(timeout_content>0)
-                            timer=set_timeout_on_socket(socket, timeout_content);
+                        auto timer=get_timeout_timer(socket, timeout_content);
                         unsigned long long content_length;
                         try {
                             content_length=stoull(it->second);
@@ -278,14 +277,14 @@ namespace SimpleWeb {
                                     boost::asio::transfer_exactly(content_length-num_additional_bytes),
                                     [this, socket, request, timer]
                                     (const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
-                                if(timeout_content>0)
+                                if(timer)
                                     timer->cancel();
                                 if(!ec)
                                     find_resource(socket, request);
                             });
                         }
                         else {
-                            if(timeout_content>0)
+                            if(timer)
                                 timer->cancel();
                             find_resource(socket, request);
                         }
@@ -362,15 +361,13 @@ namespace SimpleWeb {
                 std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>,
                                    std::shared_ptr<typename ServerBase<socket_type>::Request>)>& resource_function) {
             //Set timeout on the following boost::asio::async-read or write function
-            std::shared_ptr<boost::asio::deadline_timer> timer;
-            if(timeout_content>0)
-                timer=set_timeout_on_socket(socket, timeout_content);
+            auto timer=get_timeout_timer(socket, timeout_content);
 
             auto response=std::shared_ptr<Response>(new Response(socket), [this, request, timer](Response *response_ptr) {
                 auto response=std::shared_ptr<Response>(response_ptr);
                 send(response, [this, response, request, timer](const boost::system::error_code& ec) {
                     if(!ec) {
-                        if(timeout_content>0)
+                        if(timer)
                             timer->cancel();
                         float http_version;
                         try {
@@ -419,7 +416,7 @@ namespace SimpleWeb {
         void accept() {
             //Create new socket for this connection
             //Shared_ptr is used to pass temporary objects to the asynchronous functions
-            std::shared_ptr<HTTP> socket(new HTTP(*io_service));
+            auto socket=std::make_shared<HTTP>(*io_service);
                         
             acceptor->async_accept(*socket, [this, socket](const boost::system::error_code& ec){
                 //Immediately start accepting a new connection (if io_service hasn't been stopped)
