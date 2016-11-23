@@ -15,13 +15,13 @@ public:
     bool parse_request_test() {
         std::shared_ptr<Request> request(new Request());
         
-        stringstream ss;
-        ss << "GET /test/ HTTP/1.1\r\n";
-        ss << "TestHeader: test\r\n";
-        ss << "TestHeader2:test2\r\n";
-        ss << "\r\n";
+        std::ostream stream(&request->content.streambuf);
+        stream << "GET /test/ HTTP/1.1\r\n";
+        stream << "TestHeader: test\r\n";
+        stream << "TestHeader2:test2\r\n";
+        stream << "\r\n";
         
-        if(!parse_request(request, ss))
+        if(!parse_request(request))
             return 0;
         
         if(request->method!="GET")
