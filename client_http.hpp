@@ -248,7 +248,7 @@ namespace SimpleWeb {
                                 if(timer)
                                     timer->cancel();
                                 if(ec) {
-                                    socket=nullptr;
+                                    this->socket=nullptr;
                                     throw boost::system::system_error(ec);
                                 }
                             });
@@ -313,7 +313,7 @@ namespace SimpleWeb {
                                 post_process();
                             }
                             else {
-                                socket=nullptr;
+                                this->socket=nullptr;
                                 throw boost::system::system_error(ec);
                             }
                         });
@@ -353,10 +353,10 @@ namespace SimpleWeb {
                                 (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator /*it*/){
                             if(!ec) {
                                 boost::asio::ip::tcp::no_delay option(true);
-                                socket->set_option(option);
+                                this->socket->set_option(option);
                             }
                             else {
-                                socket=nullptr;
+                                this->socket=nullptr;
                                 throw boost::system::system_error(ec);
                             }
                         });
