@@ -28,8 +28,6 @@ namespace SimpleWeb {
             
             if(verify_file.size()>0)
                 context.load_verify_file(verify_file);
-            
-            socket=std::unique_ptr<HTTPS>(new HTTPS(io_service, context));
         }
 
     protected:
@@ -42,6 +40,8 @@ namespace SimpleWeb {
                 resolver.async_resolve(query, [this]
                                        (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator it){
                     if(!ec) {
+                        socket=std::unique_ptr<HTTPS>(new HTTPS(io_service, context));
+                        
                         boost::asio::async_connect(socket->lowest_layer(), it, [this]
                                                    (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator /*it*/){
                             if(!ec) {
