@@ -49,6 +49,14 @@ int main() {
     
     {
         stringstream output;
+        stringstream content("A string");
+        auto r=client.request("POST", "/string", content);
+        output << r->content.rdbuf();
+        assert(output.str()=="A string");
+    }
+    
+    {
+        stringstream output;
         auto r=client.request("GET", "/info", "", {{"Test Parameter", "test value"}});
         output << r->content.rdbuf();
         assert(output.str()=="GET /info 1.1 test value");
