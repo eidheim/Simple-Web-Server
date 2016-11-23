@@ -296,9 +296,11 @@ namespace SimpleWeb {
                     
                     auto post_process=[this, &response, &streambuf, length] {
                         std::ostream stream(&streambuf);
-                        std::vector<char> buffer(static_cast<size_t>(length));
-                        response->content.read(&buffer[0], length);
-                        stream.write(&buffer[0], length);
+                        if(length>0) {
+                            std::vector<char> buffer(static_cast<size_t>(length));
+                            response->content.read(&buffer[0], length);
+                            stream.write(&buffer[0], length);
+                        }
                         
                         //Remove "\r\n"
                         response->content.get();
