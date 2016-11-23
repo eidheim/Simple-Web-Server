@@ -148,6 +148,14 @@ namespace SimpleWeb {
             return request_read();
         }
         
+        void close() {
+            if(socket) {
+                boost::system::error_code ec;
+                socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+                socket->lowest_layer().close();
+            }
+        }
+        
     protected:
         boost::asio::io_service io_service;
         boost::asio::ip::tcp::endpoint endpoint;
@@ -182,9 +190,7 @@ namespace SimpleWeb {
             timer->expires_from_now(boost::posix_time::seconds(config.timeout));
             timer->async_wait([this](const boost::system::error_code& ec) {
                 if(!ec) {
-                    boost::system::error_code ec;
-                    socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-                    socket->lowest_layer().close();
+                    close();
                 }
             });
             return timer;
