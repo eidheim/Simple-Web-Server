@@ -69,7 +69,7 @@ namespace SimpleWeb {
             if(corrected_path=="")
                 corrected_path="/";
             if(!config.proxy_server.empty())
-                corrected_path=protocol()+"://" + config.proxy_server + corrected_path;
+                corrected_path=protocol()+"://"+host+':'+std::to_string(port)+corrected_path;
             
             boost::asio::streambuf write_buffer;
             std::ostream write_stream(&write_buffer);
@@ -122,7 +122,7 @@ namespace SimpleWeb {
             if(corrected_path=="")
                 corrected_path="/";
             if(!config.proxy_server.empty())
-                corrected_path=protocol()+"://" + config.proxy_server + corrected_path;
+                corrected_path=protocol()+"://"+host+':'+std::to_string(port)+corrected_path;
             
             content.seekp(0, std::ios::end);
             auto content_length=content.tellp();
