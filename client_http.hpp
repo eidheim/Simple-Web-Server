@@ -56,6 +56,8 @@ namespace SimpleWeb {
         public:
             /// Set timeout on requests in seconds. Default value: 0 (no timeout). 
             size_t timeout=0;
+            /// Set proxy server (server:port)
+            std::string proxy_server;
         };
         
         /// Set before calling request
@@ -63,9 +65,11 @@ namespace SimpleWeb {
         
         std::shared_ptr<Response> request(const std::string& request_type, const std::string& path="/", boost::string_ref content="",
                 const std::map<std::string, std::string>& header=std::map<std::string, std::string>()) {
-            std::string corrected_path=path;
+            auto corrected_path=path;
             if(corrected_path=="")
                 corrected_path="/";
+            if(!config.proxy_server.empty())
+                corrected_path=protocol()+"://" + config.proxy_server + corrected_path;
             
             boost::asio::streambuf write_buffer;
             std::ostream write_stream(&write_buffer);
@@ -114,9 +118,11 @@ namespace SimpleWeb {
         
         std::shared_ptr<Response> request(const std::string& request_type, const std::string& path, std::iostream& content,
                 const std::map<std::string, std::string>& header=std::map<std::string, std::string>()) {
-            std::string corrected_path=path;
+            auto corrected_path=path;
             if(corrected_path=="")
                 corrected_path="/";
+            if(!config.proxy_server.empty())
+                corrected_path=protocol()+"://" + config.proxy_server + corrected_path;
             
             content.seekp(0, std::ios::end);
             auto content_length=content.tellp();
@@ -165,7 +171,6 @@ namespace SimpleWeb {
         
     protected:
         boost::asio::io_service io_service;
-        boost::asio::ip::tcp::endpoint endpoint;
         boost::asio::ip::tcp::resolver resolver;
         
         std::unique_ptr<socket_type> socket;
@@ -175,19 +180,26 @@ namespace SimpleWeb {
         unsigned short port;
                 
         ClientBase(const std::string& host_port, unsigned short default_port) : resolver(io_service) {
-            size_t host_end=host_port.find(':');
-            if(host_end==std::string::npos) {
-                host=host_port;
-                port=default_port;
-            }
-            else {
-                host=host_port.substr(0, host_end);
-                port=static_cast<unsigned short>(stoul(host_port.substr(host_end+1)));
-            }
-
-            endpoint=boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port);
+            auto parsed_host_port=parse_host_port(host_port, default_port);
+            host=parsed_host_port.first;
+            port=parsed_host_port.second;
         }
         
+        std::pair<std::string, unsigned short> parse_host_port(const std::string &host_port, unsigned short default_port) {
+            std::pair<std::string, unsigned short> parsed_host_port;
+            size_t host_end=host_port.find(':');
+            if(host_end==std::string::npos) {
+                parsed_host_port.first=host_port;
+                parsed_host_port.second=default_port;
+            }
+            else {
+                parsed_host_port.first=host_port.substr(0, host_end);
+                parsed_host_port.second=static_cast<unsigned short>(stoul(host_port.substr(host_end+1)));
+            }
+            return parsed_host_port;
+        }
+        
+        virtual std::string protocol()=0;
         virtual void connect()=0;
         
         std::shared_ptr<boost::asio::deadline_timer> get_timeout_timer() {
@@ -354,12 +366,26 @@ namespace SimpleWeb {
         Client(const std::string& server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
         
     protected:
+        std::string protocol() {
+            return "http";
+        }
+        
         void connect() {
             if(!socket || !socket->is_open()) {
-                boost::asio::ip::tcp::resolver::query query(host, std::to_string(port));
+                std::string host, port;
+                if(config.proxy_server.empty()) {
+                    host=this->host;
+                    port=std::to_string(this->port);
+                }
+                else {
+                    auto proxy_host_port=parse_host_port(config.proxy_server, 0);
+                    host=proxy_host_port.first;
+                    port=std::to_string(proxy_host_port.second);
+                }
+                boost::asio::ip::tcp::resolver::query query(host, port);
                 
                 resolver.async_resolve(query, [this](const boost::system::error_code &ec,
-                                                      boost::asio::ip::tcp::resolver::iterator it){
+                                                     boost::asio::ip::tcp::resolver::iterator it){
                     if(!ec) {
                         {
                             std::lock_guard<std::mutex> lock(socket_mutex);
