@@ -33,10 +33,6 @@ namespace SimpleWeb {
     protected:
         boost::asio::ssl::context context;
         
-        std::string protocol() const {
-            return "https";
-        }
-        
         void connect() {
             if(!socket || !socket->lowest_layer().is_open()) {
                 std::unique_ptr<boost::asio::ip::tcp::resolver::query> query;

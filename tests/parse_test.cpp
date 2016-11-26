@@ -48,10 +48,6 @@ class ClientTest : public ClientBase<HTTP> {
 public:
     ClientTest(const std::string& server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
     
-    std::string protocol() const {
-        return "http";
-    }
-    
     void connect() {}
     
     bool constructor_parse_test1() {
