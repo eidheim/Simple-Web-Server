@@ -95,7 +95,7 @@ namespace SimpleWeb {
                     io_service.run();
                     
                     auto response=request_read();
-                    if (response->status_code.empty() || response->status_code.substr(0,3) != "200") {
+                    if (response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0) {
                         std::lock_guard<std::mutex> lock(socket_mutex);
                         socket=nullptr;
                         throw boost::system::system_error(boost::system::error_code(boost::system::errc::permission_denied, boost::system::generic_category()));
