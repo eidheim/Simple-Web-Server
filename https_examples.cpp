@@ -11,6 +11,8 @@
 #include <boost/filesystem.hpp>
 #include <vector>
 #include <algorithm>
+#include <openssl/sha.h>
+#include <iomanip>
 
 using namespace std;
 //Added for the json-example:
@@ -18,6 +20,28 @@ using namespace boost::property_tree;
 
 typedef SimpleWeb::Server<SimpleWeb::HTTPS> HttpsServer;
 typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
+
+std::string sha256(const std::string p_fname) {
+	std::string ret = "";
+	unsigned char hash[SHA256_DIGEST_LENGTH];
+	std::ifstream file(p_fname, std::ios::binary | std::ios::ate);
+	std::streamsize size = file.tellg();
+	file.seekg(0, std::ios::beg);
+	std::vector<char> buffer(size);
+	if (!file.read(buffer.data(), size))
+		return ret;
+
+	SHA256_CTX sha256;
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, reinterpret_cast<char*> (&buffer[0]), size);
+	SHA256_Final(hash, &sha256);
+	std::stringstream ss;
+	for(int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+		ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+	}
+	return ss.str();
+}
+
 
 //Added for the default_resource example
 void default_resource_send(const HttpsServer &server, const shared_ptr<HttpsServer::Response> &response,
@@ -116,17 +140,25 @@ int main() {
                 path/="index.html";
             if(!(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)))
                 throw invalid_argument("file does not exist");
-            
+
+	    std::string hash = sha256(path.string());
+	    auto it=request->header.find("If-None-Match");
+	    if(it!=request->header.end()) {
+		if (it->second == "\""+hash+"\"") {
+		    *response << "HTTP/1.1 304 Not Modified\r\nCache-Control: max-age=86400\r\nETag: \""+hash+"\"\r\n\r\n";
+		    return;
+		}
+	    }
+
             auto ifs=make_shared<ifstream>();
             ifs->open(path.string(), ifstream::in | ios::binary);
-            
+
             if(*ifs) {
                 ifs->seekg(0, ios::end);
                 auto length=ifs->tellg();
-                
                 ifs->seekg(0, ios::beg);
-                
-                *response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
+
+                *response << "HTTP/1.1 200 OK\r\nCache-Control: max-age=86400\r\nETag: \""+hash+"\"\r\nContent-Length: " << length << "\r\n\r\n";
                 default_resource_send(server, response, ifs);
             }
             else
