@@ -53,8 +53,11 @@ namespace SimpleWeb {
                             socket=std::unique_ptr<HTTPS>(new HTTPS(io_service, context));
                         }
                         
-                        boost::asio::async_connect(socket->lowest_layer(), it, [this]
+                        auto timer=get_timeout_timer();
+                        boost::asio::async_connect(socket->lowest_layer(), it, [this, timer]
                                                    (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator /*it*/){
+                            if(timer)
+                                timer->cancel();
                             if(!ec) {
                                 boost::asio::ip::tcp::no_delay option(true);
                                 this->socket->lowest_layer().set_option(option);

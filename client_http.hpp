@@ -383,8 +383,11 @@ namespace SimpleWeb {
                             socket=std::unique_ptr<HTTP>(new HTTP(io_service));
                         }
                         
-                        boost::asio::async_connect(*socket, it, [this]
+                        auto timer=get_timeout_timer();
+                        boost::asio::async_connect(*socket, it, [this, timer]
                                 (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator /*it*/){
+                            if(timer)
+                                timer->cancel();
                             if(!ec) {
                                 boost::asio::ip::tcp::no_delay option(true);
                                 this->socket->set_option(option);
