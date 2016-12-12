@@ -242,7 +242,7 @@ namespace SimpleWeb {
             }
 
             //Set timeout on the following boost::asio::async-read or write function
-            auto timer=get_timeout_timer(socket, timeout_request);
+            auto timer=this->get_timeout_timer(socket, timeout_request);
                         
             boost::asio::async_read_until(*socket, request->streambuf, "\r\n\r\n",
                     [this, socket, request, timer](const boost::system::error_code& ec, size_t bytes_transferred) {
@@ -255,7 +255,7 @@ namespace SimpleWeb {
                     //streambuf (maybe some bytes of the content) is appended to in the async_read-function below (for retrieving content).
                     size_t num_additional_bytes=request->streambuf.size()-bytes_transferred;
                     
-                    if(!parse_request(request))
+                    if(!this->parse_request(request))
                         return;
                     
                     //If content, read that as well
@@ -272,7 +272,7 @@ namespace SimpleWeb {
                         }
                         if(content_length>num_additional_bytes) {
                             //Set timeout on the following boost::asio::async-read or write function
-                            auto timer=get_timeout_timer(socket, timeout_content);
+                            auto timer=this->get_timeout_timer(socket, timeout_content);
                             boost::asio::async_read(*socket, request->streambuf,
                                     boost::asio::transfer_exactly(content_length-num_additional_bytes),
                                     [this, socket, request, timer]
@@ -280,14 +280,14 @@ namespace SimpleWeb {
                                 if(timer)
                                     timer->cancel();
                                 if(!ec)
-                                    find_resource(socket, request);
+                                    this->find_resource(socket, request);
                             });
                         }
                         else
-                            find_resource(socket, request);
+                            this->find_resource(socket, request);
                     }
                     else
-                        find_resource(socket, request);
+                        this->find_resource(socket, request);
                 }
             });
         }
@@ -357,11 +357,11 @@ namespace SimpleWeb {
                 std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>,
                                    std::shared_ptr<typename ServerBase<socket_type>::Request>)>& resource_function) {
             //Set timeout on the following boost::asio::async-read or write function
-            auto timer=get_timeout_timer(socket, timeout_content);
+            auto timer=this->get_timeout_timer(socket, timeout_content);
 
             auto response=std::shared_ptr<Response>(new Response(socket), [this, request, timer](Response *response_ptr) {
                 auto response=std::shared_ptr<Response>(response_ptr);
-                send(response, [this, response, request, timer](const boost::system::error_code& ec) {
+                this->send(response, [this, response, request, timer](const boost::system::error_code& ec) {
                     if(timer)
                         timer->cancel();
                     if(!ec) {
@@ -381,7 +381,7 @@ namespace SimpleWeb {
                                 return;
                         }
                         if(http_version>1.05)
-                            read_request_and_content(response->socket);
+                            this->read_request_and_content(response->socket);
                     }
                 });
             });
@@ -423,7 +423,7 @@ namespace SimpleWeb {
                     boost::asio::ip::tcp::no_delay option(true);
                     socket->set_option(option);
                     
-                    read_request_and_content(socket);
+                    this->read_request_and_content(socket);
                 }
             });
         }
