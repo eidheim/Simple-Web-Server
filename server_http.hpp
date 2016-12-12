@@ -254,7 +254,7 @@ namespace SimpleWeb {
                     //streambuf (maybe some bytes of the content) is appended to in the async_read-function below (for retrieving content).
                     size_t num_additional_bytes=request->streambuf.size()-bytes_transferred;
                     
-                    if(!parse_request(request, request->content))
+                    if(!this->parse_request(request, request->content))
                         return;
                     
                     //If content, read that as well
@@ -263,7 +263,7 @@ namespace SimpleWeb {
                         //Set timeout on the following boost::asio::async-read or write function
                         std::shared_ptr<boost::asio::deadline_timer> timer;
                         if(timeout_content>0)
-                            timer=set_timeout_on_socket(socket, timeout_content);
+                            timer=this->set_timeout_on_socket(socket, timeout_content);
                         unsigned long long content_length;
                         try {
                             content_length=stoull(it->second);
@@ -281,17 +281,17 @@ namespace SimpleWeb {
                                 if(timeout_content>0)
                                     timer->cancel();
                                 if(!ec)
-                                    find_resource(socket, request);
+                                    this->find_resource(socket, request);
                             });
                         }
                         else {
                             if(timeout_content>0)
                                 timer->cancel();
-                            find_resource(socket, request);
+                            this->find_resource(socket, request);
                         }
                     }
                     else {
-                        find_resource(socket, request);
+                        this->find_resource(socket, request);
                     }
                 }
             });
@@ -368,7 +368,7 @@ namespace SimpleWeb {
 
             auto response=std::shared_ptr<Response>(new Response(socket), [this, request, timer](Response *response_ptr) {
                 auto response=std::shared_ptr<Response>(response_ptr);
-                send(response, [this, response, request, timer](const boost::system::error_code& ec) {
+                this->send(response, [this, response, request, timer](const boost::system::error_code& ec) {
                     if(!ec) {
                         if(timeout_content>0)
                             timer->cancel();
@@ -388,7 +388,7 @@ namespace SimpleWeb {
                                 return;
                         }
                         if(http_version>1.05)
-                            read_request_and_content(response->socket);
+                            this->read_request_and_content(response->socket);
                     }
                 });
             });
