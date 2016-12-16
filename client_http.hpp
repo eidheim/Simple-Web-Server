@@ -14,12 +14,16 @@
 
 namespace SimpleWeb {
     template <class socket_type>
+    class Client;
+    
+    template <class socket_type>
     class ClientBase {
     public:
         virtual ~ClientBase() {}
 
         class Response {
             friend class ClientBase<socket_type>;
+            friend class Client<socket_type>;
             
             //Based on http://www.boost.org/doc/libs/1_60_0/doc/html/unordered/hash_equality.html
             class iequal_to {

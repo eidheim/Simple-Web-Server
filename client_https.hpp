@@ -84,7 +84,7 @@ namespace SimpleWeb {
                     auto host_port=host+':'+std::to_string(port);
                     write_stream << "CONNECT "+host_port+" HTTP/1.1\r\n" << "Host: " << host_port << "\r\n\r\n";
                     auto timer=get_timeout_timer();
-                    boost::asio::async_write(*socket, write_buffer,
+                    boost::asio::async_write(socket->next_layer(), write_buffer,
                                              [this, timer](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
                         if(timer)
                             timer->cancel();
@@ -97,7 +97,21 @@ namespace SimpleWeb {
                     io_service.reset();
                     io_service.run();
                     
-                    auto response=request_read();
+                    std::shared_ptr<Response> response(new Response());
+                    timer=get_timeout_timer();
+                    boost::asio::async_read_until(socket->next_layer(), response->content_buffer, "\r\n\r\n",
+                                                  [this, timer](const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                        if(timer)
+                            timer->cancel();
+                        if(ec) {
+                            std::lock_guard<std::mutex> lock(socket_mutex);
+                            socket=nullptr;
+                            throw boost::system::system_error(ec);
+                        }
+                    });
+                    io_service.reset();
+                    io_service.run();
+                    parse_response_header(response);
                     if (response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0) {
                         std::lock_guard<std::mutex> lock(socket_mutex);
                         socket=nullptr;
