@@ -14,23 +14,23 @@ namespace SimpleWeb {
                 const std::string& cert_file=std::string(), const std::string& private_key_file=std::string(), 
                 const std::string& verify_file=std::string()) : 
                 ClientBase<HTTPS>::ClientBase(server_port_path, 443), context(boost::asio::ssl::context::tlsv12) {
-            if(verify_certificate) {
-                context.set_verify_mode(boost::asio::ssl::verify_peer);
-                context.set_verify_callback(boost::asio::ssl::rfc2818_verification(host));
-                context.set_default_verify_paths();
-            }
-            else
-                context.set_verify_mode(boost::asio::ssl::verify_none);
-            
             if(cert_file.size()>0 && private_key_file.size()>0) {
                 context.use_certificate_chain_file(cert_file);
                 context.use_private_key_file(private_key_file, boost::asio::ssl::context::pem);
             }
             
-            if(verify_file.size()>0) {
+            if(verify_certificate)
+                context.set_verify_callback(boost::asio::ssl::rfc2818_verification(host));
+            
+            if(verify_file.size()>0)
                 context.load_verify_file(verify_file);
+            else
+                context.set_default_verify_paths();
+            
+            if(verify_file.size()>0 || verify_certificate)
                 context.set_verify_mode(boost::asio::ssl::verify_peer);
-            }
+            else
+                context.set_verify_mode(boost::asio::ssl::verify_none);
         }
 
     protected:
