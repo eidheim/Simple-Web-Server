@@ -123,7 +123,7 @@ namespace SimpleWeb {
             std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > > > > opt_resource;
         
     public:
-        void start() {
+        virtual void start() {
             //Copy the resources to opt_resource for more efficient request processing
             opt_resource.clear();
             for(auto& res: resource) {
