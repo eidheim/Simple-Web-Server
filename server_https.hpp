@@ -61,14 +61,18 @@ namespace SimpleWeb {
                     
                     //Set timeout on the following boost::asio::ssl::stream::async_handshake
                     auto timer=get_timeout_timer(socket, timeout_request);
-                    (*socket).async_handshake(boost::asio::ssl::stream_base::server, [this, socket, timer]
+                    socket->async_handshake(boost::asio::ssl::stream_base::server, [this, socket, timer]
                             (const boost::system::error_code& ec) {
                         if(timer)
                             timer->cancel();
                         if(!ec)
                             read_request_and_content(socket);
+                        else if(on_error)
+                            on_error(std::shared_ptr<Request>(new Request(*socket)), ec);
                     });
                 }
+                else if(on_error)
+                    on_error(std::shared_ptr<Request>(new Request(*socket)), ec);
             });
         }
     };

@@ -13,7 +13,8 @@ public:
     void accept() {}
     
     bool parse_request_test() {
-        std::shared_ptr<Request> request(new Request());
+        HTTP socket(*io_service);
+        std::shared_ptr<Request> request(new Request(socket));
         
         std::ostream stream(&request->content.streambuf);
         stream << "GET /test/ HTTP/1.1\r\n";
@@ -100,6 +101,7 @@ public:
 
 int main() {
     ServerTest serverTest;
+    serverTest.io_service=std::make_shared<boost::asio::io_service>();
     
     if(!serverTest.parse_request_test()) {
         cerr << "FAIL Server::parse_request" << endl;

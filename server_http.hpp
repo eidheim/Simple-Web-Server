@@ -22,6 +22,9 @@
 
 namespace SimpleWeb {
     template <class socket_type>
+    class Server;
+    
+    template <class socket_type>
     class ServerBase {
     public:
         virtual ~ServerBase() {}
@@ -59,6 +62,7 @@ namespace SimpleWeb {
         
         class Request {
             friend class ServerBase<socket_type>;
+            friend class Server<socket_type>;
             
             //Based on http://www.boost.org/doc/libs/1_60_0/doc/html/unordered/hash_equality.html
             class iequal_to {
@@ -89,7 +93,13 @@ namespace SimpleWeb {
             unsigned short remote_endpoint_port;
             
         private:
-            Request(): content(streambuf) {}
+            Request(const socket_type &socket): content(streambuf) {
+                try {
+                    remote_endpoint_address=socket.lowest_layer().remote_endpoint().address().to_string();
+                    remote_endpoint_port=socket.lowest_layer().remote_endpoint().port();
+                }
+                catch(...) {}
+            }
             
             boost::asio::streambuf streambuf;
         };
@@ -116,7 +126,7 @@ namespace SimpleWeb {
         std::unordered_map<std::string, 
             std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > default_resource;
         
-        std::function<void(const std::exception&)> exception_handler;
+        std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request>, const boost::system::error_code&)> on_error;
 
     private:
         std::vector<std::pair<std::string, std::vector<std::pair<REGEX_NS::regex,
@@ -218,7 +228,7 @@ namespace SimpleWeb {
             
             auto timer=std::make_shared<boost::asio::deadline_timer>(*io_service);
             timer->expires_from_now(boost::posix_time::seconds(seconds));
-            timer->async_wait([socket](const boost::system::error_code& ec){
+            timer->async_wait([this, socket](const boost::system::error_code& ec){
                 if(!ec) {
                     boost::system::error_code ec;
                     socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
@@ -231,15 +241,7 @@ namespace SimpleWeb {
         void read_request_and_content(const std::shared_ptr<socket_type> &socket) {
             //Create new streambuf (Request::streambuf) for async_read_until()
             //shared_ptr is used to pass temporary objects to the asynchronous functions
-            std::shared_ptr<Request> request(new Request());
-            try {
-                request->remote_endpoint_address=socket->lowest_layer().remote_endpoint().address().to_string();
-                request->remote_endpoint_port=socket->lowest_layer().remote_endpoint().port();
-            }
-            catch(const std::exception &e) {
-                if(exception_handler)
-                   exception_handler(e);
-            }
+            std::shared_ptr<Request> request(new Request(*socket));
 
             //Set timeout on the following boost::asio::async-read or write function
             auto timer=this->get_timeout_timer(socket, timeout_request);
@@ -266,8 +268,8 @@ namespace SimpleWeb {
                             content_length=stoull(it->second);
                         }
                         catch(const std::exception &e) {
-                            if(exception_handler)
-                                exception_handler(e);
+                            if(on_error)
+                                on_error(request, boost::system::error_code(boost::system::errc::protocol_error, boost::system::generic_category()));
                             return;
                         }
                         if(content_length>num_additional_bytes) {
@@ -281,6 +283,8 @@ namespace SimpleWeb {
                                     timer->cancel();
                                 if(!ec)
                                     this->find_resource(socket, request);
+                                else if(on_error)
+                                    on_error(request, ec);
                             });
                         }
                         else
@@ -289,6 +293,8 @@ namespace SimpleWeb {
                     else
                         this->find_resource(socket, request);
                 }
+                else if(on_error)
+                    on_error(request, ec);
             });
         }
 
@@ -370,8 +376,8 @@ namespace SimpleWeb {
                             http_version=stof(request->http_version);
                         }
                         catch(const std::exception &e){
-                            if(exception_handler)
-                                exception_handler(e);
+                            if(on_error)
+                                on_error(request, boost::system::error_code(boost::system::errc::protocol_error, boost::system::generic_category()));
                             return;
                         }
                         
@@ -383,6 +389,8 @@ namespace SimpleWeb {
                         if(http_version>1.05)
                             this->read_request_and_content(response->socket);
                     }
+                    else if(on_error)
+                        on_error(request, ec);
                 });
             });
 
@@ -390,8 +398,8 @@ namespace SimpleWeb {
                 resource_function(response, request);
             }
             catch(const std::exception &e) {
-                if(exception_handler)
-                    exception_handler(e);
+                if(on_error)
+                    on_error(request, boost::system::error_code(boost::system::errc::operation_canceled, boost::system::generic_category()));
                 return;
             }
         }
@@ -424,6 +432,9 @@ namespace SimpleWeb {
                     socket->set_option(option);
                     
                     this->read_request_and_content(socket);
+                }
+                else if(on_error) {
+                    on_error(std::shared_ptr<Request>(new Request(*socket)), ec);
                 }
             });
         }
