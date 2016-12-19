@@ -228,7 +228,7 @@ namespace SimpleWeb {
             
             auto timer=std::make_shared<boost::asio::deadline_timer>(*io_service);
             timer->expires_from_now(boost::posix_time::seconds(seconds));
-            timer->async_wait([this, socket](const boost::system::error_code& ec){
+            timer->async_wait([socket](const boost::system::error_code& ec){
                 if(!ec) {
                     boost::system::error_code ec;
                     socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
