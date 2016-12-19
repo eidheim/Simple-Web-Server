@@ -433,9 +433,8 @@ namespace SimpleWeb {
                     
                     this->read_request_and_content(socket);
                 }
-                else if(on_error) {
+                else if(on_error)
                     on_error(std::shared_ptr<Request>(new Request(*socket)), ec);
-                }
             });
         }
     };
