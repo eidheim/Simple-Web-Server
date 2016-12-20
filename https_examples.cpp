@@ -1,5 +1,6 @@
 #include "server_https.hpp"
 #include "client_https.hpp"
+#include "crypto.hpp"
 
 //Added for the json-example
 #define BOOST_SPIRIT_THREADSAFE
@@ -22,7 +23,7 @@ typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
 //Added for the default_resource example
 void default_resource_send(const HttpsServer &server, const shared_ptr<HttpsServer::Response> &response,
                            const shared_ptr<ifstream> &ifs);
-
+std::string build_hash(const std::string full_file_name);
 int main() {
     //HTTPS-server at port 8080 using 1 thread
     //Unless you do more heavy non-threaded processing in the resources,
@@ -116,7 +117,17 @@ int main() {
                 path/="index.html";
             if(!(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)))
                 throw invalid_argument("file does not exist");
-            
+
+	    //Support for HTTP Cache
+	    std::string hash = build_hash(path.string());
+	    auto it=request->header.find("If-None-Match");
+	    if(it!=request->header.end()) {
+		if (it->second == "\""+hash+"\"") {
+		    *response << "HTTP/1.1 304 Not Modified\r\nCache-Control: max-age=86400\r\nETag: \""+hash+"\"\r\n\r\n";
+		    return;
+		}
+	    }
+
             auto ifs=make_shared<ifstream>();
             ifs->open(path.string(), ifstream::in | ios::binary);
             
@@ -126,7 +137,7 @@ int main() {
                 
                 ifs->seekg(0, ios::beg);
                 
-                *response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
+                *response << "HTTP/1.1 200 OK\r\nCache-Control: max-age=86400\r\nETag: \""+hash+"\"\r\nContent-Length: " << length << "\r\n\r\n";
                 default_resource_send(server, response, ifs);
             }
             else
@@ -180,4 +191,16 @@ void default_resource_send(const HttpsServer &server, const shared_ptr<HttpsServ
             });
         }
     }
+}
+
+std::string build_hash(const std::string full_file_name) {
+    std::string ret = "";
+    std::ifstream file(full_file_name, std::ios::binary | std::ios::ate);
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::vector<char> buffer(size);
+    if (!file.read(buffer.data(), size))
+        return ret;
+    ret = reinterpret_cast<char*> (&buffer[0]);
+    return SimpleWeb::Crypto::md5(ret,1);
 }
