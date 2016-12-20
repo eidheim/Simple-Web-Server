@@ -1,7 +1,4 @@
-#include <sstream>
 #include <vector>
-#include <utility>
-#include <iomanip>
 #include <cassert>
 
 #include "crypto.hpp"
@@ -40,29 +37,27 @@ const vector<pair<string, string> > sha512_string_tests = {
 };
 
 int main() {
-    //Testing SimpleWeb::Crypt::Base64
     for(auto& string_test: base64_string_tests) {
         assert(Crypto::Base64::encode(string_test.first)==string_test.second);
         assert(Crypto::Base64::decode(string_test.second)==string_test.first);
     }
     
-    //Testing SimpleWeb::Crypt::MD5
     for(auto& string_test: md5_string_tests)
         assert(Crypto::to_hex_string(Crypto::md5(string_test.first)) == string_test.second);
     
-    //Testing SimpleWeb::Crypt::sha1
     for(auto& string_test: sha1_string_tests)
         assert(Crypto::to_hex_string(Crypto::sha1(string_test.first)) == string_test.second);
     
-    //Testing SimpleWeb::Crypt::sha256
     for(auto& string_test: sha256_string_tests)
         assert(Crypto::to_hex_string(Crypto::sha256(string_test.first)) == string_test.second);
     
-    //Testing SimpleWeb::Crypt::sha512
     for(auto& string_test: sha512_string_tests)
         assert(Crypto::to_hex_string(Crypto::sha512(string_test.first)) == string_test.second);
     
     //Testing iterations
     assert(Crypto::to_hex_string(Crypto::sha1("Test", 1)) == "640ab2bae07bedc4c163f679a746f7ab7fb5d1fa");
     assert(Crypto::to_hex_string(Crypto::sha1("Test", 2)) == "af31c6cbdecd88726d0a9b3798c71ef41f1624d5");
+    
+    assert(Crypto::to_hex_string(Crypto::pbkdf2("Password", "Salt", 4096, 128 / 8)) == "f66df50f8aaa11e4d9721e1312ff2e66");
+    assert(Crypto::to_hex_string(Crypto::pbkdf2("Password", "Salt", 8192, 512 / 8)) == "a941ccbc34d1ee8ebbd1d34824a419c3dc4eac9cbc7c36ae6c7ca8725e2b618a6ad22241e787af937b0960cf85aa8ea3a258f243e05d3cc9b08af5dd93be046c");
 }

@@ -133,6 +133,18 @@ namespace SimpleWeb {
             
             return hash;
         }
+        
+        /// Returns empty string on error. key_size is in bytes.
+        static std::string pbkdf2(const std::string &password, const std::string &salt, int iterations = 4096, int key_size = 256 / 8) {
+          std::string key;
+          key.resize(key_size);
+          auto success = PKCS5_PBKDF2_HMAC_SHA1(password.c_str(), password.size(),
+                                                reinterpret_cast<const unsigned char*>(salt.c_str()), salt.size(), iterations,
+                                                key_size, reinterpret_cast<unsigned char*>(&key[0]));
+          if (!success)
+            return std::string();
+          return key;
+        }
     };
 }
 #endif	/* CRYPTO_HPP */
