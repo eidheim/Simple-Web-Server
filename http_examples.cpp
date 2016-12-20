@@ -147,7 +147,7 @@ int main() {
                 
                 ifs->seekg(0, ios::beg);
                 
-                *response << "HTTP/1.1 200 OK\r\nContent-Length: " << length << "\r\n\r\n";
+                *response << "HTTP/1.1 200 OK\r\n" << cache_ctrl << "Content-Length: " << length << "\r\n\r\n";
                 default_resource_send(server, response, ifs);
             }
             else
