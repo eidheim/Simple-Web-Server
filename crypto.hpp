@@ -86,50 +86,50 @@ namespace SimpleWeb {
           return hex_stream.str();
         }
         
-        static std::string MD5(const std::string &input, size_t iterations=1) {
+        static std::string md5(const std::string &input, size_t iterations=1) {
             std::string hash;
             
             hash.resize(128 / 8);
-            ::MD5(reinterpret_cast<const unsigned char*>(&input[0]), input.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+            MD5(reinterpret_cast<const unsigned char*>(&input[0]), input.size(), reinterpret_cast<unsigned char*>(&hash[0]));
             
             for (size_t c = 1; c < iterations; ++c)
-              ::MD5(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+              MD5(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
             
             return hash;
         }
 
-        static std::string SHA1(const std::string &input, size_t iterations=1) {
+        static std::string sha1(const std::string &input, size_t iterations=1) {
             std::string hash;
             
             hash.resize(160 / 8);
-            ::SHA1(reinterpret_cast<const unsigned char*>(&input[0]), input.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+            SHA1(reinterpret_cast<const unsigned char*>(&input[0]), input.size(), reinterpret_cast<unsigned char*>(&hash[0]));
             
             for (size_t c = 1; c < iterations; ++c)
-              ::SHA1(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+              SHA1(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
             
             return hash;
         }
 
-        static std::string SHA256(const std::string &input, size_t iterations=1) {
+        static std::string sha256(const std::string &input, size_t iterations=1) {
             std::string hash;
             
             hash.resize(256 / 8);
-            ::SHA256(reinterpret_cast<const unsigned char*>(&input[0]), input.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+            SHA256(reinterpret_cast<const unsigned char*>(&input[0]), input.size(), reinterpret_cast<unsigned char*>(&hash[0]));
             
             for (size_t c = 1; c < iterations; ++c)
-              ::SHA256(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+              SHA256(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
             
             return hash;
         }
 
-        static std::string SHA512(const std::string &input, size_t iterations=1) {
+        static std::string sha512(const std::string &input, size_t iterations=1) {
             std::string hash;
             
             hash.resize(512 / 8);
-            ::SHA512(reinterpret_cast<const unsigned char*>(&input[0]), input.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+            SHA512(reinterpret_cast<const unsigned char*>(&input[0]), input.size(), reinterpret_cast<unsigned char*>(&hash[0]));
             
             for (size_t c = 1; c < iterations; ++c)
-              ::SHA512(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+              SHA512(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
             
             return hash;
         }
