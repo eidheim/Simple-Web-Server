@@ -103,7 +103,7 @@ namespace SimpleWeb {
                                 timer->cancel();
                             if(ec) {
                                 std::lock_guard<std::mutex> lock(socket_mutex);
-                                socket=nullptr;
+                                this->socket=nullptr;
                                 throw boost::system::system_error(ec);
                             }
                         });
