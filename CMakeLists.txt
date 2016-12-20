@@ -29,6 +29,7 @@ target_link_libraries(http_examples ${CMAKE_THREAD_LIBS_INIT})
 find_package(OpenSSL)
 
 if(OPENSSL_FOUND)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHAVE_OPENSSL")
     include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 
     add_executable(https_examples https_examples.cpp)
