@@ -5,6 +5,8 @@
 #include <cmath>
 #include <sstream>
 #include <iomanip>
+#include <istream>
+#include <vector>
 
 //Moving these to a seperate namespace for minimal global namespace cluttering does not work with clang++
 #include <openssl/evp.h>
@@ -21,6 +23,7 @@ namespace SimpleWeb {
     #endif
 
     class Crypto {
+        const static size_t buffer_size=131072;
     public:
         class Base64 {
         public:
@@ -97,6 +100,23 @@ namespace SimpleWeb {
             
             return hash;
         }
+        
+        static std::string md5(std::istream &stream, size_t iterations=1) {
+            MD5_CTX context;
+            MD5_Init(&context);
+            std::streamsize read_length;
+            std::vector<char> buffer(buffer_size);
+            while((read_length=stream.read(&buffer[0], buffer_size).gcount())>0)
+                MD5_Update(&context, buffer.data(), read_length);
+            std::string hash;
+            hash.resize(128 / 8);
+            MD5_Final(reinterpret_cast<unsigned char*>(&hash[0]), &context);
+            
+            for (size_t c = 1; c < iterations; ++c)
+              MD5(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+            
+            return hash;
+        }
 
         static std::string sha1(const std::string &input, size_t iterations=1) {
             std::string hash;
@@ -109,12 +129,46 @@ namespace SimpleWeb {
             
             return hash;
         }
+        
+        static std::string sha1(std::istream &stream, size_t iterations=1) {
+            SHA_CTX context;
+            SHA1_Init(&context);
+            std::streamsize read_length;
+            std::vector<char> buffer(buffer_size);
+            while((read_length=stream.read(&buffer[0], buffer_size).gcount())>0)
+                SHA1_Update(&context, buffer.data(), read_length);
+            std::string hash;
+            hash.resize(160 / 8);
+            SHA1_Final(reinterpret_cast<unsigned char*>(&hash[0]), &context);
+            
+            for (size_t c = 1; c < iterations; ++c)
+              SHA1(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+            
+            return hash;
+        }
 
         static std::string sha256(const std::string &input, size_t iterations=1) {
             std::string hash;
             
             hash.resize(256 / 8);
             SHA256(reinterpret_cast<const unsigned char*>(&input[0]), input.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+            
+            for (size_t c = 1; c < iterations; ++c)
+              SHA256(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+            
+            return hash;
+        }
+        
+        static std::string sha256(std::istream &stream, size_t iterations=1) {
+            SHA256_CTX context;
+            SHA256_Init(&context);
+            std::streamsize read_length;
+            std::vector<char> buffer(buffer_size);
+            while((read_length=stream.read(&buffer[0], buffer_size).gcount())>0)
+                SHA256_Update(&context, buffer.data(), read_length);
+            std::string hash;
+            hash.resize(256 / 8);
+            SHA256_Final(reinterpret_cast<unsigned char*>(&hash[0]), &context);
             
             for (size_t c = 1; c < iterations; ++c)
               SHA256(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
@@ -134,15 +188,30 @@ namespace SimpleWeb {
             return hash;
         }
         
-        /// Returns empty string on error. key_size is in bytes.
-        static std::string pbkdf2(const std::string &password, const std::string &salt, int iterations = 4096, int key_size = 256 / 8) {
+        static std::string sha512(std::istream &stream, size_t iterations=1) {
+            SHA512_CTX context;
+            SHA512_Init(&context);
+            std::streamsize read_length;
+            std::vector<char> buffer(buffer_size);
+            while((read_length=stream.read(&buffer[0], buffer_size).gcount())>0)
+                SHA512_Update(&context, buffer.data(), read_length);
+            std::string hash;
+            hash.resize(512 / 8);
+            SHA512_Final(reinterpret_cast<unsigned char*>(&hash[0]), &context);
+            
+            for (size_t c = 1; c < iterations; ++c)
+              SHA512(reinterpret_cast<const unsigned char*>(&hash[0]), hash.size(), reinterpret_cast<unsigned char*>(&hash[0]));
+            
+            return hash;
+        }
+        
+        /// key_size is number of bytes of the returned key.
+        static std::string pbkdf2(const std::string &password, const std::string &salt, int iterations, int key_size) {
           std::string key;
           key.resize(key_size);
-          auto success = PKCS5_PBKDF2_HMAC_SHA1(password.c_str(), password.size(),
-                                                reinterpret_cast<const unsigned char*>(salt.c_str()), salt.size(), iterations,
-                                                key_size, reinterpret_cast<unsigned char*>(&key[0]));
-          if (!success)
-            return std::string();
+          PKCS5_PBKDF2_HMAC_SHA1(password.c_str(), password.size(),
+                                 reinterpret_cast<const unsigned char*>(salt.c_str()), salt.size(), iterations,
+                                 key_size, reinterpret_cast<unsigned char*>(&key[0]));
           return key;
         }
     };
