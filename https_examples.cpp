@@ -1,8 +1,5 @@
 #include "server_https.hpp"
 #include "client_https.hpp"
-#ifdef HAVE_OPENSSL
-#include "crypto.hpp"
-#endif
 
 //Added for the json-example
 #define BOOST_SPIRIT_THREADSAFE
@@ -14,6 +11,7 @@
 #include <boost/filesystem.hpp>
 #include <vector>
 #include <algorithm>
+#include "crypto.hpp"
 
 using namespace std;
 //Added for the json-example:
@@ -25,9 +23,7 @@ typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
 //Added for the default_resource example
 void default_resource_send(const HttpsServer &server, const shared_ptr<HttpsServer::Response> &response,
                            const shared_ptr<ifstream> &ifs);
-#ifdef HAVE_OPENSSL
-std::string build_hash(const std::string full_file_name);
-#endif
+
 int main() {
     //HTTPS-server at port 8080 using 1 thread
     //Unless you do more heavy non-threaded processing in the resources,
@@ -113,7 +109,6 @@ int main() {
         try {
             auto web_root_path=boost::filesystem::canonical("web");
             auto path=boost::filesystem::canonical(web_root_path/request->path);
-	    std::string cache_ctrl = "";
             //Check if path is within web_root_path
             if(distance(web_root_path.begin(), web_root_path.end())>distance(path.begin(), path.end()) ||
                !equal(web_root_path.begin(), web_root_path.end(), path.begin()))
@@ -123,29 +118,37 @@ int main() {
             if(!(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)))
                 throw invalid_argument("file does not exist");
 
-#ifdef HAVE_OPENSSL
-	    //Support for HTTP Cache
-	    std::string hash = build_hash(path.string());
-	    auto it=request->header.find("If-None-Match");
-	    if(it!=request->header.end()) {
-		if (it->second == "\""+hash+"\"") {
-		    *response << "HTTP/1.1 304 Not Modified\r\nCache-Control: max-age=86400\r\nETag: \""+hash+"\"\r\n\r\n";
-		    return;
-		}
-	    }
-	    cache_ctrl = "Cache-Control: max-age=86400\r\nETag: \""+hash+"\"\r\n";
-#endif
+            std::string cache_control, etag;
+
+            // Uncomment the following line to enable Cache-Control
+            // cache_control="Cache-Control: max-age=86400\r\n";
+
+            // Uncomment the following lines to enable ETag
+            // {
+            //     ifstream ifs(path.string(), ifstream::in | ios::binary);
+            //     if(ifs) {
+            //         auto hash=SimpleWeb::Crypto::to_hex_string(SimpleWeb::Crypto::md5(ifs));
+            //         etag = "ETag: \""+hash+"\"\r\n";
+            //         auto it=request->header.find("If-None-Match");
+            //         if(it!=request->header.end()) {
+            //             if(!it->second.empty() && it->second.compare(1, hash.size(), hash)==0) {
+            //                 *response << "HTTP/1.1 304 Not Modified\r\n" << cache_control << etag << "\r\n\r\n";
+            //                 return;
+            //             }
+            //         }
+            //     }
+            //     else
+            //         throw invalid_argument("could not read file");
+            // }
 
             auto ifs=make_shared<ifstream>();
-            ifs->open(path.string(), ifstream::in | ios::binary);
+            ifs->open(path.string(), ifstream::in | ios::binary | ios::ate);
             
             if(*ifs) {
-                ifs->seekg(0, ios::end);
                 auto length=ifs->tellg();
-                
                 ifs->seekg(0, ios::beg);
                 
-                *response << "HTTP/1.1 200 OK\r\n" << cache_ctrl << "Content-Length: " << length << "\r\n\r\n";
+                *response << "HTTP/1.1 200 OK\r\n" << cache_control << etag << "Content-Length: " << length << "\r\n\r\n";
                 default_resource_send(server, response, ifs);
             }
             else
@@ -200,17 +203,3 @@ void default_resource_send(const HttpsServer &server, const shared_ptr<HttpsServ
         }
     }
 }
-
-#ifdef HAVE_OPENSSL
-std::string build_hash(const std::string full_file_name) {
-    std::string ret = "";
-    std::ifstream file(full_file_name, std::ios::binary | std::ios::ate);
-    std::streamsize size = file.tellg();
-    file.seekg(0, std::ios::beg);
-    std::vector<char> buffer(size);
-    if (!file.read(buffer.data(), size))
-        return ret;
-    ret = reinterpret_cast<char*> (&buffer[0]);
-    return SimpleWeb::Crypto::md5(ret,1);
-}
-#endif
