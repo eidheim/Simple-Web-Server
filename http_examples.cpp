@@ -30,7 +30,8 @@ int main() {
     //HTTP-server at port 8080 using 1 thread
     //Unless you do more heavy non-threaded processing in the resources,
     //1 thread is usually faster than several threads
-    HttpServer server(8080, 1);
+    HttpServer server;
+    server.config.port=8080;
     
     //Add resources using path-regex and method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string

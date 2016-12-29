@@ -14,11 +14,18 @@ namespace SimpleWeb {
         std::string session_id_context;
         bool set_session_id_context=false;
     public:
-        Server(unsigned short port, size_t num_threads, const std::string& cert_file, const std::string& private_key_file,
+        DEPRECATED Server(unsigned short port, size_t num_threads, const std::string& cert_file, const std::string& private_key_file,
                 long timeout_request=5, long timeout_content=300,
                 const std::string& verify_file=std::string()) : 
-                ServerBase<HTTPS>::ServerBase(port, num_threads, timeout_request, timeout_content), 
-                context(boost::asio::ssl::context::tlsv12) { // 2016/08/13 only use tls12, see https://www.ssllabs.com/ssltest
+                Server(cert_file, private_key_file, verify_file) {
+            config.port=port;
+            config.thread_pool_size=num_threads;
+            config.timeout_request=timeout_request;
+            config.timeout_content=timeout_content;
+        }
+        
+        Server(const std::string& cert_file, const std::string& private_key_file, const std::string& verify_file=std::string()):
+                ServerBase<HTTPS>::ServerBase(443), context(boost::asio::ssl::context::tlsv12) {
             context.use_certificate_chain_file(cert_file);
             context.use_private_key_file(private_key_file, boost::asio::ssl::context::pem);
             
@@ -60,7 +67,7 @@ namespace SimpleWeb {
                     socket->lowest_layer().set_option(option);
                     
                     //Set timeout on the following boost::asio::ssl::stream::async_handshake
-                    auto timer=get_timeout_timer(socket, timeout_request);
+                    auto timer=get_timeout_timer(socket, config.timeout_request);
                     socket->async_handshake(boost::asio::ssl::stream_base::server, [this, socket, timer]
                             (const boost::system::error_code& ec) {
                         if(timer)

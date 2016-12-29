@@ -8,7 +8,7 @@ using namespace SimpleWeb;
 class ServerTest : public ServerBase<HTTP> {
 public:
     ServerTest() : 
-            ServerBase<HTTP>::ServerBase(8080, 1, 5, 300) {}
+            ServerBase<HTTP>::ServerBase(8080) {}
             
     void accept() {}
     

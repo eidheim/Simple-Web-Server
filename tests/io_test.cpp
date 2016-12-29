@@ -9,7 +9,8 @@ typedef SimpleWeb::Server<SimpleWeb::HTTP> HttpServer;
 typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
 int main() {
-    HttpServer server(8080, 1);
+    HttpServer server;
+    server.config.port=8080;
     
     server.resource["^/string$"]["POST"]=[](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
         auto content=request->content.string();
