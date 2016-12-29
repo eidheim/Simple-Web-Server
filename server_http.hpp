@@ -429,7 +429,7 @@ namespace SimpleWeb {
             config.port=port;
             config.thread_pool_size=thread_pool_size;
             config.timeout_request=timeout_request;
-            config.timeout_request=timeout_content;
+            config.timeout_content=timeout_content;
         }
         
         Server() : ServerBase<HTTP>::ServerBase(80) {}
