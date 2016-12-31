@@ -11,6 +11,26 @@
 #include <iostream>
 #include <sstream>
 
+#ifndef CASE_INSENSITIVE_EQUALS_AND_HASH
+#define CASE_INSENSITIVE_EQUALS_AND_HASH
+//Based on http://www.boost.org/doc/libs/1_60_0/doc/html/unordered/hash_equality.html
+class case_insensitive_equals {
+public:
+  bool operator()(const std::string &key1, const std::string &key2) const {
+    return boost::algorithm::iequals(key1, key2);
+  }
+};
+class case_insensitive_hash {
+public:
+  size_t operator()(const std::string &key) const {
+    std::size_t seed=0;
+    for(auto &c: key)
+      boost::hash_combine(seed, std::tolower(c));
+    return seed;
+  }
+};
+#endif
+
 // Late 2017 TODO: remove the following checks and always use std::regex
 #ifdef USE_BOOST_REGEX
 #include <boost/regex.hpp>
@@ -74,29 +94,12 @@ namespace SimpleWeb {
         class Request {
             friend class ServerBase<socket_type>;
             friend class Server<socket_type>;
-            
-            //Based on http://www.boost.org/doc/libs/1_60_0/doc/html/unordered/hash_equality.html
-            class iequal_to {
-            public:
-              bool operator()(const std::string &key1, const std::string &key2) const {
-                return boost::algorithm::iequals(key1, key2);
-              }
-            };
-            class ihash {
-            public:
-              size_t operator()(const std::string &key) const {
-                std::size_t seed=0;
-                for(auto &c: key)
-                  boost::hash_combine(seed, std::tolower(c));
-                return seed;
-              }
-            };
         public:
             std::string method, path, http_version;
 
             Content content;
 
-            std::unordered_multimap<std::string, std::string, ihash, iequal_to> header;
+            std::unordered_multimap<std::string, std::string, case_insensitive_hash, case_insensitive_equals> header;
 
             REGEX_NS::smatch path_match;
             
@@ -338,7 +341,7 @@ namespace SimpleWeb {
                             if(line[value_start]==' ')
                                 value_start++;
                             if(value_start<line.size())
-                                request->header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size()-value_start-1)));
+                                request->header.emplace(line.substr(0, param_end), line.substr(value_start, line.size()-value_start-1));
                         }
     
                         getline(request->content, line);

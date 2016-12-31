@@ -12,6 +12,26 @@
 #include <mutex>
 #include <type_traits>
 
+#ifndef CASE_INSENSITIVE_EQUALS_AND_HASH
+#define CASE_INSENSITIVE_EQUALS_AND_HASH
+//Based on http://www.boost.org/doc/libs/1_60_0/doc/html/unordered/hash_equality.html
+class case_insensitive_equals {
+public:
+  bool operator()(const std::string &key1, const std::string &key2) const {
+    return boost::algorithm::iequals(key1, key2);
+  }
+};
+class case_insensitive_hash {
+public:
+  size_t operator()(const std::string &key) const {
+    std::size_t seed=0;
+    for(auto &c: key)
+      boost::hash_combine(seed, std::tolower(c));
+    return seed;
+  }
+};
+#endif
+
 namespace SimpleWeb {
     template <class socket_type>
     class Client;
@@ -24,29 +44,12 @@ namespace SimpleWeb {
         class Response {
             friend class ClientBase<socket_type>;
             friend class Client<socket_type>;
-            
-            //Based on http://www.boost.org/doc/libs/1_60_0/doc/html/unordered/hash_equality.html
-            class iequal_to {
-            public:
-              bool operator()(const std::string &key1, const std::string &key2) const {
-                return boost::algorithm::iequals(key1, key2);
-              }
-            };
-            class ihash {
-            public:
-              size_t operator()(const std::string &key) const {
-                std::size_t seed=0;
-                for(auto &c: key)
-                  boost::hash_combine(seed, std::tolower(c));
-                return seed;
-              }
-            };
         public:
             std::string http_version, status_code;
 
             std::istream content;
 
-            std::unordered_multimap<std::string, std::string, ihash, iequal_to> header;
+            std::unordered_multimap<std::string, std::string, case_insensitive_hash, case_insensitive_equals> header;
             
         private:
             boost::asio::streambuf content_buffer;
