@@ -147,6 +147,8 @@ namespace SimpleWeb {
             std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > default_resource;
         
         std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request>, const boost::system::error_code&)> on_error;
+        
+        std::function<void(std::shared_ptr<socket_type> socket, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
 
     private:
         std::vector<std::pair<std::string, std::vector<std::pair<REGEX_NS::regex,
@@ -356,6 +358,14 @@ namespace SimpleWeb {
         }
 
         void find_resource(const std::shared_ptr<socket_type> &socket, const std::shared_ptr<Request> &request) {
+            //Upgrade connection
+            if(on_upgrade) {
+                auto it_param=request->header.find("Upgrade");
+                if(it_param!=request->header.end()) {
+                    on_upgrade(socket, request);
+                    return;
+                }
+            }
             //Find path- and method-match, and call write_response
             for(auto& res: opt_resource) {
                 if(request->method==res.first) {
