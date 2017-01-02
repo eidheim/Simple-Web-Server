@@ -5,6 +5,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/functional/hash.hpp>
 
+#include <map>
 #include <unordered_map>
 #include <thread>
 #include <functional>
@@ -140,42 +141,29 @@ namespace SimpleWeb {
         ///Set before calling start().
         Config config;
         
-        std::unordered_map<std::string, std::unordered_map<std::string, 
+    private:
+        class regex_orderable : public REGEX_NS::regex {
+            std::string str;
+        public:
+            regex_orderable(const char *regex_cstr) : std::regex(regex_cstr), str(regex_cstr) {}
+            regex_orderable(const std::string &regex_str) : std::regex(regex_str), str(regex_str) {}
+            bool operator<(const regex_orderable &rhs) const {
+                return str<rhs.str;
+            }
+        };
+    public:
+        std::map<regex_orderable, std::map<std::string, 
             std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > >  resource;
         
-        std::unordered_map<std::string, 
+        std::map<std::string, 
             std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > default_resource;
         
         std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request>, const boost::system::error_code&)> on_error;
         
         std::function<void(std::shared_ptr<socket_type> socket, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
-
-    private:
-        std::vector<std::pair<std::string, std::vector<std::pair<REGEX_NS::regex,
-            std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > > > > opt_resource;
         
     public:
         virtual void start() {
-            //Copy the resources to opt_resource for more efficient request processing
-            opt_resource.clear();
-            for(auto& res: resource) {
-                for(auto& res_method: res.second) {
-                    auto it=opt_resource.end();
-                    for(auto opt_it=opt_resource.begin();opt_it!=opt_resource.end();opt_it++) {
-                        if(res_method.first==opt_it->first) {
-                            it=opt_it;
-                            break;
-                        }
-                    }
-                    if(it==opt_resource.end()) {
-                        opt_resource.emplace_back();
-                        it=opt_resource.begin()+(opt_resource.size()-1);
-                        it->first=res_method.first;
-                    }
-                    it->second.emplace_back(REGEX_NS::regex(res.first), res_method.second);
-                }
-            }
-
             if(!io_service)
                 io_service=std::make_shared<boost::asio::io_service>();
 
@@ -360,28 +348,27 @@ namespace SimpleWeb {
         void find_resource(const std::shared_ptr<socket_type> &socket, const std::shared_ptr<Request> &request) {
             //Upgrade connection
             if(on_upgrade) {
-                auto it_param=request->header.find("Upgrade");
-                if(it_param!=request->header.end()) {
+                auto it=request->header.find("Upgrade");
+                if(it!=request->header.end()) {
                     on_upgrade(socket, request);
                     return;
                 }
             }
             //Find path- and method-match, and call write_response
-            for(auto& res: opt_resource) {
-                if(request->method==res.first) {
-                    for(auto& res_path: res.second) {
-                        REGEX_NS::smatch sm_res;
-                        if(REGEX_NS::regex_match(request->path, sm_res, res_path.first)) {
-                            request->path_match=std::move(sm_res);
-                            write_response(socket, request, res_path.second);
-                            return;
-                        }
+            for(auto &regex_method: resource) {
+                auto it=regex_method.second.find(request->method);
+                if(it!=regex_method.second.end()) {
+                    REGEX_NS::smatch sm_res;
+                    if(REGEX_NS::regex_match(request->path, sm_res, regex_method.first)) {
+                        request->path_match=std::move(sm_res);
+                        write_response(socket, request, it->second);
+                        return;
                     }
                 }
             }
-            auto it_method=default_resource.find(request->method);
-            if(it_method!=default_resource.end()) {
-                write_response(socket, request, it_method->second);
+            auto it=default_resource.find(request->method);
+            if(it!=default_resource.end()) {
+                write_response(socket, request, it->second);
             }
         }
         
