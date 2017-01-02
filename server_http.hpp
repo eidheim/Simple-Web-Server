@@ -152,10 +152,11 @@ namespace SimpleWeb {
             }
         };
     public:
-        std::map<regex_orderable, std::map<std::string, 
-            std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > >  resource;
+        /// Warning: do not add or remove resources after start() is called
+        std::map<regex_orderable, std::map<std::string,
+            std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > > resource;
         
-        std::map<std::string, 
+        std::map<std::string,
             std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> > default_resource;
         
         std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request>, const boost::system::error_code&)> on_error;
