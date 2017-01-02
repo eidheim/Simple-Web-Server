@@ -163,7 +163,6 @@ namespace SimpleWeb {
         
         std::function<void(std::shared_ptr<socket_type> socket, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
         
-    public:
         virtual void start() {
             if(!io_service)
                 io_service=std::make_shared<boost::asio::io_service>();
