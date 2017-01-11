@@ -145,8 +145,8 @@ namespace SimpleWeb {
         class regex_orderable : public REGEX_NS::regex {
             std::string str;
         public:
-            regex_orderable(const char *regex_cstr) : std::regex(regex_cstr), str(regex_cstr) {}
-            regex_orderable(const std::string &regex_str) : std::regex(regex_str), str(regex_str) {}
+            regex_orderable(const char *regex_cstr) : REGEX_NS::regex(regex_cstr), str(regex_cstr) {}
+            regex_orderable(const std::string &regex_str) : REGEX_NS::regex(regex_str), str(regex_str) {}
             bool operator<(const regex_orderable &rhs) const {
                 return str<rhs.str;
             }
