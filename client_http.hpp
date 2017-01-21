@@ -64,6 +64,8 @@ namespace SimpleWeb {
         public:
             /// Set timeout on requests in seconds. Default value: 0 (no timeout). 
             size_t timeout=0;
+            /// Set connect timeout in seconds. Default value: 0 (Config::timeout is then used instead).
+            size_t timeout_connect=0;
             /// Set proxy server (server:port)
             std::string proxy_server;
         };
@@ -209,12 +211,14 @@ namespace SimpleWeb {
         
         virtual void connect()=0;
         
-        std::shared_ptr<boost::asio::deadline_timer> get_timeout_timer() {
-            if(config.timeout==0)
+        std::shared_ptr<boost::asio::deadline_timer> get_timeout_timer(size_t timeout=0) {
+            if(timeout==0)
+                timeout=config.timeout;
+            if(timeout==0)
                 return nullptr;
             
             auto timer=std::make_shared<boost::asio::deadline_timer>(io_service);
-            timer->expires_from_now(boost::posix_time::seconds(config.timeout));
+            timer->expires_from_now(boost::posix_time::seconds(timeout));
             timer->async_wait([this](const boost::system::error_code& ec) {
                 if(!ec) {
                     close();
@@ -390,7 +394,7 @@ namespace SimpleWeb {
                             socket=std::unique_ptr<HTTP>(new HTTP(io_service));
                         }
                         
-                        auto timer=get_timeout_timer();
+                        auto timer=get_timeout_timer(config.timeout_connect);
                         boost::asio::async_connect(*socket, it, [this, timer]
                                 (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator /*it*/){
                             if(timer)
