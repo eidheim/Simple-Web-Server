@@ -75,12 +75,11 @@ namespace SimpleWeb {
                 return streambuf.size();
             }
 
-            /// A resource-handler can set this to true in its Response-object
-            /// to have the server connection being close by the server after data has been sent.
+            /// If true, force server to close the connection after the response have been sent.
             ///
-            /// This is useful when implementing a HTTP/1.0-server which usually closes the connection
-            /// after the response has been sent out, without using Content-Length:-header.
-            bool close_connection_after_send = false;
+            /// This is useful when implementing a HTTP/1.0-server sending content
+            /// without specifying the content length.
+            bool close_connection_after_response = false;
         };
         
         class Content : public std::istream {
@@ -401,7 +400,7 @@ namespace SimpleWeb {
                             return;
                         }
                         
-                        if (response->close_connection_after_send)
+                        if (response->close_connection_after_response)
                             return;
 
                         auto range=request->header.equal_range("Connection");
