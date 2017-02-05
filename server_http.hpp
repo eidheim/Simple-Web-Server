@@ -325,7 +325,7 @@ namespace SimpleWeb {
 					size_t qs_start;
 					if ((qs_start = request->path.find('?')) != std::string::npos)
 					{
-						string qs = request->path.substr(qs_start, request->path.size() - qs_start - 1);
+						std::string qs = request->path.substr(qs_start, request->path.size() - qs_start - 1);
 						REGEX_NS::regex pattern("([\\w+%]+)=?([^&]*)");
 						int submatches[] = { 1, 2 };
 						auto qs_begin = REGEX_NS::sregex_token_iterator(qs.begin(), qs.end(), pattern, submatches);
@@ -333,8 +333,8 @@ namespace SimpleWeb {
 
 						for (auto i = qs_begin; i != qs_end; i++)
 						{
-							string key = i->str();
-							string value = (++i)->str();
+							std::string key = i->str();
+							std::string value = (++i)->str();
 							request->query_string.emplace(std::make_pair(key, value));
 						}
 					}
