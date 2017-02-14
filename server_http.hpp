@@ -390,16 +390,6 @@ namespace SimpleWeb {
                     if(timer)
                         timer->cancel();
                     if(!ec) {
-                        float http_version;
-                        try {
-                            http_version=stof(request->http_version);
-                        }
-                        catch(const std::exception &e){
-                            if(on_error)
-                                on_error(request, boost::system::error_code(boost::system::errc::protocol_error, boost::system::generic_category()));
-                            return;
-                        }
-                        
                         if (response->close_connection_after_response)
                             return;
 
@@ -408,7 +398,7 @@ namespace SimpleWeb {
                             if(boost::iequals(it->second, "close"))
                                 return;
                         }
-                        if(http_version>1.05)
+                        if(request->http_version >= "1.1")
                             this->read_request_and_content(response->socket);
                     }
                     else if(on_error)
