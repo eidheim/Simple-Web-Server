@@ -289,6 +289,20 @@ namespace SimpleWeb {
                     else if((header_it=response->header.find("Transfer-Encoding"))!=response->header.end() && header_it->second=="chunked") {
                         request_read_chunked(response, chunked_streambuf);
                     }
+                    else if(response->http_version<"1.1" || ((header_it=response->header.find("Connection"))!=response->header.end() && header_it->second=="close")) {
+                        auto timer=get_timeout_timer();
+                        boost::asio::async_read(*socket, response->content_buffer,
+                                                [this, timer](const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                            if(timer)
+                                    timer->cancel();
+                            if(ec) {
+                                std::lock_guard<std::mutex> lock(socket_mutex);
+                                this->socket=nullptr;
+                                if(ec!=boost::asio::error::eof)
+                                    throw boost::system::system_error(ec);
+                            }
+                        });
+                    }
                 }
                 else {
                     std::lock_guard<std::mutex> lock(socket_mutex);
