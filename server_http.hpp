@@ -331,12 +331,13 @@ namespace SimpleWeb {
 						auto qs_begin = REGEX_NS::sregex_token_iterator(qs.begin(), qs.end(), pattern, submatches);
 						auto qs_end = REGEX_NS::sregex_token_iterator();
 
-						for (auto i = qs_begin; i != qs_end; i++)
+						for (auto it = qs_begin; it != qs_end; it++)
 						{
-							std::string key = i->str();
-							std::string value = (++i)->str();
+							std::string key = it->str();
+							std::string value = (++it)->str();
 							request->query_string.emplace(std::make_pair(key, value));
 						}
+						request->path = request->path.substr(0, qs_start);
 					}
 
                     size_t protocol_end;
