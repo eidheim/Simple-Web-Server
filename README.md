@@ -16,7 +16,7 @@ See https://github.com/eidheim/Simple-WebSocket-Server for an easy way to make W
 * Timeouts, if any of Server::timeout_request and Server::timeout_content are >0 (default: Server::timeout_request=5 seconds, and Server::timeout_content=300 seconds)
 * Simple way to add REST resources using regex for path, and anonymous functions
 
-###Usage
+### Usage
 
 See http_examples.cpp or https_examples.cpp for example usage. 
 
