@@ -1,21 +1,29 @@
 #include "server_https.hpp"
 #include "client_https.hpp"
 
-//Added for the json-example
+#ifdef USE_BOOST_FS
+//Added for the json-example:
 #define BOOST_SPIRIT_THREADSAFE
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+using namespace boost::property_tree;
 
 //Added for the default_resource example
-#include <fstream>
 #include <boost/filesystem.hpp>
+#define FS_NS boost::filesystem
+#else
+
+//Added for the default_resource example
+#include <experimental/filesystem>
+#define FS_NS std::experimental::filesystem
+#endif
+
+#include <fstream>
 #include <vector>
 #include <algorithm>
 #include "crypto.hpp"
 
 using namespace std;
-//Added for the json-example:
-using namespace boost::property_tree;
 
 typedef SimpleWeb::Server<SimpleWeb::HTTPS> HttpsServer;
 typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
@@ -44,6 +52,7 @@ int main() {
         *response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
     };
     
+#ifdef USE_BOOST_FS
     //POST-example for the path /json, responds firstName+" "+lastName from the posted json
     //Responds with an appropriate error message if the posted json is not valid, or if firstName or lastName is missing
     //Example posted json:
@@ -68,6 +77,7 @@ int main() {
             *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << strlen(e.what()) << "\r\n\r\n" << e.what();
         }
     };
+#endif
     
     //GET-example for the path /info
     //Responds with request-information
@@ -108,15 +118,15 @@ int main() {
     //Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
     server.default_resource["GET"]=[&server](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> request) {
         try {
-            auto web_root_path=boost::filesystem::canonical("web");
-            auto path=boost::filesystem::canonical(web_root_path/request->path);
+            auto web_root_path=FS_NS::canonical("web");
+            auto path=FS_NS::canonical(web_root_path/request->path);
             //Check if path is within web_root_path
             if(distance(web_root_path.begin(), web_root_path.end())>distance(path.begin(), path.end()) ||
                !equal(web_root_path.begin(), web_root_path.end(), path.begin()))
                 throw invalid_argument("path must be within root path");
-            if(boost::filesystem::is_directory(path))
+            if(FS_NS::is_directory(path))
                 path/="index.html";
-            if(!(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)))
+            if(!(FS_NS::exists(path) && FS_NS::is_regular_file(path)))
                 throw invalid_argument("file does not exist");
 
             std::string cache_control, etag;
@@ -179,8 +189,10 @@ int main() {
     auto r2=client.request("POST", "/string", json_string);
     cout << r2->content.rdbuf() << endl;
     
+#ifdef USE_BOOST_FS
     auto r3=client.request("POST", "/json", json_string);
     cout << r3->content.rdbuf() << endl;
+#endif
     
     server_thread.join();
     
@@ -195,7 +207,7 @@ void default_resource_send(const HttpsServer &server, const shared_ptr<HttpsServ
     if((read_length=ifs->read(&buffer[0], buffer.size()).gcount())>0) {
         response->write(&buffer[0], read_length);
         if(read_length==static_cast<streamsize>(buffer.size())) {
-            server.send(response, [&server, response, ifs](const boost::system::error_code &ec) {
+            server.send(response, [&server, response, ifs](const ERROR_NS::error_code &ec) {
                 if(!ec)
                     default_resource_send(server, response, ifs);
                 else
