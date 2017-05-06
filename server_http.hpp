@@ -395,8 +395,12 @@ namespace SimpleWeb {
 
                         auto range=request->header.equal_range("Connection");
                         for(auto it=range.first;it!=range.second;it++) {
-                            if(boost::iequals(it->second, "close"))
+                            if(boost::iequals(it->second, "close")) {
                                 return;
+                            } else if (boost::iequals(it->second, "keep-alive")) {
+                                this->read_request_and_content(response->socket);
+                                return;
+                            }
                         }
                         if(request->http_version >= "1.1")
                             this->read_request_and_content(response->socket);
