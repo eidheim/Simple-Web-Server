@@ -107,6 +107,7 @@ namespace SimpleWeb {
             Content content;
 
             std::unordered_multimap<std::string, std::string, case_insensitive_hash, case_insensitive_equals> header;
+			std::unordered_multimap<std::string, std::string, case_insensitive_hash, case_insensitive_equals> query_string;
 
             REGEX_NS::smatch path_match;
             
@@ -319,6 +320,25 @@ namespace SimpleWeb {
                 if((path_end=line.find(' ', method_end+1))!=std::string::npos) {
                     request->method=line.substr(0, method_end);
                     request->path=line.substr(method_end+1, path_end-method_end-1);
+
+					//search and populte query_string
+					size_t qs_start;
+					if ((qs_start = request->path.find('?')) != std::string::npos)
+					{
+						std::string qs = request->path.substr(qs_start, request->path.size() - qs_start - 1);
+						REGEX_NS::regex pattern("([\\w+%]+)=?([^&]*)");
+						int submatches[] = { 1, 2 };
+						auto qs_begin = REGEX_NS::sregex_token_iterator(qs.begin(), qs.end(), pattern, submatches);
+						auto qs_end = REGEX_NS::sregex_token_iterator();
+
+						for (auto it = qs_begin; it != qs_end; it++)
+						{
+							std::string key = it->str();
+							std::string value = (++it)->str();
+							request->query_string.emplace(std::make_pair(key, value));
+						}
+						request->path = request->path.substr(0, qs_start);
+					}
 
                     size_t protocol_end;
                     if((protocol_end=line.find('/', path_end+1))!=std::string::npos) {
