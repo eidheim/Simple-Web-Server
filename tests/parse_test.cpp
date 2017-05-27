@@ -117,4 +117,43 @@ int main() {
     clientTest2.constructor_parse_test2();
     
     clientTest2.parse_response_header_test();
+
+
+    boost::asio::io_service io_service;
+    boost::asio::ip::tcp::socket socket(io_service);
+    SimpleWeb::Server<HTTP>::Request request(socket);
+    {
+        request.path = "/?";
+        auto queries = request.parse_query_string();
+        assert(queries.empty());
+    }
+    {
+        request.path = "/";
+        auto queries = request.parse_query_string();
+        assert(queries.empty());
+    }
+    {
+        request.path = "/?a=1%202%20%203&b=3+4&c&d=æ%25ø%26å%3F";
+        auto queries = request.parse_query_string();
+        {
+            auto range = queries.equal_range("a");
+            assert(range.first != range.second);
+            assert(range.first->second == "1 2  3");
+        }
+        {
+            auto range = queries.equal_range("b");
+            assert(range.first != range.second);
+            assert(range.first->second == "3 4");
+        }
+        {
+            auto range = queries.equal_range("c");
+            assert(range.first != range.second);
+            assert(range.first->second == "");
+        }
+        {
+            auto range = queries.equal_range("d");
+            assert(range.first != range.second);
+            assert(range.first->second == "æ%ø&å?");
+        }
+    }
 }
