@@ -124,7 +124,9 @@ namespace SimpleWeb {
                     auto it_begin = REGEX_NS::sregex_token_iterator(path.begin() + qs_start_pos, path.end(), pattern, submatches);
                     auto it_end = REGEX_NS::sregex_token_iterator();
                     for (auto it = it_begin; it != it_end; ++it) {
-                        auto query_it = result.emplace(it->str(), (++it)->str());
+                        auto submatch1=it->str();
+                        auto submatch2=(++it)->str();
+                        auto query_it = result.emplace(submatch1, submatch2);
                         auto &value = query_it->second;
                         for (size_t c = 0; c < value.size(); ++c) {
                             if (value[c] == '+')
