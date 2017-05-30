@@ -118,8 +118,6 @@ int main() {
                 throw invalid_argument("path must be within root path");
             if(boost::filesystem::is_directory(path))
                 path/="index.html";
-            if(!(boost::filesystem::exists(path) && boost::filesystem::is_regular_file(path)))
-                throw invalid_argument("file does not exist");
 
             std::string cache_control, etag;
 
