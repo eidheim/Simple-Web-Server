@@ -87,13 +87,13 @@ int main() {
     
     //GET-example for the path /match/[number], responds with the matched string in path (number)
     //For instance a request GET /match/123 will receive: 123
-    server.resource["^/match/([0-9]+)$"]["GET"]=[&server](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> request) {
+    server.resource["^/match/([0-9]+)$"]["GET"]=[](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> request) {
         string number=request->path_match[1];
         *response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n" << number;
     };
     
     //Get example simulating heavy work in a separate thread
-    server.resource["^/work$"]["GET"]=[&server](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> /*request*/) {
+    server.resource["^/work$"]["GET"]=[](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> /*request*/) {
         thread work_thread([response] {
             this_thread::sleep_for(chrono::seconds(5));
             string message="Work done";
