@@ -53,6 +53,26 @@ public:
 #endif
 
 namespace SimpleWeb {
+    class RequestBase {
+    public:
+            //Based on http://www.boost.org/doc/libs/1_60_0/doc/html/unordered/hash_equality.html
+            class iequal_to {
+            public:
+              bool operator()(const std::string &key1, const std::string &key2) const {
+                return boost::algorithm::iequals(key1, key2);
+              }
+            };
+            class ihash {
+            public:
+              size_t operator()(const std::string &key) const {
+                std::size_t seed=0;
+                for(auto &c: key)
+                  boost::hash_combine(seed, std::tolower(c));
+                return seed;
+              }
+            };
+    };
+
     template <class socket_type>
     class Server;
     
@@ -98,9 +118,10 @@ namespace SimpleWeb {
             Content(boost::asio::streambuf &streambuf): std::istream(&streambuf), streambuf(streambuf) {}
         };
         
-        class Request {
+        class Request: public RequestBase {
             friend class ServerBase<socket_type>;
             friend class Server<socket_type>;
+            
         public:
             std::string method, path, http_version;
 
