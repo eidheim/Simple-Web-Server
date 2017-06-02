@@ -13,7 +13,13 @@ namespace SimpleWeb {
         Client(const std::string& server_port_path, bool verify_certificate=true, 
                 const std::string& cert_file=std::string(), const std::string& private_key_file=std::string(), 
                 const std::string& verify_file=std::string()) : 
-                ClientBase<HTTPS>::ClientBase(server_port_path, 443), context(boost::asio::ssl::context::tlsv12) {
+#ifdef BOOST_TLS12_FALLBACK
+            ClientBase<HTTPS>::ClientBase(server_port_path, 443), context(boost::asio::ssl::context::sslv23) {
+            long disallow_ssl_flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1; 
+            context.set_options(boost::asio::ssl::context::default_workarounds | boost::asio::ssl::context::no_sslv2 | disallow_ssl_flags);
+#else
+            ClientBase<HTTPS>::ClientBase(server_port_path, 443), context(boost::asio::ssl::context::tlsv12) {
+#endif
             if(cert_file.size()>0 && private_key_file.size()>0) {
                 context.use_certificate_chain_file(cert_file);
                 context.use_private_key_file(private_key_file, boost::asio::ssl::context::pem);
