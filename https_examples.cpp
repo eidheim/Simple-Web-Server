@@ -1,4 +1,3 @@
-#define NO_BOOST
 #include "server_https.hpp"
 #include "client_https.hpp"
 
