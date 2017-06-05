@@ -1,3 +1,4 @@
+#define NO_BOOST
 #include "server_https.hpp"
 #include "client_https.hpp"
 
@@ -193,7 +194,7 @@ void default_resource_send(const HttpsServer &server, const shared_ptr<HttpsServ
     if((read_length=ifs->read(&buffer[0], buffer.size()).gcount())>0) {
         response->write(&buffer[0], read_length);
         if(read_length==static_cast<streamsize>(buffer.size())) {
-            server.send(response, [&server, response, ifs](const boost::system::error_code &ec) {
+            server.send(response, [&server, response, ifs](const error_ns::error_code &ec) {
                 if(!ec)
                     default_resource_send(server, response, ifs);
                 else
