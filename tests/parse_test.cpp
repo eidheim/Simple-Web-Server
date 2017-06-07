@@ -105,6 +105,15 @@ public:
 };
 
 int main() {
+    case_insensitive_equals equals;
+    assert(equals("Test", "tesT"));
+    assert(equals("tesT", "test"));
+    assert(!equals("test", "tset"));
+    case_insensitive_hash hash;
+    assert(hash("Test")==hash("tesT"));
+    assert(hash("tesT")==hash("test"));
+    assert(hash("test")!=hash("tset"));
+    
     ServerTest serverTest;
     serverTest.io_service=std::make_shared<asio::io_service>();
     
