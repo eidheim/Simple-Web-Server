@@ -16,6 +16,7 @@ namespace SimpleWeb {
     using error_code = std::error_code;
     using errc = std::errc;
     using system_error = std::system_error;
+    namespace make_error_code = std;
 }
 #else
 #include <boost/asio.hpp>
@@ -27,13 +28,14 @@ namespace SimpleWeb {
     using error_code = boost::system::error_code;
     namespace errc = boost::system::errc;
     using system_error = boost::system::system_error;
+    namespace make_error_code = boost::system::errc;
 }
 #endif
 
 # ifndef CASE_INSENSITIVE_EQUAL_AND_HASH
 # define CASE_INSENSITIVE_EQUAL_AND_HASH
 namespace SimpleWeb {
-    bool case_insensitive_equal(const std::string &str1, const std::string &str2) {
+    inline bool case_insensitive_equal(const std::string &str1, const std::string &str2) {
         return str1.size() == str2.size() &&
                std::equal(str1.begin(), str1.end(), str2.begin(), [](char a, char b) {
                    return tolower(a) == tolower(b);

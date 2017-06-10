@@ -120,7 +120,7 @@ namespace SimpleWeb {
                     if (response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0) {
                         std::lock_guard<std::mutex> lock(socket_mutex);
                         socket=nullptr;
-                        throw make_error_code(errc::permission_denied);
+                        throw make_error_code::make_error_code(errc::permission_denied);
                     }
                 }
                 
