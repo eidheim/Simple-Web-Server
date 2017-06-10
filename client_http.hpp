@@ -1,36 +1,63 @@
 #ifndef CLIENT_HTTP_HPP
 #define	CLIENT_HTTP_HPP
 
-#include <boost/asio.hpp>
-#include <boost/utility/string_ref.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/functional/hash.hpp>
-
 #include <unordered_map>
 #include <map>
 #include <random>
 #include <mutex>
 #include <type_traits>
 
-#ifndef CASE_INSENSITIVE_EQUALS_AND_HASH
-#define CASE_INSENSITIVE_EQUALS_AND_HASH
-//Based on http://www.boost.org/doc/libs/1_60_0/doc/html/unordered/hash_equality.html
-class case_insensitive_equals {
-public:
-  bool operator()(const std::string &key1, const std::string &key2) const {
-    return boost::algorithm::iequals(key1, key2);
-  }
-};
-class case_insensitive_hash {
-public:
-  size_t operator()(const std::string &key) const {
-    std::size_t seed=0;
-    for(auto &c: key)
-      boost::hash_combine(seed, std::tolower(c));
-    return seed;
-  }
-};
+#ifdef USE_STANDALONE_ASIO
+#include <boost/utility/string_ref.hpp>
+#include <asio.hpp>
+#include <type_traits>
+#include <system_error>
+namespace SimpleWeb {
+    using error_code = std::error_code;
+    using errc = std::errc;
+    using system_error = std::system_error;
+}
+#else
+#include <boost/asio.hpp>
+#include <boost/utility/string_ref.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/functional/hash.hpp>
+namespace SimpleWeb {
+    namespace asio = boost::asio;
+    using error_code = boost::system::error_code;
+    namespace errc = boost::system::errc;
+    using system_error = boost::system::system_error;
+}
 #endif
+
+# ifndef CASE_INSENSITIVE_EQUAL_AND_HASH
+# define CASE_INSENSITIVE_EQUAL_AND_HASH
+namespace SimpleWeb {
+    bool case_insensitive_equal(const std::string &str1, const std::string &str2) {
+        return str1.size() == str2.size() &&
+               std::equal(str1.begin(), str1.end(), str2.begin(), [](char a, char b) {
+                   return tolower(a) == tolower(b);
+               });
+    }
+    class CaseInsensitiveEqual {
+    public:
+        bool operator()(const std::string &str1, const std::string &str2) const {
+            return case_insensitive_equal(str1, str2);
+        }
+    };
+    // Based on https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x/2595226#2595226
+    class CaseInsensitiveHash {
+    public:
+        size_t operator()(const std::string &str) const {
+            size_t h = 0;
+            std::hash<int> hash;
+            for (auto c : str)
+                h ^= hash(tolower(c)) + 0x9e3779b9 + (h << 6) + (h >> 2);
+            return h;
+        }
+    };
+}
+# endif
 
 namespace SimpleWeb {
     template <class socket_type>
@@ -49,10 +76,10 @@ namespace SimpleWeb {
 
             std::istream content;
 
-            std::unordered_multimap<std::string, std::string, case_insensitive_hash, case_insensitive_equals> header;
+            std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> header;
             
         private:
-            boost::asio::streambuf content_buffer;
+            asio::streambuf content_buffer;
             
             Response(): content(&content_buffer) {}
         };
@@ -78,10 +105,10 @@ namespace SimpleWeb {
             auto corrected_path=path;
             if(corrected_path=="")
                 corrected_path="/";
-            if(!config.proxy_server.empty() && std::is_same<socket_type, boost::asio::ip::tcp::socket>::value)
+            if(!config.proxy_server.empty() && std::is_same<socket_type, asio::ip::tcp::socket>::value)
                 corrected_path="http://"+host+':'+std::to_string(port)+corrected_path;
             
-            boost::asio::streambuf write_buffer;
+            asio::streambuf write_buffer;
             std::ostream write_stream(&write_buffer);
             write_stream << request_type << " " << corrected_path << " HTTP/1.1\r\n";
             write_stream << "Host: " << host << "\r\n";
@@ -95,21 +122,21 @@ namespace SimpleWeb {
             connect();
             
             auto timer=get_timeout_timer();
-            boost::asio::async_write(*socket, write_buffer,
-                                     [this, &content, timer](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
+            asio::async_write(*socket, write_buffer,
+                                     [this, &content, timer](const error_code &ec, size_t /*bytes_transferred*/) {
                 if(timer)
                     timer->cancel();
                 if(!ec) {
                     if(!content.empty()) {
                         auto timer=get_timeout_timer();
-                        boost::asio::async_write(*socket, boost::asio::buffer(content.data(), content.size()),
-                                             [this, timer](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
+                        asio::async_write(*socket, asio::buffer(content.data(), content.size()),
+                                             [this, timer](const error_code &ec, size_t /*bytes_transferred*/) {
                             if(timer)
                                 timer->cancel();
                             if(ec) {
                                 std::lock_guard<std::mutex> lock(socket_mutex);
                                 this->socket=nullptr;
-                                throw boost::system::system_error(ec);
+                                throw system_error(ec);
                             }
                         });
                     }
@@ -117,7 +144,7 @@ namespace SimpleWeb {
                 else {
                     std::lock_guard<std::mutex> lock(socket_mutex);
                     socket=nullptr;
-                    throw boost::system::system_error(ec);
+                    throw system_error(ec);
                 }
             });
             io_service.reset();
@@ -131,14 +158,14 @@ namespace SimpleWeb {
             auto corrected_path=path;
             if(corrected_path=="")
                 corrected_path="/";
-            if(!config.proxy_server.empty() && std::is_same<socket_type, boost::asio::ip::tcp::socket>::value)
+            if(!config.proxy_server.empty() && std::is_same<socket_type, asio::ip::tcp::socket>::value)
                 corrected_path="http://"+host+':'+std::to_string(port)+corrected_path;
             
             content.seekp(0, std::ios::end);
             auto content_length=content.tellp();
             content.seekp(0, std::ios::beg);
             
-            boost::asio::streambuf write_buffer;
+            asio::streambuf write_buffer;
             std::ostream write_stream(&write_buffer);
             write_stream << request_type << " " << corrected_path << " HTTP/1.1\r\n";
             write_stream << "Host: " << host << "\r\n";
@@ -154,14 +181,14 @@ namespace SimpleWeb {
             connect();
             
             auto timer=get_timeout_timer();
-            boost::asio::async_write(*socket, write_buffer,
-                                     [this, timer](const boost::system::error_code &ec, size_t /*bytes_transferred*/) {
+            asio::async_write(*socket, write_buffer,
+                                     [this, timer](const error_code &ec, size_t /*bytes_transferred*/) {
                 if(timer)
                     timer->cancel();
                 if(ec) {
                     std::lock_guard<std::mutex> lock(socket_mutex);
                     socket=nullptr;
-                    throw boost::system::system_error(ec);
+                    throw system_error(ec);
                 }
             });
             io_service.reset();
@@ -173,15 +200,15 @@ namespace SimpleWeb {
         void close() {
             std::lock_guard<std::mutex> lock(socket_mutex);
             if(socket) {
-                boost::system::error_code ec;
-                socket->lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+                error_code ec;
+                socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
                 socket->lowest_layer().close();
             }
         }
         
     protected:
-        boost::asio::io_service io_service;
-        boost::asio::ip::tcp::resolver resolver;
+        asio::io_service io_service;
+        asio::ip::tcp::resolver resolver;
         
         std::unique_ptr<socket_type> socket;
         std::mutex socket_mutex;
@@ -211,15 +238,15 @@ namespace SimpleWeb {
         
         virtual void connect()=0;
         
-        std::shared_ptr<boost::asio::deadline_timer> get_timeout_timer(size_t timeout=0) {
+        std::shared_ptr<asio::deadline_timer> get_timeout_timer(size_t timeout=0) {
             if(timeout==0)
                 timeout=config.timeout;
             if(timeout==0)
                 return nullptr;
             
-            auto timer=std::make_shared<boost::asio::deadline_timer>(io_service);
+            auto timer=std::make_shared<asio::deadline_timer>(io_service);
             timer->expires_from_now(boost::posix_time::seconds(timeout));
-            timer->async_wait([this](const boost::system::error_code& ec) {
+            timer->async_wait([this](const error_code& ec) {
                 if(!ec) {
                     close();
                 }
@@ -256,11 +283,11 @@ namespace SimpleWeb {
         std::shared_ptr<Response> request_read() {
             std::shared_ptr<Response> response(new Response());
             
-            boost::asio::streambuf chunked_streambuf;
+            asio::streambuf chunked_streambuf;
             
             auto timer=get_timeout_timer();
-            boost::asio::async_read_until(*socket, response->content_buffer, "\r\n\r\n",
-                                          [this, &response, &chunked_streambuf, timer](const boost::system::error_code& ec, size_t bytes_transferred) {
+            asio::async_read_until(*socket, response->content_buffer, "\r\n\r\n",
+                                          [this, &response, &chunked_streambuf, timer](const error_code& ec, size_t bytes_transferred) {
                 if(timer)
                     timer->cancel();
                 if(!ec) {
@@ -273,15 +300,15 @@ namespace SimpleWeb {
                         auto content_length=stoull(header_it->second);
                         if(content_length>num_additional_bytes) {
                             auto timer=get_timeout_timer();
-                            boost::asio::async_read(*socket, response->content_buffer,
-                                                    boost::asio::transfer_exactly(content_length-num_additional_bytes),
-                                                    [this, timer](const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                            asio::async_read(*socket, response->content_buffer,
+                                                    asio::transfer_exactly(content_length-num_additional_bytes),
+                                                    [this, timer](const error_code& ec, size_t /*bytes_transferred*/) {
                                 if(timer)
                                     timer->cancel();
                                 if(ec) {
                                     std::lock_guard<std::mutex> lock(socket_mutex);
                                     this->socket=nullptr;
-                                    throw boost::system::system_error(ec);
+                                    throw system_error(ec);
                                 }
                             });
                         }
@@ -291,15 +318,15 @@ namespace SimpleWeb {
                     }
                     else if(response->http_version<"1.1" || ((header_it=response->header.find("Connection"))!=response->header.end() && header_it->second=="close")) {
                         auto timer=get_timeout_timer();
-                        boost::asio::async_read(*socket, response->content_buffer,
-                                                [this, timer](const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                        asio::async_read(*socket, response->content_buffer,
+                                                [this, timer](const error_code& ec, size_t /*bytes_transferred*/) {
                             if(timer)
                                     timer->cancel();
                             if(ec) {
                                 std::lock_guard<std::mutex> lock(socket_mutex);
                                 this->socket=nullptr;
-                                if(ec!=boost::asio::error::eof)
-                                    throw boost::system::system_error(ec);
+                                if(ec!=asio::error::eof)
+                                    throw system_error(ec);
                             }
                         });
                     }
@@ -307,7 +334,7 @@ namespace SimpleWeb {
                 else {
                     std::lock_guard<std::mutex> lock(socket_mutex);
                     socket=nullptr;
-                    throw boost::system::system_error(ec);
+                    throw system_error(ec);
                 }
             });
             io_service.reset();
@@ -316,10 +343,10 @@ namespace SimpleWeb {
             return response;
         }
         
-        void request_read_chunked(const std::shared_ptr<Response> &response, boost::asio::streambuf &streambuf) {
+        void request_read_chunked(const std::shared_ptr<Response> &response, asio::streambuf &streambuf) {
             auto timer=get_timeout_timer();
-            boost::asio::async_read_until(*socket, response->content_buffer, "\r\n",
-                                      [this, &response, &streambuf, timer](const boost::system::error_code& ec, size_t bytes_transferred) {
+            asio::async_read_until(*socket, response->content_buffer, "\r\n",
+                                      [this, &response, &streambuf, timer](const error_code& ec, size_t bytes_transferred) {
                 if(timer)
                     timer->cancel();
                 if(!ec) {
@@ -353,9 +380,9 @@ namespace SimpleWeb {
                     
                     if((2+length)>num_additional_bytes) {
                         auto timer=get_timeout_timer();
-                        boost::asio::async_read(*socket, response->content_buffer,
-                                                boost::asio::transfer_exactly(2+length-num_additional_bytes),
-                                                [this, post_process, timer](const boost::system::error_code& ec, size_t /*bytes_transferred*/) {
+                        asio::async_read(*socket, response->content_buffer,
+                                                asio::transfer_exactly(2+length-num_additional_bytes),
+                                                [this, post_process, timer](const error_code& ec, size_t /*bytes_transferred*/) {
                             if(timer)
                                 timer->cancel();
                             if(!ec) {
@@ -364,7 +391,7 @@ namespace SimpleWeb {
                             else {
                                 std::lock_guard<std::mutex> lock(socket_mutex);
                                 this->socket=nullptr;
-                                throw boost::system::system_error(ec);
+                                throw system_error(ec);
                             }
                         });
                     }
@@ -374,7 +401,7 @@ namespace SimpleWeb {
                 else {
                     std::lock_guard<std::mutex> lock(socket_mutex);
                     socket=nullptr;
-                    throw boost::system::system_error(ec);
+                    throw system_error(ec);
                 }
             });
         }
@@ -383,7 +410,7 @@ namespace SimpleWeb {
     template<class socket_type>
     class Client : public ClientBase<socket_type> {};
     
-    typedef boost::asio::ip::tcp::socket HTTP;
+    typedef asio::ip::tcp::socket HTTP;
     
     template<>
     class Client<HTTP> : public ClientBase<HTTP> {
@@ -393,15 +420,15 @@ namespace SimpleWeb {
     protected:
         void connect() {
             if(!socket || !socket->is_open()) {
-                std::unique_ptr<boost::asio::ip::tcp::resolver::query> query;
+                std::unique_ptr<asio::ip::tcp::resolver::query> query;
                 if(config.proxy_server.empty())
-                    query=std::unique_ptr<boost::asio::ip::tcp::resolver::query>(new boost::asio::ip::tcp::resolver::query(host, std::to_string(port)));
+                    query=std::unique_ptr<asio::ip::tcp::resolver::query>(new asio::ip::tcp::resolver::query(host, std::to_string(port)));
                 else {
                     auto proxy_host_port=parse_host_port(config.proxy_server, 8080);
-                    query=std::unique_ptr<boost::asio::ip::tcp::resolver::query>(new boost::asio::ip::tcp::resolver::query(proxy_host_port.first, std::to_string(proxy_host_port.second)));
+                    query=std::unique_ptr<asio::ip::tcp::resolver::query>(new asio::ip::tcp::resolver::query(proxy_host_port.first, std::to_string(proxy_host_port.second)));
                 }
-                resolver.async_resolve(*query, [this](const boost::system::error_code &ec,
-                                                     boost::asio::ip::tcp::resolver::iterator it){
+                resolver.async_resolve(*query, [this](const error_code &ec,
+                                                     asio::ip::tcp::resolver::iterator it){
                     if(!ec) {
                         {
                             std::lock_guard<std::mutex> lock(socket_mutex);
@@ -409,25 +436,25 @@ namespace SimpleWeb {
                         }
                         
                         auto timer=get_timeout_timer(config.timeout_connect);
-                        boost::asio::async_connect(*socket, it, [this, timer]
-                                (const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator /*it*/){
+                        asio::async_connect(*socket, it, [this, timer]
+                                (const error_code &ec, asio::ip::tcp::resolver::iterator /*it*/){
                             if(timer)
                                 timer->cancel();
                             if(!ec) {
-                                boost::asio::ip::tcp::no_delay option(true);
+                                asio::ip::tcp::no_delay option(true);
                                 this->socket->set_option(option);
                             }
                             else {
                                 std::lock_guard<std::mutex> lock(socket_mutex);
                                 this->socket=nullptr;
-                                throw boost::system::system_error(ec);
+                                throw system_error(ec);
                             }
                         });
                     }
                     else {
                         std::lock_guard<std::mutex> lock(socket_mutex);
                         socket=nullptr;
-                        throw boost::system::system_error(ec);
+                        throw system_error(ec);
                     }
                 });
                 io_service.reset();

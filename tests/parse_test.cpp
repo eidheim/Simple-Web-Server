@@ -105,8 +105,20 @@ public:
 };
 
 int main() {
+    assert(case_insensitive_equal("Test", "tesT"));
+    assert(case_insensitive_equal("tesT", "test"));
+    assert(!case_insensitive_equal("test", "tseT"));
+    CaseInsensitiveEqual equal;
+    assert(equal("Test", "tesT"));
+    assert(equal("tesT", "test"));
+    assert(!equal("test", "tset"));
+    CaseInsensitiveHash hash;
+    assert(hash("Test")==hash("tesT"));
+    assert(hash("tesT")==hash("test"));
+    assert(hash("test")!=hash("tset"));
+    
     ServerTest serverTest;
-    serverTest.io_service=std::make_shared<boost::asio::io_service>();
+    serverTest.io_service=std::make_shared<asio::io_service>();
     
     serverTest.parse_request_test();
     
@@ -119,8 +131,8 @@ int main() {
     clientTest2.parse_response_header_test();
 
 
-    boost::asio::io_service io_service;
-    boost::asio::ip::tcp::socket socket(io_service);
+    asio::io_service io_service;
+    asio::ip::tcp::socket socket(io_service);
     SimpleWeb::Server<HTTP>::Request request(socket);
     {
         request.path = "/?";

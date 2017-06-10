@@ -2,12 +2,18 @@
 #define	SERVER_HTTPS_HPP
 
 #include "server_http.hpp"
+
+#ifdef USE_STANDALONE_ASIO
+#include <asio/ssl.hpp>
+#else
 #include <boost/asio/ssl.hpp>
+#endif
+
 #include <openssl/ssl.h>
 #include <algorithm>
 
 namespace SimpleWeb {
-    typedef boost::asio::ssl::stream<boost::asio::ip::tcp::socket> HTTPS;    
+    typedef asio::ssl::stream<asio::ip::tcp::socket> HTTPS;    
     
     template<>
     class Server<HTTPS> : public ServerBase<HTTPS> {
@@ -25,14 +31,14 @@ namespace SimpleWeb {
         }
         
         Server(const std::string& cert_file, const std::string& private_key_file, const std::string& verify_file=std::string()):
-                ServerBase<HTTPS>::ServerBase(443), context(boost::asio::ssl::context::tlsv12) {
+                ServerBase<HTTPS>::ServerBase(443), context(asio::ssl::context::tlsv12) {
             context.use_certificate_chain_file(cert_file);
-            context.use_private_key_file(private_key_file, boost::asio::ssl::context::pem);
+            context.use_private_key_file(private_key_file, asio::ssl::context::pem);
             
             if(verify_file.size()>0) {
                 context.load_verify_file(verify_file);
-                context.set_verify_mode(boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert |
-                                        boost::asio::ssl::verify_client_once);
+                context.set_verify_mode(asio::ssl::verify_peer | asio::ssl::verify_fail_if_no_peer_cert |
+                                        asio::ssl::verify_client_once);
                 set_session_id_context=true;
             }
         }
@@ -49,27 +55,27 @@ namespace SimpleWeb {
         }
 
     protected:
-        boost::asio::ssl::context context;
+        asio::ssl::context context;
         
         void accept() {
             //Create new socket for this connection
             //Shared_ptr is used to pass temporary objects to the asynchronous functions
             auto socket=std::make_shared<HTTPS>(*io_service, context);
 
-            acceptor->async_accept((*socket).lowest_layer(), [this, socket](const boost::system::error_code& ec) {
+            acceptor->async_accept((*socket).lowest_layer(), [this, socket](const error_code& ec) {
                 //Immediately start accepting a new connection (if io_service hasn't been stopped)
-                if (ec != boost::asio::error::operation_aborted)
+                if (ec != asio::error::operation_aborted)
                     accept();
 
                 
                 if(!ec) {
-                    boost::asio::ip::tcp::no_delay option(true);
+                    asio::ip::tcp::no_delay option(true);
                     socket->lowest_layer().set_option(option);
                     
-                    //Set timeout on the following boost::asio::ssl::stream::async_handshake
+                    //Set timeout on the following asio::ssl::stream::async_handshake
                     auto timer=get_timeout_timer(socket, config.timeout_request);
-                    socket->async_handshake(boost::asio::ssl::stream_base::server, [this, socket, timer]
-                            (const boost::system::error_code& ec) {
+                    socket->async_handshake(asio::ssl::stream_base::server, [this, socket, timer]
+                            (const error_code& ec) {
                         if(timer)
                             timer->cancel();
                         if(!ec)
