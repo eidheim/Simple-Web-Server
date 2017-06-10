@@ -28,23 +28,23 @@ namespace SimpleWeb {
 }
 #endif
 
-# ifndef CASE_INSENSITIVE_EQUALS_AND_HASH
-# define CASE_INSENSITIVE_EQUALS_AND_HASH
+# ifndef CASE_INSENSITIVE_EQUAL_AND_HASH
+# define CASE_INSENSITIVE_EQUAL_AND_HASH
 namespace SimpleWeb {
-    bool iequals(const std::string &str1, const std::string &str2) {
+    bool case_insensitive_equal(const std::string &str1, const std::string &str2) {
         return str1.size() == str2.size() &&
                std::equal(str1.begin(), str1.end(), str2.begin(), [](char a, char b) {
                    return tolower(a) == tolower(b);
                });
     }
-    class case_insensitive_equals {
+    class CaseInsensitiveEqual {
     public:
         bool operator()(const std::string &str1, const std::string &str2) const {
-            return iequals(str1, str2);
+            return case_insensitive_equal(str1, str2);
         }
     };
     // Based on https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x/2595226#2595226
-    class case_insensitive_hash {
+    class CaseInsensitiveHash {
     public:
         size_t operator()(const std::string &str) const {
             size_t h = 0;
@@ -135,7 +135,7 @@ namespace SimpleWeb {
 
             Content content;
 
-            std::unordered_multimap<std::string, std::string, case_insensitive_hash, case_insensitive_equals> header;
+            std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> header;
 
             regex::smatch path_match;
             
@@ -143,8 +143,8 @@ namespace SimpleWeb {
             unsigned short remote_endpoint_port;
             
             /// Returns query keys with percent-decoded values.
-            std::unordered_multimap<std::string, std::string, case_insensitive_hash, case_insensitive_equals> parse_query_string() {
-                std::unordered_multimap<std::string, std::string, case_insensitive_hash, case_insensitive_equals> result;
+            std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> parse_query_string() {
+                std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> result;
                 auto qs_start_pos = path.find('?');
                 if (qs_start_pos != std::string::npos && qs_start_pos + 1 < path.size()) {
                     ++qs_start_pos;
@@ -453,9 +453,9 @@ namespace SimpleWeb {
 
                         auto range=request->header.equal_range("Connection");
                         for(auto it=range.first;it!=range.second;it++) {
-                            if(iequals(it->second, "close")) {
+                            if(case_insensitive_equal(it->second, "close")) {
                                 return;
-                            } else if (iequals(it->second, "keep-alive")) {
+                            } else if (case_insensitive_equal(it->second, "keep-alive")) {
                                 this->read_request_and_content(response->socket);
                                 return;
                             }

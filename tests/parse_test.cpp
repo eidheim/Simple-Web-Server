@@ -105,11 +105,14 @@ public:
 };
 
 int main() {
-    case_insensitive_equals equals;
-    assert(equals("Test", "tesT"));
-    assert(equals("tesT", "test"));
-    assert(!equals("test", "tset"));
-    case_insensitive_hash hash;
+    assert(case_insensitive_equal("Test", "tesT"));
+    assert(case_insensitive_equal("tesT", "test"));
+    assert(!case_insensitive_equal("test", "tseT"));
+    CaseInsensitiveEqual equal;
+    assert(equal("Test", "tesT"));
+    assert(equal("tesT", "test"));
+    assert(!equal("test", "tset"));
+    CaseInsensitiveHash hash;
     assert(hash("Test")==hash("tesT"));
     assert(hash("tesT")==hash("test"));
     assert(hash("test")!=hash("tset"));

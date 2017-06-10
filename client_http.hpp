@@ -30,23 +30,23 @@ namespace SimpleWeb {
 }
 #endif
 
-# ifndef CASE_INSENSITIVE_EQUALS_AND_HASH
-# define CASE_INSENSITIVE_EQUALS_AND_HASH
+# ifndef CASE_INSENSITIVE_EQUAL_AND_HASH
+# define CASE_INSENSITIVE_EQUAL_AND_HASH
 namespace SimpleWeb {
-    bool iequals(const std::string &str1, const std::string &str2) {
+    bool case_insensitive_equal(const std::string &str1, const std::string &str2) {
         return str1.size() == str2.size() &&
                std::equal(str1.begin(), str1.end(), str2.begin(), [](char a, char b) {
                    return tolower(a) == tolower(b);
                });
     }
-    class case_insensitive_equals {
+    class CaseInsensitiveEqual {
     public:
         bool operator()(const std::string &str1, const std::string &str2) const {
-            return iequals(str1, str2);
+            return case_insensitive_equal(str1, str2);
         }
     };
     // Based on https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x/2595226#2595226
-    class case_insensitive_hash {
+    class CaseInsensitiveHash {
     public:
         size_t operator()(const std::string &str) const {
             size_t h = 0;
@@ -76,7 +76,7 @@ namespace SimpleWeb {
 
             std::istream content;
 
-            std::unordered_multimap<std::string, std::string, case_insensitive_hash, case_insensitive_equals> header;
+            std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> header;
             
         private:
             asio::streambuf content_buffer;
