@@ -149,8 +149,8 @@ namespace SimpleWeb {
                     throw system_error(ec);
                 }
             });
-            io_service.reset();
-            io_service.run();
+            io_service->reset();
+            io_service->run();
             
             return request_read();
         }
@@ -193,8 +193,8 @@ namespace SimpleWeb {
                     throw system_error(ec);
                 }
             });
-            io_service.reset();
-            io_service.run();
+            io_service->reset();
+            io_service->run();
             
             return request_read();
         }
@@ -209,7 +209,7 @@ namespace SimpleWeb {
         }
         
     protected:
-        asio::io_service io_service;
+        std::shared_ptr<asio::io_service> io_service;
         asio::ip::tcp::resolver resolver;
         
         std::unique_ptr<socket_type> socket;
@@ -218,7 +218,7 @@ namespace SimpleWeb {
         std::string host;
         unsigned short port;
                 
-        ClientBase(const std::string& host_port, unsigned short default_port) : resolver(io_service) {
+        ClientBase(const std::string& host_port, unsigned short default_port) : io_service(new asio::io_service()), resolver(*io_service) {
             auto parsed_host_port=parse_host_port(host_port, default_port);
             host=parsed_host_port.first;
             port=parsed_host_port.second;
@@ -246,7 +246,7 @@ namespace SimpleWeb {
             if(timeout==0)
                 return nullptr;
             
-            auto timer=std::make_shared<asio::deadline_timer>(io_service);
+            auto timer=std::make_shared<asio::deadline_timer>(*io_service);
             timer->expires_from_now(boost::posix_time::seconds(timeout));
             timer->async_wait([this](const error_code& ec) {
                 if(!ec) {
@@ -339,8 +339,8 @@ namespace SimpleWeb {
                     throw system_error(ec);
                 }
             });
-            io_service.reset();
-            io_service.run();
+            io_service->reset();
+            io_service->run();
             
             return response;
         }
@@ -434,7 +434,7 @@ namespace SimpleWeb {
                     if(!ec) {
                         {
                             std::lock_guard<std::mutex> lock(socket_mutex);
-                            socket=std::unique_ptr<HTTP>(new HTTP(io_service));
+                            socket=std::unique_ptr<HTTP>(new HTTP(*io_service));
                         }
                         
                         auto timer=get_timeout_timer(config.timeout_connect);
@@ -459,8 +459,8 @@ namespace SimpleWeb {
                         throw system_error(ec);
                     }
                 });
-                io_service.reset();
-                io_service.run();
+                io_service->reset();
+                io_service->run();
             }
         }
     };

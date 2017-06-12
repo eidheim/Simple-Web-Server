@@ -55,7 +55,7 @@ namespace SimpleWeb {
                     if(!ec) {
                         {
                             std::lock_guard<std::mutex> lock(socket_mutex);
-                            socket=std::unique_ptr<HTTPS>(new HTTPS(io_service, context));
+                            socket=std::unique_ptr<HTTPS>(new HTTPS(*io_service, context));
                         }
                         
                         auto timer=get_timeout_timer(config.timeout_connect);
@@ -80,8 +80,8 @@ namespace SimpleWeb {
                         throw system_error(ec);
                     }
                 });
-                io_service.reset();
-                io_service.run();
+                io_service->reset();
+                io_service->run();
                 
                 if(!config.proxy_server.empty()) {
                     asio::streambuf write_buffer;
@@ -99,8 +99,8 @@ namespace SimpleWeb {
                             throw system_error(ec);
                         }
                     });
-                    io_service.reset();
-                    io_service.run();
+                    io_service->reset();
+                    io_service->run();
                     
                     std::shared_ptr<Response> response(new Response());
                     timer=get_timeout_timer();
@@ -114,8 +114,8 @@ namespace SimpleWeb {
                             throw system_error(ec);
                         }
                     });
-                    io_service.reset();
-                    io_service.run();
+                    io_service->reset();
+                    io_service->run();
                     parse_response_header(response);
                     if (response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0) {
                         std::lock_guard<std::mutex> lock(socket_mutex);
@@ -135,8 +135,8 @@ namespace SimpleWeb {
                         throw system_error(ec);
                     }
                 });
-                io_service.reset();
-                io_service.run();
+                io_service->reset();
+                io_service->run();
             }
         }
     };
