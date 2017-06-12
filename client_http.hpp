@@ -223,14 +223,14 @@ namespace SimpleWeb {
             }
         }
         
-        std::shared_ptr<boost::asio::streambuf> create_request_header(const std::string& request_type, const std::string& path, const std::map<std::string, std::string>& header) const {
+        std::shared_ptr<asio::streambuf> create_request_header(const std::string& request_type, const std::string& path, const std::map<std::string, std::string>& header) const {
             auto corrected_path=path;
             if(corrected_path=="")
                 corrected_path="/";
-            if(!config.proxy_server.empty() && std::is_same<socket_type, boost::asio::ip::tcp::socket>::value)
+            if(!config.proxy_server.empty() && std::is_same<socket_type, asio::ip::tcp::socket>::value)
                 corrected_path="http://"+host+':'+std::to_string(port)+corrected_path;
             
-            auto write_buffer=std::make_shared<boost::asio::streambuf>();
+            auto write_buffer=std::make_shared<asio::streambuf>();
             std::ostream write_stream(write_buffer.get());
             write_stream << request_type << " " << corrected_path << " HTTP/1.1\r\n";
             write_stream << "Host: " << host << "\r\n";
@@ -239,7 +239,7 @@ namespace SimpleWeb {
             return write_buffer;
         }
         
-        void request_write(const std::shared_ptr<boost::asio::streambuf> &write_buffer) {
+        void request_write(const std::shared_ptr<asio::streambuf> &write_buffer) {
             connect();
             
             auto timer=get_timeout_timer();
