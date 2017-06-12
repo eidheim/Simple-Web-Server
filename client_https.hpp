@@ -44,7 +44,7 @@ namespace SimpleWeb {
         asio::ssl::context context;
         
         void connect() {
-            if(socket_closed) {
+            if(!socket->lowest_layer().is_open()) {
                 std::unique_ptr<asio::ip::tcp::resolver::query> query;
                 if(config.proxy_server.empty())
                     query=std::unique_ptr<asio::ip::tcp::resolver::query>(new asio::ip::tcp::resolver::query(host, std::to_string(port)));
@@ -62,7 +62,6 @@ namespace SimpleWeb {
                             if(!ec) {
                                 asio::ip::tcp::no_delay option(true);
                                 this->socket->lowest_layer().set_option(option);
-                                socket_closed=false;
                             }
                             else {
                                 close();
