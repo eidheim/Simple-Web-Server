@@ -224,7 +224,7 @@ namespace SimpleWeb {
             }
         }
         
-        std::shared_ptr<boost::asio::streambuf> create_request_header(const std::string& request_type, const std::string& path, const std::map<std::string, std::string>& header) {
+        std::shared_ptr<boost::asio::streambuf> create_request_header(const std::string& request_type, const std::string& path, const std::map<std::string, std::string>& header) const {
             auto corrected_path=path;
             if(corrected_path=="")
                 corrected_path="/";
@@ -262,7 +262,7 @@ namespace SimpleWeb {
             
             auto timer=get_timeout_timer();
             asio::async_read_until(*socket, response->content_buffer, "\r\n\r\n",
-                                          [this, &response, &chunked_streambuf, timer](const error_code& ec, size_t bytes_transferred) {
+                                   [this, &response, &chunked_streambuf, timer](const error_code& ec, size_t bytes_transferred) {
                 if(timer)
                     timer->cancel();
                 if(!ec) {
@@ -275,9 +275,8 @@ namespace SimpleWeb {
                         auto content_length=stoull(header_it->second);
                         if(content_length>num_additional_bytes) {
                             auto timer=get_timeout_timer();
-                            asio::async_read(*socket, response->content_buffer,
-                                                    asio::transfer_exactly(content_length-num_additional_bytes),
-                                                    [this, timer](const error_code& ec, size_t /*bytes_transferred*/) {
+                            asio::async_read(*socket, response->content_buffer, asio::transfer_exactly(content_length-num_additional_bytes),
+                                             [this, timer](const error_code& ec, size_t /*bytes_transferred*/) {
                                 if(timer)
                                     timer->cancel();
                                 if(ec) {
@@ -293,8 +292,7 @@ namespace SimpleWeb {
                     }
                     else if(response->http_version<"1.1" || ((header_it=response->header.find("Connection"))!=response->header.end() && header_it->second=="close")) {
                         auto timer=get_timeout_timer();
-                        asio::async_read(*socket, response->content_buffer,
-                                                [this, timer](const error_code& ec, size_t /*bytes_transferred*/) {
+                        asio::async_read(*socket, response->content_buffer, [this, timer](const error_code& ec, size_t /*bytes_transferred*/) {
                             if(timer)
                                     timer->cancel();
                             if(ec) {
@@ -320,8 +318,7 @@ namespace SimpleWeb {
         
         void request_read_chunked(const std::shared_ptr<Response> &response, asio::streambuf &streambuf) {
             auto timer=get_timeout_timer();
-            asio::async_read_until(*socket, response->content_buffer, "\r\n",
-                                      [this, &response, &streambuf, timer](const error_code& ec, size_t bytes_transferred) {
+            asio::async_read_until(*socket, response->content_buffer, "\r\n", [this, &response, &streambuf, timer](const error_code& ec, size_t bytes_transferred) {
                 if(timer)
                     timer->cancel();
                 if(!ec) {
@@ -355,9 +352,8 @@ namespace SimpleWeb {
                     
                     if((2+length)>num_additional_bytes) {
                         auto timer=get_timeout_timer();
-                        asio::async_read(*socket, response->content_buffer,
-                                                asio::transfer_exactly(2+length-num_additional_bytes),
-                                                [this, post_process, timer](const error_code& ec, size_t /*bytes_transferred*/) {
+                        asio::async_read(*socket, response->content_buffer, asio::transfer_exactly(2+length-num_additional_bytes),
+                                         [this, post_process, timer](const error_code& ec, size_t /*bytes_transferred*/) {
                             if(timer)
                                 timer->cancel();
                             if(!ec) {
@@ -402,8 +398,7 @@ namespace SimpleWeb {
                     auto proxy_host_port=parse_host_port(config.proxy_server, 8080);
                     query=std::unique_ptr<asio::ip::tcp::resolver::query>(new asio::ip::tcp::resolver::query(proxy_host_port.first, std::to_string(proxy_host_port.second)));
                 }
-                resolver.async_resolve(*query, [this](const error_code &ec,
-                                                     asio::ip::tcp::resolver::iterator it){
+                resolver.async_resolve(*query, [this](const error_code &ec, asio::ip::tcp::resolver::iterator it){
                     if(!ec) {
                         {
                             std::lock_guard<std::mutex> lock(socket_mutex);
@@ -411,8 +406,7 @@ namespace SimpleWeb {
                         }
                         
                         auto timer=get_timeout_timer(config.timeout_connect);
-                        asio::async_connect(*socket, it, [this, timer]
-                                (const error_code &ec, asio::ip::tcp::resolver::iterator /*it*/){
+                        asio::async_connect(*socket, it, [this, timer](const error_code &ec, asio::ip::tcp::resolver::iterator /*it*/){
                             if(timer)
                                 timer->cancel();
                             if(!ec) {
