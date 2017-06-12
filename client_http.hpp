@@ -104,51 +104,15 @@ namespace SimpleWeb {
         
         std::shared_ptr<Response> request(const std::string& request_type, const std::string& path="/", boost::string_ref content="",
                 const std::map<std::string, std::string>& header=std::map<std::string, std::string>()) {
-            auto corrected_path=path;
-            if(corrected_path=="")
-                corrected_path="/";
-            if(!config.proxy_server.empty() && std::is_same<socket_type, asio::ip::tcp::socket>::value)
-                corrected_path="http://"+host+':'+std::to_string(port)+corrected_path;
+            auto write_buffer=create_request_header(request_type, path, header);
             
-            asio::streambuf write_buffer;
-            std::ostream write_stream(&write_buffer);
-            write_stream << request_type << " " << corrected_path << " HTTP/1.1\r\n";
-            write_stream << "Host: " << host << "\r\n";
-            for(auto& h: header) {
-                write_stream << h.first << ": " << h.second << "\r\n";
-            }
+            std::ostream write_stream(write_buffer.get());
             if(content.size()>0)
                 write_stream << "Content-Length: " << content.size() << "\r\n";
-            write_stream << "\r\n";
+            write_stream << "\r\n" << content;
             
-            connect();
+            request_write(write_buffer);
             
-            auto timer=get_timeout_timer();
-            asio::async_write(*socket, write_buffer,
-                                     [this, &content, timer](const error_code &ec, size_t /*bytes_transferred*/) {
-                if(timer)
-                    timer->cancel();
-                if(!ec) {
-                    if(!content.empty()) {
-                        auto timer=get_timeout_timer();
-                        asio::async_write(*socket, asio::buffer(content.data(), content.size()),
-                                             [this, timer](const error_code &ec, size_t /*bytes_transferred*/) {
-                            if(timer)
-                                timer->cancel();
-                            if(ec) {
-                                std::lock_guard<std::mutex> lock(socket_mutex);
-                                this->socket=nullptr;
-                                throw system_error(ec);
-                            }
-                        });
-                    }
-                }
-                else {
-                    std::lock_guard<std::mutex> lock(socket_mutex);
-                    socket=nullptr;
-                    throw system_error(ec);
-                }
-            });
             io_service->reset();
             io_service->run();
             
@@ -157,42 +121,20 @@ namespace SimpleWeb {
         
         std::shared_ptr<Response> request(const std::string& request_type, const std::string& path, std::iostream& content,
                 const std::map<std::string, std::string>& header=std::map<std::string, std::string>()) {
-            auto corrected_path=path;
-            if(corrected_path=="")
-                corrected_path="/";
-            if(!config.proxy_server.empty() && std::is_same<socket_type, asio::ip::tcp::socket>::value)
-                corrected_path="http://"+host+':'+std::to_string(port)+corrected_path;
+            auto write_buffer=create_request_header(request_type, path, header);
             
             content.seekp(0, std::ios::end);
             auto content_length=content.tellp();
             content.seekp(0, std::ios::beg);
-            
-            asio::streambuf write_buffer;
-            std::ostream write_stream(&write_buffer);
-            write_stream << request_type << " " << corrected_path << " HTTP/1.1\r\n";
-            write_stream << "Host: " << host << "\r\n";
-            for(auto& h: header) {
-                write_stream << h.first << ": " << h.second << "\r\n";
-            }
+            std::ostream write_stream(write_buffer.get());
             if(content_length>0)
                 write_stream << "Content-Length: " << content_length << "\r\n";
             write_stream << "\r\n";
             if(content_length>0)
                 write_stream << content.rdbuf();
             
-            connect();
+            request_write(write_buffer);
             
-            auto timer=get_timeout_timer();
-            asio::async_write(*socket, write_buffer,
-                                     [this, timer](const error_code &ec, size_t /*bytes_transferred*/) {
-                if(timer)
-                    timer->cancel();
-                if(ec) {
-                    std::lock_guard<std::mutex> lock(socket_mutex);
-                    socket=nullptr;
-                    throw system_error(ec);
-                }
-            });
             io_service->reset();
             io_service->run();
             
@@ -280,6 +222,37 @@ namespace SimpleWeb {
                     getline(response->content, line);
                 }
             }
+        }
+        
+        std::shared_ptr<boost::asio::streambuf> create_request_header(const std::string& request_type, const std::string& path, const std::map<std::string, std::string>& header) {
+            auto corrected_path=path;
+            if(corrected_path=="")
+                corrected_path="/";
+            if(!config.proxy_server.empty() && std::is_same<socket_type, boost::asio::ip::tcp::socket>::value)
+                corrected_path="http://"+host+':'+std::to_string(port)+corrected_path;
+            
+            auto write_buffer=std::make_shared<boost::asio::streambuf>();
+            std::ostream write_stream(write_buffer.get());
+            write_stream << request_type << " " << corrected_path << " HTTP/1.1\r\n";
+            write_stream << "Host: " << host << "\r\n";
+            for(auto& h: header)
+                write_stream << h.first << ": " << h.second << "\r\n";
+            return write_buffer;
+        }
+        
+        void request_write(const std::shared_ptr<boost::asio::streambuf> &write_buffer) {
+            connect();
+            
+            auto timer=get_timeout_timer();
+            asio::async_write(*socket, *write_buffer, [this, write_buffer, timer](const error_code &ec, size_t /*bytes_transferred*/) {
+                if(timer)
+                    timer->cancel();
+                if(ec) {
+                    std::lock_guard<std::mutex> lock(socket_mutex);
+                    socket=nullptr;
+                    throw system_error(ec);
+                }
+            });
         }
         
         std::shared_ptr<Response> request_read() {
