@@ -152,7 +152,6 @@ namespace SimpleWeb {
         
     protected:
         std::shared_ptr<asio::io_service> io_service;
-        asio::ip::tcp::resolver resolver;
         
         std::unique_ptr<socket_type> socket;
         std::mutex socket_mutex;
@@ -160,7 +159,7 @@ namespace SimpleWeb {
         std::string host;
         unsigned short port;
                 
-        ClientBase(const std::string& host_port, unsigned short default_port) : io_service(new asio::io_service()), resolver(*io_service) {
+        ClientBase(const std::string& host_port, unsigned short default_port) : io_service(new asio::io_service()) {
             auto parsed_host_port=parse_host_port(host_port, default_port);
             host=parsed_host_port.first;
             port=parsed_host_port.second;
@@ -398,7 +397,9 @@ namespace SimpleWeb {
                     auto proxy_host_port=parse_host_port(config.proxy_server, 8080);
                     query=std::unique_ptr<asio::ip::tcp::resolver::query>(new asio::ip::tcp::resolver::query(proxy_host_port.first, std::to_string(proxy_host_port.second)));
                 }
-                resolver.async_resolve(*query, [this](const error_code &ec, asio::ip::tcp::resolver::iterator it){
+                
+                auto resolver=std::make_shared<asio::ip::tcp::resolver>(*io_service);
+                resolver->async_resolve(*query, [this, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator it){
                     if(!ec) {
                         {
                             std::lock_guard<std::mutex> lock(socket_mutex);
