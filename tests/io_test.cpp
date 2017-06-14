@@ -33,6 +33,12 @@ int main() {
         *response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n" << number;
     };
     
+    server.resource["^/header$"]["GET"]=[](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+        auto content=request->header.find("test1")->second+request->header.find("test2")->second;
+        
+        *response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
+    };
+    
     thread server_thread([&server](){
         //Start server
         server.start();
@@ -88,6 +94,50 @@ int main() {
             auto r=client.request("POST", "/string", "A string");
             output << r->content.rdbuf();
             assert(output.str()=="A string");
+        }
+        
+        {
+            stringstream output;
+            auto r=client.request("GET", "/header", "", {{"test1", "test"}, {"test2", "ing"}});
+            output << r->content.rdbuf();
+            assert(output.str()=="testing");
+        }
+    }
+    
+    {
+        HttpClient client("localhost:8080");
+        bool call=false;
+        client.request("GET", "/match/123", [&call](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+            assert(!ec);
+            stringstream output;
+            output << response->content.rdbuf();
+            assert(output.str()=="123");
+            call=true;
+        });
+        client.io_service->run();
+        assert(call);
+        
+        {
+            vector<bool> calls(100);
+            vector<thread> threads;
+            for(size_t c=0;c<100;++c) {
+                calls[c]=false;
+                threads.emplace_back([c, &client, &calls] {
+                    client.request("GET", "/match/123", [c, &calls](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+                        assert(!ec);
+                        stringstream output;
+                        output << response->content.rdbuf();
+                        assert(output.str()=="123");
+                        calls[c]=true;
+                    });
+                });
+            }
+            for(auto &thread: threads)
+                thread.join();
+            client.io_service->reset();
+            client.io_service->run();
+            for(auto call: calls)
+                assert(call);
         }
     }
     
