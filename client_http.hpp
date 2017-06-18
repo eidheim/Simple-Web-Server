@@ -7,7 +7,6 @@
 #include <mutex>
 #include <type_traits>
 
-#include <boost/utility/string_ref.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/shared_mutex.hpp>
 
@@ -20,17 +19,18 @@ namespace SimpleWeb {
     using errc = std::errc;
     using system_error = std::system_error;
     namespace make_error_code = std;
+    using string_view = const std::string&; // TODO c++17: use std::string_view
 }
 #else
 #include <boost/asio.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/functional/hash.hpp>
+#include <boost/utility/string_ref.hpp>
 namespace SimpleWeb {
     namespace asio = boost::asio;
     using error_code = boost::system::error_code;
     namespace errc = boost::system::errc;
     using system_error = boost::system::system_error;
     namespace make_error_code = boost::system::errc;
+    using string_view = boost::string_ref;
 }
 #endif
 
@@ -155,7 +155,7 @@ namespace SimpleWeb {
         }
         
         /// Synchronous request. The io_service is run within this function.
-        std::shared_ptr<Response> request(const std::string& method, const std::string& path=std::string("/"), boost::string_ref content="", const Header& header=Header()) {
+        std::shared_ptr<Response> request(const std::string& method, const std::string& path=std::string("/"), string_view content="", const Header& header=Header()) {
             auto session=std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
             std::shared_ptr<Response> response;
             session->callback=[this, &response, session](const error_code &ec) {
@@ -215,7 +215,7 @@ namespace SimpleWeb {
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
         /// The request callback is not run if the calling Client object has been destroyed.
-        void request(const std::string &method, const std::string &path, boost::string_ref content, const Header& header,
+        void request(const std::string &method, const std::string &path, string_view content, const Header& header,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback_) {
             auto session=std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
             auto request_callback=std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code&)>>(std::move(request_callback_));
@@ -246,7 +246,7 @@ namespace SimpleWeb {
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
         /// The request callback is not run if the calling Client object has been destroyed.
-        void request(const std::string &method, const std::string &path, boost::string_ref content,
+        void request(const std::string &method, const std::string &path, string_view content,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback) {
             request(method, path, content, Header(), std::move(request_callback));
         } 

@@ -18,8 +18,6 @@ namespace SimpleWeb {
 }
 #else
 #include <boost/asio.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/functional/hash.hpp>
 namespace SimpleWeb {
     namespace asio = boost::asio;
     using error_code = boost::system::error_code;
