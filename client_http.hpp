@@ -7,9 +7,6 @@
 #include <mutex>
 #include <type_traits>
 
-#include <boost/thread/locks.hpp>
-#include <boost/thread/shared_mutex.hpp>
-
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>
 #include <type_traits>
@@ -149,10 +146,7 @@ namespace SimpleWeb {
         /// When using asynchronous requests, running the io_service is up to the programmer.
         std::shared_ptr<asio::io_service> io_service;
         
-        virtual ~ClientBase() {
-            boost::unique_lock<boost::shared_mutex> lock(*stop_request_callback_mutex);
-            *stop_request_callback=true;
-        }
+        virtual ~ClientBase() {}
         
         /// Synchronous request. The io_service is run within this function.
         std::shared_ptr<Response> request(const std::string& method, const std::string& path=std::string("/"), string_view content="", const Header& header=Header()) {
@@ -214,23 +208,16 @@ namespace SimpleWeb {
         }
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
-        /// The request callback is not run if the calling Client object has been destroyed.
         void request(const std::string &method, const std::string &path, string_view content, const Header& header,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback_) {
             auto session=std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
             auto request_callback=std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code&)>>(std::move(request_callback_));
             auto connections_mutex=this->connections_mutex;
-            auto stop_request_callback=this->stop_request_callback;
-            auto stop_request_callback_mutex=this->stop_request_callback_mutex;
-            session->callback=[session, request_callback, connections_mutex, stop_request_callback, stop_request_callback_mutex](const error_code &ec) {
+            session->callback=[session, request_callback, connections_mutex](const error_code &ec) {
                 {
                     std::lock_guard<std::mutex> lock(*connections_mutex);
                     session->connection->in_use=false;
                 }
-                
-                boost::shared_lock<boost::shared_mutex> lock(*stop_request_callback_mutex);
-                if(*stop_request_callback)
-                    return;
                 
                 if(*request_callback)
                     (*request_callback)(session->response, ec);
@@ -245,43 +232,33 @@ namespace SimpleWeb {
         }
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
-        /// The request callback is not run if the calling Client object has been destroyed.
         void request(const std::string &method, const std::string &path, string_view content,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback) {
             request(method, path, content, Header(), std::move(request_callback));
         } 
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
-        /// The request callback is not run if the calling Client object has been destroyed.
         void request(const std::string &method, const std::string &path,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback) {
             request(method, path, std::string(), Header(), std::move(request_callback));
         }
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
-        /// The request callback is not run if the calling Client object has been destroyed.
         void request(const std::string &method, std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback) {
             request(method, std::string("/"), std::string(), Header(), std::move(request_callback));
         }
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
-        /// The request callback is not run if the calling Client object has been destroyed.
         void request(const std::string &method, const std::string &path, std::iostream& content, const Header& header,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback_) {
             auto session=std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
             auto request_callback=std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code&)>>(std::move(request_callback_));
             auto connections_mutex=this->connections_mutex;
-            auto stop_request_callback=this->stop_request_callback;
-            auto stop_request_callback_mutex=this->stop_request_callback_mutex;
-            session->callback=[session, request_callback, connections_mutex, stop_request_callback, stop_request_callback_mutex](const error_code &ec) {
+            session->callback=[session, request_callback, connections_mutex](const error_code &ec) {
                 {
                     std::lock_guard<std::mutex> lock(*connections_mutex);
                     session->connection->in_use=false;
                 }
-                
-                boost::shared_lock<boost::shared_mutex> lock(*stop_request_callback_mutex);
-                if(*stop_request_callback)
-                    return;
                 
                 if(*request_callback)
                     (*request_callback)(session->response, ec);
@@ -300,6 +277,7 @@ namespace SimpleWeb {
             Client<socket_type>::connect(session);
         }
         
+        /// Asynchronous request where setting and/or running Client's io_service is required.
         void request(const std::string &method, const std::string &path, std::iostream& content,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback) {
             request(method, path, content, Header(), std::move(request_callback));
@@ -312,11 +290,7 @@ namespace SimpleWeb {
         std::vector<std::shared_ptr<Connection>> connections;
         std::shared_ptr<std::mutex> connections_mutex;
         
-        std::shared_ptr<bool> stop_request_callback;
-        std::shared_ptr<boost::shared_mutex> stop_request_callback_mutex;
-        
-        ClientBase(const std::string& host_port, unsigned short default_port) : io_service(new asio::io_service()),
-                connections_mutex(new std::mutex()), stop_request_callback(new bool(false)), stop_request_callback_mutex(new boost::shared_mutex()) {
+        ClientBase(const std::string& host_port, unsigned short default_port) : io_service(new asio::io_service()), connections_mutex(new std::mutex()) {
             auto parsed_host_port=parse_host_port(host_port, default_port);
             host=parsed_host_port.first;
             port=parsed_host_port.second;
