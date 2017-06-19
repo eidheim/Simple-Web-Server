@@ -118,17 +118,17 @@ int main() {
         assert(call);
         
         {
-            vector<bool> calls(100);
+            vector<int> calls(100);
             vector<thread> threads;
             for(size_t c=0;c<100;++c) {
-                calls[c]=false;
+                calls[c]=0;
                 threads.emplace_back([c, &client, &calls] {
                     client.request("GET", "/match/123", [c, &calls](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
                         assert(!ec);
                         stringstream output;
                         output << response->content.rdbuf();
                         assert(output.str()=="123");
-                        calls[c]=true;
+                        calls[c]=1;
                     });
                 });
             }
