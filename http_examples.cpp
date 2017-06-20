@@ -163,6 +163,10 @@ int main() {
         }
     };
     
+    server.on_error=[](std::shared_ptr<HttpServer::Request> /*request*/, const SimpleWeb::error_code &/*ec*/) {
+        // handle errors here
+    };
+    
     thread server_thread([&server](){
         //Start server
         server.start();
@@ -173,6 +177,8 @@ int main() {
     
     //Client examples
     HttpClient client("localhost:8080");
+    
+    // synchronous request examples
     auto r1=client.request("GET", "/match/123");
     cout << r1->content.rdbuf() << endl;
 
@@ -180,8 +186,13 @@ int main() {
     auto r2=client.request("POST", "/string", json_string);
     cout << r2->content.rdbuf() << endl;
     
-    auto r3=client.request("POST", "/json", json_string);
-    cout << r3->content.rdbuf() << endl;
+    // asynchronous request example
+    client.request("POST", "/json", json_string, [](std::shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+        if(!ec)
+            cout << response->content.rdbuf() << endl;
+    });
+    client.io_service->reset(); // needed because the io_service has been run already in the synchronous examples
+    client.io_service->run();
     
     server_thread.join();
     

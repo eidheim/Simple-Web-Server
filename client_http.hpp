@@ -99,12 +99,6 @@ namespace SimpleWeb {
         };
         
     protected:
-        class RequestCallback {
-        public:
-            bool stop=false;
-            std::mutex stop_mutex;
-        };
-        
         class Connection {
         public:
             Connection(const std::string &host, unsigned short port, const Config &config, std::unique_ptr<socket_type> &&socket) :
