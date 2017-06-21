@@ -147,6 +147,16 @@ int main() {
         assert(queries.empty());
     }
     {
+        request.path = "/?=";
+        auto queries = request.parse_query_string();
+        assert(queries.empty());
+    }
+    {
+        request.path = "/?=test";
+        auto queries = request.parse_query_string();
+        assert(queries.empty());
+    }
+    {
         request.path = "/?a=1%202%20%203&b=3+4&c&d=æ%25ø%26å%3F";
         auto queries = request.parse_query_string();
         {

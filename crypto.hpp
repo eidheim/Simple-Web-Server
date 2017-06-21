@@ -1,5 +1,5 @@
-#ifndef CRYPTO_HPP
-#define	CRYPTO_HPP
+#ifndef SIMPLE_WEB_SERVER_CRYPTO_HPP
+#define	SIMPLE_WEB_SERVER_CRYPTO_HPP
 
 #include <string>
 #include <cmath>
@@ -216,5 +216,4 @@ namespace SimpleWeb {
         }
     };
 }
-#endif	/* CRYPTO_HPP */
-
+#endif	/* SIMPLE_WEB_SERVER_CRYPTO_HPP */

@@ -1,15 +1,14 @@
 #ifndef CLIENT_HTTP_HPP
 #define	CLIENT_HTTP_HPP
 
-#include <unordered_map>
 #include <vector>
 #include <random>
 #include <mutex>
 #include <type_traits>
+#include "utility.hpp"
 
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>
-#include <type_traits>
 #include <system_error>
 namespace SimpleWeb {
     using error_code = std::error_code;
@@ -31,38 +30,7 @@ namespace SimpleWeb {
 }
 #endif
 
-# ifndef CASE_INSENSITIVE_EQUAL_AND_HASH
-# define CASE_INSENSITIVE_EQUAL_AND_HASH
 namespace SimpleWeb {
-    inline bool case_insensitive_equal(const std::string &str1, const std::string &str2) {
-        return str1.size() == str2.size() &&
-               std::equal(str1.begin(), str1.end(), str2.begin(), [](char a, char b) {
-                   return tolower(a) == tolower(b);
-               });
-    }
-    class CaseInsensitiveEqual {
-    public:
-        bool operator()(const std::string &str1, const std::string &str2) const {
-            return case_insensitive_equal(str1, str2);
-        }
-    };
-    // Based on https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x/2595226#2595226
-    class CaseInsensitiveHash {
-    public:
-        size_t operator()(const std::string &str) const {
-            size_t h = 0;
-            std::hash<int> hash;
-            for (auto c : str)
-                h ^= hash(tolower(c)) + 0x9e3779b9 + (h << 6) + (h >> 2);
-            return h;
-        }
-    };
-}
-# endif
-
-namespace SimpleWeb {
-    using Header = std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual>;
-    
     template <class socket_type>
     class Client;
     
@@ -77,7 +45,7 @@ namespace SimpleWeb {
 
             std::istream content;
 
-            Header header;
+            CaseInsensitiveMultimap header;
             
         private:
             asio::streambuf content_buffer;
@@ -143,7 +111,7 @@ namespace SimpleWeb {
         virtual ~ClientBase() {}
         
         /// Synchronous request. The io_service is run within this function.
-        std::shared_ptr<Response> request(const std::string& method, const std::string& path=std::string("/"), string_view content="", const Header& header=Header()) {
+        std::shared_ptr<Response> request(const std::string& method, const std::string& path=std::string("/"), string_view content="", const CaseInsensitiveMultimap& header=CaseInsensitiveMultimap()) {
             auto session=std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
             std::shared_ptr<Response> response;
             session->callback=[this, &response, session](const error_code &ec) {
@@ -170,7 +138,7 @@ namespace SimpleWeb {
         }
         
         /// Synchronous request. The io_service is run within this function.
-        std::shared_ptr<Response> request(const std::string& method, const std::string& path, std::iostream& content, const Header& header=Header()) {
+        std::shared_ptr<Response> request(const std::string& method, const std::string& path, std::iostream& content, const CaseInsensitiveMultimap& header=CaseInsensitiveMultimap()) {
             auto session=std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
             std::shared_ptr<Response> response;
             session->callback=[this, &response, session](const error_code &ec) {
@@ -202,7 +170,7 @@ namespace SimpleWeb {
         }
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
-        void request(const std::string &method, const std::string &path, string_view content, const Header& header,
+        void request(const std::string &method, const std::string &path, string_view content, const CaseInsensitiveMultimap& header,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback_) {
             auto session=std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
             auto request_callback=std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code&)>>(std::move(request_callback_));
@@ -228,22 +196,22 @@ namespace SimpleWeb {
         /// Asynchronous request where setting and/or running Client's io_service is required.
         void request(const std::string &method, const std::string &path, string_view content,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback) {
-            request(method, path, content, Header(), std::move(request_callback));
+            request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback));
         } 
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
         void request(const std::string &method, const std::string &path,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback) {
-            request(method, path, std::string(), Header(), std::move(request_callback));
+            request(method, path, std::string(), CaseInsensitiveMultimap(), std::move(request_callback));
         }
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
         void request(const std::string &method, std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback) {
-            request(method, std::string("/"), std::string(), Header(), std::move(request_callback));
+            request(method, std::string("/"), std::string(), CaseInsensitiveMultimap(), std::move(request_callback));
         }
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
-        void request(const std::string &method, const std::string &path, std::iostream& content, const Header& header,
+        void request(const std::string &method, const std::string &path, std::iostream& content, const CaseInsensitiveMultimap& header,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback_) {
             auto session=std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
             auto request_callback=std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code&)>>(std::move(request_callback_));
@@ -274,7 +242,7 @@ namespace SimpleWeb {
         /// Asynchronous request where setting and/or running Client's io_service is required.
         void request(const std::string &method, const std::string &path, std::iostream& content,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback) {
-            request(method, path, content, Header(), std::move(request_callback));
+            request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback));
         }
         
     protected:
@@ -314,7 +282,7 @@ namespace SimpleWeb {
         
         virtual std::shared_ptr<Connection> create_connection()=0;
         
-        std::unique_ptr<asio::streambuf> create_request_header(const std::string& method, const std::string& path, const Header& header) const {
+        std::unique_ptr<asio::streambuf> create_request_header(const std::string& method, const std::string& path, const CaseInsensitiveMultimap& header) const {
             auto corrected_path=path;
             if(corrected_path=="")
                 corrected_path="/";

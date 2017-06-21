@@ -2,11 +2,11 @@
 #define	SERVER_HTTP_HPP
 
 #include <map>
-#include <unordered_map>
 #include <thread>
 #include <functional>
 #include <iostream>
 #include <sstream>
+#include "utility.hpp"
 
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>
@@ -26,35 +26,6 @@ namespace SimpleWeb {
 }
 #endif
 
-# ifndef CASE_INSENSITIVE_EQUAL_AND_HASH
-# define CASE_INSENSITIVE_EQUAL_AND_HASH
-namespace SimpleWeb {
-    inline bool case_insensitive_equal(const std::string &str1, const std::string &str2) {
-        return str1.size() == str2.size() &&
-               std::equal(str1.begin(), str1.end(), str2.begin(), [](char a, char b) {
-                   return tolower(a) == tolower(b);
-               });
-    }
-    class CaseInsensitiveEqual {
-    public:
-        bool operator()(const std::string &str1, const std::string &str2) const {
-            return case_insensitive_equal(str1, str2);
-        }
-    };
-    // Based on https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x/2595226#2595226
-    class CaseInsensitiveHash {
-    public:
-        size_t operator()(const std::string &str) const {
-            size_t h = 0;
-            std::hash<int> hash;
-            for (auto c : str)
-                h ^= hash(tolower(c)) + 0x9e3779b9 + (h << 6) + (h >> 2);
-            return h;
-        }
-    };
-}
-# endif
-
 // Late 2017 TODO: remove the following checks and always use std::regex
 #ifdef USE_BOOST_REGEX
 #include <boost/regex.hpp>
@@ -66,17 +37,6 @@ namespace SimpleWeb {
 namespace SimpleWeb {
     namespace regex = std;
 }
-#endif
-
-// TODO when switching to c++14, use [[deprecated]] instead
-#ifndef DEPRECATED
-#ifdef __GNUC__
-#define DEPRECATED __attribute__((deprecated))
-#elif defined(_MSC_VER)
-#define DEPRECATED __declspec(deprecated)
-#else
-#define DEPRECATED
-#endif
 #endif
 
 namespace SimpleWeb {
@@ -133,7 +93,7 @@ namespace SimpleWeb {
 
             Content content;
 
-            std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> header;
+            CaseInsensitiveMultimap header;
 
             regex::smatch path_match;
             
@@ -141,32 +101,12 @@ namespace SimpleWeb {
             unsigned short remote_endpoint_port;
             
             /// Returns query keys with percent-decoded values.
-            std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> parse_query_string() {
-                std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> result;
-                auto qs_start_pos = path.find('?');
-                if (qs_start_pos != std::string::npos && qs_start_pos + 1 < path.size()) {
-                    ++qs_start_pos;
-                    static regex::regex pattern("([\\w+%]+)=?([^&]*)");
-                    int submatches[] = {1, 2};
-                    auto it_begin = regex::sregex_token_iterator(path.begin() + qs_start_pos, path.end(), pattern, submatches);
-                    auto it_end = regex::sregex_token_iterator();
-                    for (auto it = it_begin; it != it_end; ++it) {
-                        auto submatch1=it->str();
-                        auto submatch2=(++it)->str();
-                        auto query_it = result.emplace(submatch1, submatch2);
-                        auto &value = query_it->second;
-                        for (size_t c = 0; c < value.size(); ++c) {
-                            if (value[c] == '+')
-                                value[c] = ' ';
-                            else if (value[c] == '%' && c + 2 < value.size()) {
-                                auto hex = value.substr(c + 1, 2);
-                                auto chr = static_cast<char>(std::strtol(hex.c_str(), nullptr, 16));
-                                value.replace(c, 3, &chr, 1);
-                            }
-                        }
-                    }
-                }
-                return result;
+            CaseInsensitiveMultimap parse_query_string() {
+                auto pos = path.find('?');
+                if (pos != std::string::npos && pos + 1 < path.size())
+                    return SimpleWeb::parse_query_string(path.substr(pos + 1));
+                else
+                    return CaseInsensitiveMultimap();
             }
 
         private:
