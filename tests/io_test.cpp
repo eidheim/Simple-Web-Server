@@ -18,6 +18,20 @@ int main() {
         *response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
     };
     
+    server.resource["^/string2$"]["POST"]=[](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+        response->write(request->content.string());
+    };
+    
+    server.resource["^/string3$"]["POST"]=[](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+        std::stringstream stream;
+        stream << request->content.rdbuf();
+        response->write(stream);
+    };
+    
+    server.resource["^/string4$"]["POST"]=[](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
+        response->write(SimpleWeb::StatusCode::client_error_forbidden, {{"Test1", "test2"}, {"tesT3", "test4"}});
+    };
+    
     server.resource["^/info$"]["GET"]=[](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
         stringstream content_stream;
         content_stream << request->method << " " << request->path << " " << request->http_version << " ";
@@ -51,8 +65,36 @@ int main() {
         {
             stringstream output;
             auto r=client.request("POST", "/string", "A string");
+            assert(SimpleWeb::status_code(r->status_code)==SimpleWeb::StatusCode::success_ok);
             output << r->content.rdbuf();
             assert(output.str()=="A string");
+        }
+        
+        {
+            stringstream output;
+            auto r=client.request("POST", "/string2", "A string");
+            assert(SimpleWeb::status_code(r->status_code)==SimpleWeb::StatusCode::success_ok);
+            output << r->content.rdbuf();
+            assert(output.str()=="A string");
+        }
+        
+        {
+            stringstream output;
+            auto r=client.request("POST", "/string3", "A string");
+            assert(SimpleWeb::status_code(r->status_code)==SimpleWeb::StatusCode::success_ok);
+            output << r->content.rdbuf();
+            assert(output.str()=="A string");
+        }
+        
+        {
+            stringstream output;
+            auto r=client.request("POST", "/string4", "A string");
+            assert(SimpleWeb::status_code(r->status_code)==SimpleWeb::StatusCode::client_error_forbidden);
+            assert(r->header.size()==2);
+            assert(r->header.find("test1")->second=="test2");
+            assert(r->header.find("tEst3")->second=="test4");
+            output << r->content.rdbuf();
+            assert(output.str()=="");
         }
         
         {

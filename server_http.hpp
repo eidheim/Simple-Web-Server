@@ -57,9 +57,60 @@ namespace SimpleWeb {
 
             Response(const std::shared_ptr<socket_type> &socket): std::ostream(&streambuf), socket(socket) {}
 
+            template<class size_type>
+            void write_header(const CaseInsensitiveMultimap &header, size_type size=0) {
+                bool content_length_written=false;
+                for(auto &header_field: header) {
+                    if(size && !content_length_written && case_insensitive_equal(header_field.first, "content-length"))
+                       content_length_written=true;
+                    *this << header_field.first << ": " << header_field.second << "\r\n";
+                }
+                if(size && !content_length_written)
+                    *this << "Content-Length: " << size << "\r\n\r\n";
+                else
+                    *this << "\r\n";
+            }
         public:
             size_t size() {
                 return streambuf.size();
+            }
+            
+            void write(const char_type *ptr, std::streamsize n) {
+                std::ostream::write(ptr, n);
+            }
+            
+            /// Convenience function for writing status line, potential header fields, and empty content
+            void write(StatusCode status_code=StatusCode::success_ok, const CaseInsensitiveMultimap &header=CaseInsensitiveMultimap()) {
+                *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
+                write_header(header, 0);
+            }
+            
+            /// Convenience function for writing status line, header fields, and content
+            void write(StatusCode status_code, const std::string &content, const CaseInsensitiveMultimap &header=CaseInsensitiveMultimap()) {
+                *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
+                write_header(header, content.size());
+                if(!content.empty())
+                    *this << content;
+            }
+            
+            /// Convenience function for writing status line, header fields, and content
+            void write(StatusCode status_code, std::ostream &content, const CaseInsensitiveMultimap &header=CaseInsensitiveMultimap()) {
+                *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
+                content.seekp(0, std::ios::end);
+                auto size=content.tellp();
+                write_header(header, size);
+                if(size)
+                    *this << content.rdbuf();
+            }
+            
+            /// Convenience function for writing success status line, header fields, and content
+            void write(const std::string &content, const CaseInsensitiveMultimap &header=CaseInsensitiveMultimap()) {
+                write(StatusCode::success_ok, content, header);
+            }
+            
+            /// Convenience function for writing success status line, header fields, and content
+            void write(std::iostream &content, const CaseInsensitiveMultimap &header=CaseInsensitiveMultimap()) {
+                write(StatusCode::success_ok, content, header);
             }
 
             /// If true, force server to close the connection after the response have been sent.

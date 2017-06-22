@@ -42,6 +42,10 @@ int main() {
         //string content=ss.str();
         
         *response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
+        
+        
+        // Alternatively, use one of the convenience functions, for instance:
+        // response->write(content);
     };
     
     //POST-example for the path /json, responds firstName+" "+lastName from the posted json
