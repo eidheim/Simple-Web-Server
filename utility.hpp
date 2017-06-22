@@ -1,6 +1,7 @@
 #ifndef SIMPLE_WEB_SERVER_UTILITY_HPP
 #define SIMPLE_WEB_SERVER_UTILITY_HPP
 
+#include "status_code.hpp"
 #include <iostream>
 #include <string>
 #include <unordered_map>
