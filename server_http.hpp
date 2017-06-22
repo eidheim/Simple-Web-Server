@@ -94,10 +94,11 @@ namespace SimpleWeb {
             }
             
             /// Convenience function for writing status line, header fields, and content
-            void write(StatusCode status_code, std::ostream &content, const CaseInsensitiveMultimap &header=CaseInsensitiveMultimap()) {
+            void write(StatusCode status_code, std::iostream &content, const CaseInsensitiveMultimap &header=CaseInsensitiveMultimap()) {
                 *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
                 content.seekp(0, std::ios::end);
                 auto size=content.tellp();
+                content.seekp(0, std::ios::beg);
                 write_header(header, size);
                 if(size)
                     *this << content.rdbuf();
