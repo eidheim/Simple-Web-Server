@@ -1,6 +1,7 @@
 #ifndef SIMPLE_WEB_SERVER_UTILITY_HPP
 #define SIMPLE_WEB_SERVER_UTILITY_HPP
 
+#include <iostream>
 #include <string>
 #include <unordered_map>
 
@@ -79,11 +80,11 @@ inline CaseInsensitiveMultimap parse_query_string(const std::string &query_strin
   size_t parameter_pos = 0;
   size_t parameter_end_pos = -1;
   size_t value_pos = -1;
-  for(size_t c = 0; c < query_string.size() + 1; ++c) {
-    if(query_string[c] == '&' || c == query_string.size()) {
-      auto parameter = query_string.substr(parameter_pos, (parameter_end_pos == static_cast<size_t>(-1) ? c : parameter_end_pos) - parameter_pos);
+  for(size_t c = 0; c < query_string.size(); ++c) {
+    if(query_string[c] == '&') {
+      auto parameter = query_string.substr(parameter_pos, (parameter_end_pos == std::string::npos ? c : parameter_end_pos) - parameter_pos);
       if(!parameter.empty()) {
-        auto value = value_pos == static_cast<size_t>(-1) ? std::string() : query_string.substr(value_pos, c - value_pos);
+        auto value = value_pos == std::string::npos ? std::string() : query_string.substr(value_pos, c - value_pos);
         result.emplace(std::move(parameter), Percent::decode(value));
       }
       parameter_pos = c + 1;
@@ -93,6 +94,13 @@ inline CaseInsensitiveMultimap parse_query_string(const std::string &query_strin
     else if(query_string[c] == '=') {
       parameter_end_pos = c;
       value_pos = c + 1;
+    }
+  }
+  if(parameter_pos < query_string.size()) {
+    auto parameter = query_string.substr(parameter_pos, parameter_end_pos - parameter_pos);
+    if(!parameter.empty()) {
+      auto value = value_pos >= query_string.size() ? std::string() : query_string.substr(value_pos);
+      result.emplace(std::move(parameter), Percent::decode(value));
     }
   }
 
