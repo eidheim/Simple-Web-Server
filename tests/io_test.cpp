@@ -72,6 +72,13 @@ int main() {
         
         {
             stringstream output;
+            auto r=client.request("POST", "/string", "A string");
+            assert(SimpleWeb::status_code(r->status_code)==SimpleWeb::StatusCode::success_ok);
+            assert(r->content.string()=="A string");
+        }
+        
+        {
+            stringstream output;
             auto r=client.request("POST", "/string2", "A string");
             assert(SimpleWeb::status_code(r->status_code)==SimpleWeb::StatusCode::success_ok);
             output << r->content.rdbuf();

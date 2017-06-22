@@ -126,6 +126,7 @@ namespace SimpleWeb {
             size_t size() {
                 return streambuf.size();
             }
+            /// Convenience function to return std::string. Note that the stream buffer is emptied when this functions is used.
             std::string string() {
                 std::stringstream ss;
                 ss << rdbuf();

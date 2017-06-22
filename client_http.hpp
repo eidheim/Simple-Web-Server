@@ -37,20 +37,37 @@ namespace SimpleWeb {
     template <class socket_type>
     class ClientBase {
     public:
+        class Content : public std::istream {
+            friend class ClientBase<socket_type>;
+        public:
+            size_t size() {
+                return streambuf.size();
+            }
+            /// Convenience function to return std::string. Note that the stream buffer is emptied when this functions is used.
+            std::string string() {
+                std::stringstream ss;
+                ss << rdbuf();
+                return ss.str();
+            }
+        private:
+            asio::streambuf &streambuf;
+            Content(asio::streambuf &streambuf): std::istream(&streambuf), streambuf(streambuf) {}
+        };
+        
         class Response {
             friend class ClientBase<socket_type>;
             friend class Client<socket_type>;
         public:
             std::string http_version, status_code;
 
-            std::istream content;
+            Content content;
 
             CaseInsensitiveMultimap header;
             
         private:
             asio::streambuf content_buffer;
             
-            Response(): content(&content_buffer) {}
+            Response(): content(content_buffer) {}
         };
         
         class Config {

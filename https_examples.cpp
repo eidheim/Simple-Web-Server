@@ -181,7 +181,7 @@ int main() {
     
     // synchronous request examples
     auto r1=client.request("GET", "/match/123");
-    cout << r1->content.rdbuf() << endl;
+    cout << r1->content.rdbuf() << endl;  // Alternatively, use the convenience function r1->content.string()
 
     string json_string="{\"firstName\": \"John\",\"lastName\": \"Smith\",\"age\": 25}";
     auto r2=client.request("POST", "/string", json_string);
