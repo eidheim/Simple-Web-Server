@@ -68,25 +68,46 @@ int main() {
                       << "Content-Length: " << name.length() << "\r\n\r\n"
                       << name;
         }
-        catch(exception& e) {
+        catch(const exception &e) {
             *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << strlen(e.what()) << "\r\n\r\n" << e.what();
         }
+        
+        
+        // Alternatively, using a convenience function:
+        // try {
+        //     ptree pt;
+        //     read_json(request->content, pt);
+            
+        //     string name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
+        //     response->write(name, {{"Content-Type", "application/json"}});
+        // }
+        // catch(const exception &e) {
+        //     response->write(SimpleWeb::StatusCode::client_error_bad_request, e.what());
+        // }
     };
     
     //GET-example for the path /info
     //Responds with request-information
     server.resource["^/info$"]["GET"]=[](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> request) {
-        stringstream content_stream;
-        content_stream << "<h1>Request from " << request->remote_endpoint_address << " (" << request->remote_endpoint_port << ")</h1>";
-        content_stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
-        for(auto& header: request->header) {
-            content_stream << header.first << ": " << header.second << "<br>";
-        }
+        stringstream stream;
+        stream << "<h1>Request from " << request->remote_endpoint_address << " (" << request->remote_endpoint_port << ")</h1>";
+        stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
+        for(auto& header: request->header)
+            stream << header.first << ": " << header.second << "<br>";
         
         //find length of content_stream (length received using content_stream.tellp())
-        content_stream.seekp(0, ios::end);
+        stream.seekp(0, ios::end);
         
-        *response <<  "HTTP/1.1 200 OK\r\nContent-Length: " << content_stream.tellp() << "\r\n\r\n" << content_stream.rdbuf();
+        *response <<  "HTTP/1.1 200 OK\r\nContent-Length: " << stream.tellp() << "\r\n\r\n" << stream.rdbuf();
+        
+        
+        // Alternatively, using a convenience function:
+        // stringstream stream;
+        // stream << "<h1>Request from " << request->remote_endpoint_address << " (" << request->remote_endpoint_port << ")</h1>";
+        // stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
+        // for(auto &header: request->header)
+        //     stream << header.first << ": " << header.second << "<br>";
+        // response->write(stream);
     };
     
     //GET-example for the path /match/[number], responds with the matched string in path (number)
@@ -94,6 +115,10 @@ int main() {
     server.resource["^/match/([0-9]+)$"]["GET"]=[](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> request) {
         string number=request->path_match[1];
         *response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n" << number;
+        
+        
+        // Alternatively, using a convenience function:
+        // response->write(request->path_match[1]);
     };
     
     //Get example simulating heavy work in a separate thread
