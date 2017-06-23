@@ -39,7 +39,7 @@ int main() {
         //request->content.string() is a convenience function for:
         //stringstream ss;
         //ss << request->content.rdbuf();
-        //string content=ss.str();
+        //auto content=ss.str();
         
         *response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
         
@@ -61,7 +61,7 @@ int main() {
             ptree pt;
             read_json(request->content, pt);
 
-            string name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
+            auto name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
 
             *response << "HTTP/1.1 200 OK\r\n"
                       << "Content-Type: application/json\r\n"
@@ -78,7 +78,7 @@ int main() {
         //     ptree pt;
         //     read_json(request->content, pt);
             
-        //     string name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
+        //     auto name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
         //     response->write(name, {{"Content-Type", "application/json"}});
         // }
         // catch(const exception &e) {
@@ -92,7 +92,7 @@ int main() {
         stringstream stream;
         stream << "<h1>Request from " << request->remote_endpoint_address << " (" << request->remote_endpoint_port << ")</h1>";
         stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
-        for(auto& header: request->header)
+        for(auto &header: request->header)
             stream << header.first << ": " << header.second << "<br>";
         
         //find length of content_stream (length received using content_stream.tellp())
@@ -146,21 +146,22 @@ int main() {
             if(boost::filesystem::is_directory(path))
                 path/="index.html";
 
-            std::string cache_control, etag;
-
+            SimpleWeb::CaseInsensitiveMultimap header;
+            
             // Uncomment the following line to enable Cache-Control
-            // cache_control="Cache-Control: max-age=86400\r\n";
+            // header.emplace("Cache-Control", "max-age=86400");
 
+#ifdef HAVE_OPENSSL
             // Uncomment the following lines to enable ETag
             // {
             //     ifstream ifs(path.string(), ifstream::in | ios::binary);
             //     if(ifs) {
             //         auto hash=SimpleWeb::Crypto::to_hex_string(SimpleWeb::Crypto::md5(ifs));
-            //         etag = "ETag: \""+hash+"\"\r\n";
+            //         header.emplace("ETag", "\""+hash+"\"");
             //         auto it=request->header.find("If-None-Match");
             //         if(it!=request->header.end()) {
             //             if(!it->second.empty() && it->second.compare(1, hash.size(), hash)==0) {
-            //                 *response << "HTTP/1.1 304 Not Modified\r\n" << cache_control << etag << "\r\n\r\n";
+            //                 response->write(SimpleWeb::StatusCode::redirection_not_modified, header);
             //                 return;
             //             }
             //         }
@@ -168,6 +169,7 @@ int main() {
             //     else
             //         throw invalid_argument("could not read file");
             // }
+#endif
 
             auto ifs=make_shared<ifstream>();
             ifs->open(path.string(), ifstream::in | ios::binary | ios::ate);
@@ -176,15 +178,15 @@ int main() {
                 auto length=ifs->tellg();
                 ifs->seekg(0, ios::beg);
                 
-                *response << "HTTP/1.1 200 OK\r\n" << cache_control << etag << "Content-Length: " << length << "\r\n\r\n";
+                header.emplace("Content-Length", to_string(length));
+                response->write(header);
                 default_resource_send(server, response, ifs);
             }
             else
                 throw invalid_argument("could not read file");
         }
         catch(const exception &e) {
-            string content="Could not open path "+request->path+": "+e.what();
-            *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: " << content.length() << "\r\n\r\n" << content;
+            response->write(SimpleWeb::StatusCode::client_error_bad_request, "Could not open path "+request->path+": "+e.what());
         }
     };
     

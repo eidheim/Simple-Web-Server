@@ -113,6 +113,11 @@ namespace SimpleWeb {
             void write(std::istream &content, const CaseInsensitiveMultimap &header=CaseInsensitiveMultimap()) {
                 write(StatusCode::success_ok, content, header);
             }
+            
+            /// Convenience function for writing success status line, and header fields
+            void write(const CaseInsensitiveMultimap &header=CaseInsensitiveMultimap()) {
+                write(StatusCode::success_ok, std::string(), header);
+            }
 
             /// If true, force server to close the connection after the response have been sent.
             ///
