@@ -145,7 +145,7 @@ namespace SimpleWeb {
         
         /// Convenience function to perform synchronous request. The io_service is run within this function.
         /// If reusing the io_service for other tasks, please use the asynchronous request functions instead.
-        std::shared_ptr<Response> request(const std::string& method, const std::string& path, std::iostream& content, const CaseInsensitiveMultimap& header=CaseInsensitiveMultimap()) {
+        std::shared_ptr<Response> request(const std::string& method, const std::string& path, std::istream& content, const CaseInsensitiveMultimap& header=CaseInsensitiveMultimap()) {
             std::shared_ptr<Response> response;
             request(method, path, content, header, [&response](std::shared_ptr<Response> response_, const error_code &ec) {
                 response=response_;
@@ -201,7 +201,7 @@ namespace SimpleWeb {
         }
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
-        void request(const std::string &method, const std::string &path, std::iostream& content, const CaseInsensitiveMultimap& header,
+        void request(const std::string &method, const std::string &path, std::istream& content, const CaseInsensitiveMultimap& header,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback_) {
             auto session=std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
             auto request_callback=std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code&)>>(std::move(request_callback_));
@@ -216,9 +216,9 @@ namespace SimpleWeb {
                     (*request_callback)(session->response, ec);
             };
             
-            content.seekp(0, std::ios::end);
-            auto content_length=content.tellp();
-            content.seekp(0, std::ios::beg);
+            content.seekg(0, std::ios::end);
+            auto content_length=content.tellg();
+            content.seekg(0, std::ios::beg);
             std::ostream write_stream(session->request_buffer.get());
             if(content_length>0)
                 write_stream << "Content-Length: " << content_length << "\r\n";
@@ -230,7 +230,7 @@ namespace SimpleWeb {
         }
         
         /// Asynchronous request where setting and/or running Client's io_service is required.
-        void request(const std::string &method, const std::string &path, std::iostream& content,
+        void request(const std::string &method, const std::string &path, std::istream& content,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback) {
             request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback));
         }
