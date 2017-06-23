@@ -26,6 +26,15 @@ typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 void default_resource_send(const HttpServer &server, const shared_ptr<HttpServer::Response> &response,
                            const shared_ptr<ifstream> &ifs);
 
+class MimeTypes {
+    public:
+        void load(const std::string &f);
+        void parse(const std::string &mimestring);
+        void parse(std::istream &mimestream);
+        const std::string &lookup(const std::string &extension);
+        std::unordered_map<std::string, std::string> _mime_db;
+};
+
 int main() {
     //HTTP-server at port 8080 using 1 thread
     //Unless you do more heavy non-threaded processing in the resources,
@@ -33,6 +42,9 @@ int main() {
     HttpServer server;
     server.config.port=8080;
     
+    // Mime Types
+    MimeTypes mime_types;
+
     //Add resources using path-regex and method-string, and an anonymous function
     //POST-example for the path /string, responds the posted string
     server.resource["^/string$"]["POST"]=[](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
@@ -137,7 +149,7 @@ int main() {
     //Will respond with content in the web/-directory, and its subdirectories.
     //Default file: index.html
     //Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
-    server.default_resource["GET"]=[&server](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+    server.default_resource["GET"]=[&server, &mime_types](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
         try {
             auto web_root_path=boost::filesystem::canonical("web");
             auto path=boost::filesystem::canonical(web_root_path/request->path);
@@ -180,7 +192,18 @@ int main() {
                 auto length=ifs->tellg();
                 ifs->seekg(0, ios::beg);
                 
-                *response << "HTTP/1.1 200 OK\r\n" << cache_control << etag << "Content-Length: " << length << "\r\n\r\n";
+                // Get the file extension and look up the corresponding mime type
+                auto ext = path.filename().extension().string();
+                if (!ext.empty() && ext[0] == '.') {
+                    ext.erase(0, 1);
+                }
+                auto mime = mime_types.lookup(ext);
+                std::string content_type;
+                if (!mime.empty()) {
+                    content_type = "Content-Type: " + mime + "\r\n";
+                } // else if empty: Do not set Content-Type
+
+                *response << "HTTP/1.1 200 OK\r\n" << cache_control << etag << content_type << "Content-Length: " << length  << "\r\n\r\n";
                 default_resource_send(server, response, ifs);
             }
             else
@@ -205,6 +228,17 @@ int main() {
     this_thread::sleep_for(chrono::seconds(1));
     
     //Client examples
+
+    // Load mime.types from Apache web site
+    // If this site is not reachable or the response is not valid nothing will happen
+    HttpClient apache_client("svn.apache.org");
+    auto mr = apache_client.request("GET", "/repos/asf/httpd/httpd/trunk/docs/conf/mime.types");
+   
+    // Make sure we got a valid response
+    if(mr->status_code == "200 OK") {
+        mime_types.parse(mr->content);
+    }
+
     HttpClient client("localhost:8080");
     
     // synchronous request examples
@@ -244,4 +278,72 @@ void default_resource_send(const HttpServer &server, const shared_ptr<HttpServer
             });
         }
     }
+}
+
+/**
+* Parses Apaches mime.types files
+* @param path and file name to mime.types like file
+*/
+void MimeTypes::load(const std::string &f) {
+   try {
+       std::ifstream mimefile(f);
+       if (mimefile.is_open()) {
+           parse(mimefile);
+       }
+       mimefile.close();
+   } catch (const std::exception &e) {
+       // Something bad happened. How to handle this kind of exception?
+       // Don't care for now
+   }
+}
+
+void MimeTypes::parse(const std::string &mimestring) {
+   std::stringstream mimestream(mimestring);
+   parse(mimestream);
+}
+
+void MimeTypes::parse(std::istream &mimestream) {
+   try {
+       std::string line;
+       while (std::getline(mimestream, line)) {
+
+           // discard comments
+           auto start_of_comment = line.find("#");
+           if (start_of_comment != std::string::npos) {
+               line.erase(start_of_comment, std::string::npos);
+           }
+
+           // mime type followed by zero or more file extensions
+           std::istringstream iss(line);
+           std::string mime;
+           if (iss >> mime) {
+
+               std::string ext;            // mime successful read
+               while (iss >> ext) {        // read and insert extensions
+                   if (!ext.empty()) {
+                       _mime_db[ext] = mime;
+                   }
+               }
+           }
+       }
+   } catch (const std::exception &e) {
+       // Something bad happened. How to handle this kind of exception?
+       // Don't care for now
+   }
+}
+
+/**
+* Looks up the Mime Type belonging to the File Extension
+* @param file extension to look up
+* @return Mime Type corresponding to extension. Or the empty string if nothing found. In case of "" do not set the Content Header!
+*/
+const std::string& MimeTypes::lookup(const std::string &extension) {
+   auto finding = _mime_db.find(extension);
+
+   if (finding != _mime_db.end()) {
+       return (*finding).second;
+   }
+
+   static std::string unknown_mime_type = "";
+   return unknown_mime_type;
 }
