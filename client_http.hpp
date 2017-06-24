@@ -1,15 +1,13 @@
 #ifndef CLIENT_HTTP_HPP
 #define	CLIENT_HTTP_HPP
 
+#include "utility.hpp"
 #include <vector>
 #include <random>
 #include <mutex>
-#include <type_traits>
-#include "utility.hpp"
 
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>
-#include <system_error>
 namespace SimpleWeb {
     using error_code = std::error_code;
     using errc = std::errc;
