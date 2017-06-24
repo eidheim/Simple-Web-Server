@@ -93,6 +93,7 @@ namespace SimpleWeb {
                     query=std::unique_ptr<asio::ip::tcp::resolver::query>(new asio::ip::tcp::resolver::query(proxy_host_port.first, std::to_string(proxy_host_port.second)));
                 }
             }
+            
             std::string host;
             unsigned short port;
             Config config;
@@ -161,16 +162,18 @@ namespace SimpleWeb {
         void request(const std::string &method, const std::string &path, string_view content, const CaseInsensitiveMultimap& header,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback_) {
             auto session=std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
+            auto connection=session->connection;
+            auto response=session->response;
             auto request_callback=std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code&)>>(std::move(request_callback_));
             auto connections_mutex=this->connections_mutex;
-            session->callback=[session, request_callback, connections_mutex](const error_code &ec) {
+            session->callback=[connection, response, request_callback, connections_mutex](const error_code &ec) {
                 {
                     std::lock_guard<std::mutex> lock(*connections_mutex);
-                    session->connection->in_use=false;
+                    connection->in_use=false;
                 }
                 
                 if(*request_callback)
-                    (*request_callback)(session->response, ec);
+                    (*request_callback)(response, ec);
             };
             
             std::ostream write_stream(session->request_buffer.get());
@@ -202,16 +205,18 @@ namespace SimpleWeb {
         void request(const std::string &method, const std::string &path, std::istream& content, const CaseInsensitiveMultimap& header,
                      std::function<void(std::shared_ptr<Response>, const error_code&)> &&request_callback_) {
             auto session=std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
+            auto connection=session->connection;
+            auto response=session->response;
             auto request_callback=std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code&)>>(std::move(request_callback_));
             auto connections_mutex=this->connections_mutex;
-            session->callback=[session, request_callback, connections_mutex](const error_code &ec) {
+            session->callback=[connection, response, request_callback, connections_mutex](const error_code &ec) {
                 {
                     std::lock_guard<std::mutex> lock(*connections_mutex);
-                    session->connection->in_use=false;
+                    connection->in_use=false;
                 }
                 
                 if(*request_callback)
-                    (*request_callback)(session->response, ec);
+                    (*request_callback)(response, ec);
             };
             
             content.seekg(0, std::ios::end);
