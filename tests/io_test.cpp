@@ -97,9 +97,10 @@ int main() {
             stringstream output;
             auto r=client.request("POST", "/string4", "A string");
             assert(SimpleWeb::status_code(r->status_code)==SimpleWeb::StatusCode::client_error_forbidden);
-            assert(r->header.size()==2);
+            assert(r->header.size()==3);
             assert(r->header.find("test1")->second=="test2");
             assert(r->header.find("tEst3")->second=="test4");
+            assert(r->header.find("content-length")->second=="0");
             output << r->content.rdbuf();
             assert(output.str()=="");
         }

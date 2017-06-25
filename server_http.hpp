@@ -57,14 +57,18 @@ namespace SimpleWeb {
             Response(const std::shared_ptr<socket_type> &socket): std::ostream(&streambuf), socket(socket) {}
 
             template<class size_type>
-            void write_header(const CaseInsensitiveMultimap &header, size_type size=0) {
+            void write_header(const CaseInsensitiveMultimap &header, size_type size) {
                 bool content_length_written=false;
-                for(auto &header_field: header) {
-                    if(size && !content_length_written && case_insensitive_equal(header_field.first, "content-length"))
-                       content_length_written=true;
-                    *this << header_field.first << ": " << header_field.second << "\r\n";
+                bool chunked_transfer_encoding=false;
+                for(auto &field: header) {
+                    if(!content_length_written && case_insensitive_equal(field.first, "content-length"))
+                        content_length_written=true;
+                    else if(!chunked_transfer_encoding && case_insensitive_equal(field.first, "transfer-encoding") && case_insensitive_equal(field.second, "chunked"))
+                        chunked_transfer_encoding=true;
+                    
+                    *this << field.first << ": " << field.second << "\r\n";
                 }
-                if(size && !content_length_written)
+                if(!content_length_written && !chunked_transfer_encoding)
                     *this << "Content-Length: " << size << "\r\n\r\n";
                 else
                     *this << "\r\n";
