@@ -129,13 +129,16 @@ int main() {
     {
         HttpClient client("localhost:8080");
         
-        // test performing the stream version of the request methods first
+        HttpClient::Connection *connection;
         {
+            // test performing the stream version of the request methods first
             stringstream output;
             stringstream content("A string");
             auto r=client.request("POST", "/string", content);
             output << r->content.rdbuf();
             assert(output.str()=="A string");
+            assert(client.connections->size()==1);
+            connection=client.connections->front().get();
         }
         
         {
@@ -143,6 +146,8 @@ int main() {
             auto r=client.request("POST", "/string", "A string");
             output << r->content.rdbuf();
             assert(output.str()=="A string");
+            assert(client.connections->size()==1);
+            assert(connection==client.connections->front().get());
         }
         
         {
@@ -150,6 +155,8 @@ int main() {
             auto r=client.request("GET", "/header", "", {{"test1", "test"}, {"test2", "ing"}});
             output << r->content.rdbuf();
             assert(output.str()=="testing");
+            assert(client.connections->size()==1);
+            assert(connection==client.connections->front().get());
         }
     }
     
@@ -183,10 +190,48 @@ int main() {
             }
             for(auto &thread: threads)
                 thread.join();
+            assert(client.connections->size()==100);
             client.io_service->reset();
             client.io_service->run();
+            assert(client.connections->size()==1);
             for(auto call: calls)
                 assert(call);
+        }
+    }
+    
+    {
+        HttpClient client("localhost:8080");
+        assert(client.connections->size()==0);
+        for(size_t c=0;c<5000;++c) {
+            auto r1=client.request("POST", "/string", "A string");
+            assert(SimpleWeb::status_code(r1->status_code)==SimpleWeb::StatusCode::success_ok);
+            assert(r1->content.string()=="A string");
+            assert(client.connections->size()==1);
+            
+            stringstream content("A string");
+            auto r2 = client.request("POST", "/string", content);
+            assert(SimpleWeb::status_code(r2->status_code) == SimpleWeb::StatusCode::success_ok);
+            assert(r2->content.string() == "A string");
+            assert(client.connections->size() == 1);
+        }
+    }
+    
+    for(size_t c=0;c<500;++c) {
+        {
+            HttpClient client("localhost:8080");
+            auto r=client.request("POST", "/string", "A string");
+            assert(SimpleWeb::status_code(r->status_code)==SimpleWeb::StatusCode::success_ok);
+            assert(r->content.string()=="A string");
+            assert(client.connections->size()==1);
+        }
+        
+        {
+            HttpClient client("localhost:8080");
+            stringstream content("A string");
+            auto r = client.request("POST", "/string", content);
+            assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
+            assert(r->content.string() == "A string");
+            assert(client.connections->size() == 1);
         }
     }
     
