@@ -119,6 +119,11 @@ int main() {
     assert(hash("tesT")==hash("test"));
     assert(hash("test")!=hash("tset"));
     
+    auto percent_decoded="testing æøå !#$&'()*+,/:;=?@[]";
+    auto percent_encoded="testing+æøå+%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D";
+    assert(Percent::encode(percent_decoded)==percent_encoded);
+    assert(Percent::decode(Percent::encode(percent_decoded))==percent_decoded);
+    
     ServerTest serverTest;
     serverTest.io_service=std::make_shared<asio::io_service>();
     

@@ -50,8 +50,27 @@ typedef std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, C
 /// Percent encoding and decoding
 class Percent {
 public:
+  static std::string encode(const std::string &value) {
+    static auto hex_chars = "0123456789ABCDEF";
+
+    std::string result;
+    result.reserve(value.size()); // minimum size of result
+
+    for(auto &chr : value) {
+      if(chr == ' ')
+        result += '+';
+      else if(chr == '!' || chr == '#' || chr == '$' || (chr >= '&' && chr <= ',') || (chr >= '/' && chr <= ';') || chr == '=' || chr=='?' || chr == '@' || chr == '[' || chr == ']')
+        result += std::string("%") + hex_chars[chr >> 4] + hex_chars[chr & 15];
+      else
+        result += chr;
+    }
+
+    return result;
+  }
+
   static std::string decode(const std::string &value) {
     std::string result;
+    result.reserve((value.size() + 2) / 3); // minimum size of result
 
     for(size_t i = 0; i < value.size(); ++i) {
       auto &chr = value[i];
