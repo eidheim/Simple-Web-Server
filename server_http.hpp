@@ -114,7 +114,7 @@ namespace SimpleWeb {
             }
             
             /// Convenience function for writing success status line, and header fields
-            void write(const CaseInsensitiveMultimap &header=CaseInsensitiveMultimap()) {
+            void write(const CaseInsensitiveMultimap &header) {
                 write(StatusCode::success_ok, std::string(), header);
             }
 
