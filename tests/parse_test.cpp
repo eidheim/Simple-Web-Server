@@ -122,7 +122,17 @@ int main() {
     auto percent_decoded="testing æøå !#$&'()*+,/:;=?@[]";
     auto percent_encoded="testing+æøå+%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D";
     assert(Percent::encode(percent_decoded)==percent_encoded);
+    assert(Percent::decode(percent_encoded)==percent_decoded);
     assert(Percent::decode(Percent::encode(percent_decoded))==percent_decoded);
+    
+    SimpleWeb::CaseInsensitiveMultimap fields={{"test1", "æøå"}, {"test2", "!#$&'()*+,/:;=?@[]"}};
+    auto query_string1="test1=æøå&test2=%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D";
+    auto query_string2="test2=%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D&test1=æøå";
+    auto query_string_result=QueryString::create(fields);
+    assert(query_string_result==query_string1 || query_string_result==query_string2);
+    auto fields_result1=QueryString::parse(query_string1);
+    auto fields_result2=QueryString::parse(query_string2);
+    assert(fields_result1==fields_result2 && fields_result1==fields);
     
     ServerTest serverTest;
     serverTest.io_service=std::make_shared<asio::io_service>();

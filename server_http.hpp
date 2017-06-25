@@ -165,7 +165,7 @@ namespace SimpleWeb {
             CaseInsensitiveMultimap parse_query_string() {
                 auto pos = path.find('?');
                 if (pos != std::string::npos && pos + 1 < path.size())
-                    return SimpleWeb::parse_query_string(path.substr(pos + 1));
+                    return SimpleWeb::QueryString::parse(path.substr(pos + 1));
                 else
                     return CaseInsensitiveMultimap();
             }

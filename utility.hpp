@@ -59,7 +59,7 @@ public:
     for(auto &chr : value) {
       if(chr == ' ')
         result += '+';
-      else if(chr == '!' || chr == '#' || chr == '$' || (chr >= '&' && chr <= ',') || (chr >= '/' && chr <= ';') || chr == '=' || chr=='?' || chr == '@' || chr == '[' || chr == ']')
+      else if(chr == '!' || chr == '#' || chr == '$' || (chr >= '&' && chr <= ',') || (chr >= '/' && chr <= ';') || chr == '=' || chr == '?' || chr == '@' || chr == '[' || chr == ']')
         result += std::string("%") + hex_chars[chr >> 4] + hex_chars[chr & 15];
       else
         result += chr;
@@ -70,7 +70,7 @@ public:
 
   static std::string decode(const std::string &value) {
     std::string result;
-    result.reserve((value.size() + 2) / 3); // minimum size of result
+    result.reserve(value.size() / 3 + (value.size() % 3)); // minimum size of result
 
     for(size_t i = 0; i < value.size(); ++i) {
       auto &chr = value[i];
@@ -90,41 +90,61 @@ public:
   }
 };
 
-/// Returns query keys with percent-decoded values.
-inline CaseInsensitiveMultimap parse_query_string(const std::string &query_string) {
-  CaseInsensitiveMultimap result;
+class QueryString {
+public:
+  static std::string create(const CaseInsensitiveMultimap &fields) {
+    std::string result;
 
-  if(query_string.empty())
+    bool first = true;
+    for(auto &field : fields) {
+      result += (!first ? "&" : "") + field.first + '=' + Percent::encode(field.second);
+      first = false;
+    }
+
     return result;
+  }
 
-  size_t parameter_pos = 0;
-  size_t parameter_end_pos = -1;
-  size_t value_pos = -1;
-  for(size_t c = 0; c < query_string.size(); ++c) {
-    if(query_string[c] == '&') {
-      auto parameter = query_string.substr(parameter_pos, (parameter_end_pos == std::string::npos ? c : parameter_end_pos) - parameter_pos);
-      if(!parameter.empty()) {
-        auto value = value_pos == std::string::npos ? std::string() : query_string.substr(value_pos, c - value_pos);
-        result.emplace(std::move(parameter), Percent::decode(value));
+  /// Returns query keys with percent-decoded values.
+  static CaseInsensitiveMultimap parse(const std::string &query_string) {
+    CaseInsensitiveMultimap result;
+
+    if(query_string.empty())
+      return result;
+
+    size_t name_pos = 0;
+    size_t name_end_pos = -1;
+    size_t value_pos = -1;
+    for(size_t c = 0; c < query_string.size(); ++c) {
+      if(query_string[c] == '&') {
+        auto name = query_string.substr(name_pos, (name_end_pos == std::string::npos ? c : name_end_pos) - name_pos);
+        if(!name.empty()) {
+          auto value = value_pos == std::string::npos ? std::string() : query_string.substr(value_pos, c - value_pos);
+          result.emplace(std::move(name), Percent::decode(value));
+        }
+        name_pos = c + 1;
+        name_end_pos = -1;
+        value_pos = -1;
       }
-      parameter_pos = c + 1;
-      parameter_end_pos = -1;
-      value_pos = -1;
+      else if(query_string[c] == '=') {
+        name_end_pos = c;
+        value_pos = c + 1;
+      }
     }
-    else if(query_string[c] == '=') {
-      parameter_end_pos = c;
-      value_pos = c + 1;
+    if(name_pos < query_string.size()) {
+      auto name = query_string.substr(name_pos, name_end_pos - name_pos);
+      if(!name.empty()) {
+        auto value = value_pos >= query_string.size() ? std::string() : query_string.substr(value_pos);
+        result.emplace(std::move(name), Percent::decode(value));
+      }
     }
-  }
-  if(parameter_pos < query_string.size()) {
-    auto parameter = query_string.substr(parameter_pos, parameter_end_pos - parameter_pos);
-    if(!parameter.empty()) {
-      auto value = value_pos >= query_string.size() ? std::string() : query_string.substr(value_pos);
-      result.emplace(std::move(parameter), Percent::decode(value));
-    }
-  }
 
-  return result;
+    return result;
+  }
+};
+
+/// Returns query keys with percent-decoded values.
+DEPRECATED inline CaseInsensitiveMultimap parse_query_string(const std::string &query_string) {
+  return QueryString::parse(query_string);
 }
 } // namespace SimpleWeb
 
