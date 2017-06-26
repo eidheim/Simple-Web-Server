@@ -50,6 +50,7 @@ typedef std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, C
 /// Percent encoding and decoding
 class Percent {
 public:
+  /// Returns percent-encoded string
   static std::string encode(const std::string &value) {
     static auto hex_chars = "0123456789ABCDEF";
 
@@ -68,6 +69,7 @@ public:
     return result;
   }
 
+  /// Returns percent-decoded string
   static std::string decode(const std::string &value) {
     std::string result;
     result.reserve(value.size() / 3 + (value.size() % 3)); // minimum size of result
@@ -90,8 +92,10 @@ public:
   }
 };
 
+/// Query string creation and parsing
 class QueryString {
 public:
+  /// Returns query string created from given field names and values
   static std::string create(const CaseInsensitiveMultimap &fields) {
     std::string result;
 

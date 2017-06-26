@@ -68,7 +68,7 @@ namespace SimpleWeb {
                     
                     *this << field.first << ": " << field.second << "\r\n";
                 }
-                if(!content_length_written && !chunked_transfer_encoding)
+                if(!content_length_written && !chunked_transfer_encoding && !close_connection_after_response)
                     *this << "Content-Length: " << size << "\r\n\r\n";
                 else
                     *this << "\r\n";
@@ -78,6 +78,7 @@ namespace SimpleWeb {
                 return streambuf.size();
             }
             
+            /// Write directly to stream buffer using std::ostream::write
             void write(const char_type *ptr, std::streamsize n) {
                 std::ostream::write(ptr, n);
             }
