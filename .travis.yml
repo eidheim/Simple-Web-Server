@@ -18,7 +18,7 @@ script:
       make &&
       CTEST_OUTPUT_ON_FAILURE=1 make test &&
       rm -r * &&
-      CXX=g++ cmake -DCMAKE_CXX_FLAGS=\"-Werror -DUSE_STANDALONE_ASIO\" .. &&
+      CXX=g++ cmake -DCMAKE_CXX_FLAGS=\"-Werror -O3 -DUSE_STANDALONE_ASIO\" .. &&
       make &&
       CTEST_OUTPUT_ON_FAILURE=1 make test
       "

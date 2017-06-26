@@ -49,4 +49,4 @@ endif()
 enable_testing()
 add_subdirectory(tests)
 
-install(FILES server_http.hpp client_http.hpp server_https.hpp client_https.hpp utility.hpp DESTINATION include/simple-web-server)
+install(FILES server_http.hpp client_http.hpp server_https.hpp client_https.hpp crypto.hpp utility.hpp status_code.hpp DESTINATION include/simple-web-server)
