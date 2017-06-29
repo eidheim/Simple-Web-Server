@@ -13,7 +13,9 @@ const vector<pair<string, string>> base64_string_tests = {
     {"foo", "Zm9v"},
     {"foob", "Zm9vYg=="},
     {"fooba", "Zm9vYmE="},
-    {"foobar", "Zm9vYmFy"}};
+    {"foobar", "Zm9vYmFy"},
+    {"The itsy bitsy spider climbed up the waterspout.\r\nDown came the rain\r\nand washed the spider out.\r\nOut came the sun\r\nand dried up all the rain\r\nand the itsy bitsy spider climbed up the spout again.",
+     "VGhlIGl0c3kgYml0c3kgc3BpZGVyIGNsaW1iZWQgdXAgdGhlIHdhdGVyc3BvdXQuDQpEb3duIGNhbWUgdGhlIHJhaW4NCmFuZCB3YXNoZWQgdGhlIHNwaWRlciBvdXQuDQpPdXQgY2FtZSB0aGUgc3VuDQphbmQgZHJpZWQgdXAgYWxsIHRoZSByYWluDQphbmQgdGhlIGl0c3kgYml0c3kgc3BpZGVyIGNsaW1iZWQgdXAgdGhlIHNwb3V0IGFnYWluLg=="}};
 
 const vector<pair<string, string>> md5_string_tests = {
     {"", "d41d8cd98f00b204e9800998ecf8427e"},
