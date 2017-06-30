@@ -41,14 +41,14 @@ namespace SimpleWeb {
         BIO_set_mem_buf(b64, bptr, BIO_CLOSE);
 
         //Write directly to base64-buffer to avoid copy
-        int base64_length = static_cast<int>(round(4 * ceil((double)ascii.size() / 3.0)));
+        int base64_length = static_cast<int>(round(4 * ceil(static_cast<double>(ascii.size()) / 3.0)));
         base64.resize(base64_length);
         bptr->length = 0;
         bptr->max = base64_length + 1;
-        bptr->data = (char *)&base64[0];
+        bptr->data = &base64[0];
 
-        BIO_write(b64, &ascii[0], static_cast<int>(ascii.size()));
-        BIO_flush(b64);
+        if(BIO_write(b64, &ascii[0], static_cast<int>(ascii.size())) <= 0 || BIO_flush(b64) <= 0)
+          base64.clear();
 
         //To keep &base64[0] through BIO_free_all(b64)
         bptr->length = 0;
@@ -69,11 +69,14 @@ namespace SimpleWeb {
 
         b64 = BIO_new(BIO_f_base64());
         BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-        bio = BIO_new_mem_buf((char *)&base64[0], static_cast<int>(base64.size()));
+        bio = BIO_new_mem_buf(&base64[0], static_cast<int>(base64.size()));
         bio = BIO_push(b64, bio);
 
         int decoded_length = BIO_read(bio, &ascii[0], static_cast<int>(ascii.size()));
-        ascii.resize(decoded_length);
+        if(decoded_length > 0)
+          ascii.resize(decoded_length);
+        else
+          ascii.clear();
 
         BIO_free_all(b64);
 
