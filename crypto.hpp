@@ -66,10 +66,11 @@ namespace SimpleWeb {
         //Resize ascii, however, the size is a up to two bytes too large.
         ascii.resize((6 * base64.size()) / 8);
         BIO *b64, *bio;
+        std::string cbase64(base64);
 
         b64 = BIO_new(BIO_f_base64());
         BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-        bio = BIO_new_mem_buf(&base64[0], static_cast<int>(base64.size()));
+        bio = BIO_new_mem_buf(&cbase64[0], static_cast<int>(cbase64.size()));
         bio = BIO_push(b64, bio);
 
         int decoded_length = BIO_read(bio, &ascii[0], static_cast<int>(ascii.size()));
