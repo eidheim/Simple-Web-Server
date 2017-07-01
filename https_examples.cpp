@@ -64,7 +64,6 @@ int main() {
       auto name = pt.get<string>("firstName") + " " + pt.get<string>("lastName");
 
       *response << "HTTP/1.1 200 OK\r\n"
-                << "Content-Type: application/json\r\n"
                 << "Content-Length: " << name.length() << "\r\n\r\n"
                 << name;
     }
@@ -80,7 +79,7 @@ int main() {
     //     read_json(request->content, pt);
 
     //     auto name=pt.get<string>("firstName")+" "+pt.get<string>("lastName");
-    //     response->write(name, {{"Content-Type", "application/json"}});
+    //     response->write(name);
     // }
     // catch(const exception &e) {
     //     response->write(SimpleWeb::StatusCode::client_error_bad_request, e.what());
