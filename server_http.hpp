@@ -201,6 +201,31 @@ namespace SimpleWeb {
       std::shared_ptr<ServerBase<socket_type>> self;
       std::shared_ptr<socket_type> socket;
       std::shared_ptr<Request> request;
+
+      std::shared_ptr<asio::deadline_timer> timer;
+
+      void set_timeout(long seconds) {
+        if(seconds == 0) {
+          timer = nullptr;
+          return;
+        }
+
+        timer = std::make_shared<asio::deadline_timer>(socket->get_io_service());
+        timer->expires_from_now(boost::posix_time::seconds(seconds));
+        auto socket = this->socket;
+        timer->async_wait([socket](const error_code &ec) {
+          if(!ec) {
+            error_code ec;
+            socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
+            socket->lowest_layer().close();
+          }
+        });
+      }
+
+      void cancel_timeout() {
+        if(timer)
+          timer->cancel();
+      }
     };
 
   public:
@@ -216,9 +241,9 @@ namespace SimpleWeb {
       /// Defaults to 1 thread.
       size_t thread_pool_size = 1;
       /// Timeout on request handling. Defaults to 5 seconds.
-      size_t timeout_request = 5;
+      long timeout_request = 5;
       /// Timeout on content handling. Defaults to 300 seconds.
-      size_t timeout_content = 300;
+      long timeout_content = 300;
       /// IPv4 address in dotted decimal form or IPv6 address in hexadecimal notation.
       /// If empty, the address will be any address.
       std::string address;
@@ -320,29 +345,10 @@ namespace SimpleWeb {
 
     virtual void accept() = 0;
 
-    std::shared_ptr<asio::deadline_timer> get_timeout_timer(std::shared_ptr<Session> &session, long seconds) {
-      if(seconds == 0)
-        return nullptr;
-
-      auto timer = std::make_shared<asio::deadline_timer>(*io_service);
-      timer->expires_from_now(boost::posix_time::seconds(seconds));
-      timer->async_wait([session](const error_code &ec) mutable {
-        if(!ec) {
-          error_code ec;
-          session->socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
-          session->socket->lowest_layer().close();
-        }
-      });
-      return timer;
-    }
-
     void read_request_and_content(std::shared_ptr<Session> &session) {
-      //Set timeout on the following asio::async-read or write function
-      auto timer = get_timeout_timer(session, config.timeout_request);
-
-      asio::async_read_until(*session->socket, session->request->streambuf, "\r\n\r\n", [this, session, timer](const error_code &ec, size_t bytes_transferred) mutable {
-        if(timer)
-          timer->cancel();
+      session->set_timeout(config.timeout_request);
+      asio::async_read_until(*session->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) mutable {
+        session->cancel_timeout();
         if(!ec) {
           //request->streambuf.size() is not necessarily the same as bytes_transferred, from Boost-docs:
           //"After a successful async_read_until operation, the streambuf may contain additional data beyond the delimiter"
@@ -366,11 +372,9 @@ namespace SimpleWeb {
               return;
             }
             if(content_length > num_additional_bytes) {
-              //Set timeout on the following asio::async-read or write function
-              auto timer = this->get_timeout_timer(session, config.timeout_content);
-              asio::async_read(*session->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session, timer](const error_code &ec, size_t /*bytes_transferred*/) mutable {
-                if(timer)
-                  timer->cancel();
+              session->set_timeout(config.timeout_content);
+              asio::async_read(*session->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, size_t /*bytes_transferred*/) mutable {
+                session->cancel_timeout();
                 if(!ec)
                   this->find_resource(session);
                 else if(this->on_error)
@@ -472,11 +476,10 @@ namespace SimpleWeb {
 
     void write_response(std::shared_ptr<Session> &session,
                         std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response> &, std::shared_ptr<typename ServerBase<socket_type>::Request> &)> &resource_function) {
-      //Set timeout on the following asio::async-read or write function
-      auto timer = get_timeout_timer(session, config.timeout_content);
-
       auto self = session->self;
       auto request = session->request;
+      session->set_timeout(config.timeout_content);
+      auto timer = session->timer;
       auto response = std::shared_ptr<Response>(new Response(session->socket), [self, request, timer](Response *response_ptr) mutable {
         auto response = std::shared_ptr<Response>(response_ptr);
         self->send(response, [self, response, request, timer](const error_code &ec) mutable {

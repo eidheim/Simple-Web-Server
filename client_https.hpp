@@ -58,10 +58,9 @@ namespace SimpleWeb {
         auto resolver = std::make_shared<asio::ip::tcp::resolver>(*io_service);
         resolver->async_resolve(*query, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator it) mutable {
           if(!ec) {
-            auto timer = this->get_timeout_timer(session, this->config.timeout_connect);
-            asio::async_connect(session->connection->socket->lowest_layer(), it, [this, session, resolver, timer](const error_code &ec, asio::ip::tcp::resolver::iterator /*it*/) mutable {
-              if(timer)
-                timer->cancel();
+            session->set_timeout(this->config.timeout_connect);
+            asio::async_connect(session->connection->socket->lowest_layer(), it, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator /*it*/) mutable {
+              session->cancel_timeout();
               if(!ec) {
                 asio::ip::tcp::no_delay option(true);
                 session->connection->socket->lowest_layer().set_option(option);
@@ -72,33 +71,31 @@ namespace SimpleWeb {
                   auto host_port = this->host + ':' + std::to_string(this->port);
                   write_stream << "CONNECT " + host_port + " HTTP/1.1\r\n"
                                << "Host: " << host_port << "\r\n\r\n";
-                  auto timer = this->get_timeout_timer(session, this->config.timeout_connect);
-                  asio::async_write(session->connection->socket->next_layer(), *write_buffer, [this, session, write_buffer, timer](const error_code &ec, size_t /*bytes_transferred*/) mutable {
-                    if(timer)
-                      timer->cancel();
+                  session->set_timeout(this->config.timeout_connect);
+                  asio::async_write(session->connection->socket->next_layer(), *write_buffer, [this, session, write_buffer](const error_code &ec, size_t /*bytes_transferred*/) mutable {
+                    session->cancel_timeout();
                     if(!ec) {
                       std::shared_ptr<Response> response(new Response());
-                      auto timer = this->get_timeout_timer(session, this->config.timeout_connect);
-                      asio::async_read_until(session->connection->socket->next_layer(), response->content_buffer, "\r\n\r\n", [this, session, response, timer](const error_code &ec, size_t /*bytes_transferred*/) mutable {
-                        if(timer)
-                          timer->cancel();
+                      session->set_timeout(this->config.timeout_connect);
+                      asio::async_read_until(session->connection->socket->next_layer(), response->content_buffer, "\r\n\r\n", [this, session, response](const error_code &ec, size_t /*bytes_transferred*/) mutable {
+                        session->cancel_timeout();
                         if(!ec) {
                           this->parse_response_header(response);
                           if(response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0) {
-                            this->close(session);
+                            session->connection->close();
                             session->callback(make_error_code::make_error_code(errc::permission_denied));
                           }
                           else
                             this->handshake(session);
                         }
                         else {
-                          this->close(session);
+                          session->connection->close();
                           session->callback(ec);
                         }
                       });
                     }
                     else {
-                      this->close(session);
+                      session->connection->close();
                       session->callback(ec);
                     }
                   });
@@ -107,13 +104,13 @@ namespace SimpleWeb {
                   this->handshake(session);
               }
               else {
-                this->close(session);
+                session->connection->close();
                 session->callback(ec);
               }
             });
           }
           else {
-            this->close(session);
+            session->connection->close();
             session->callback(ec);
           }
         });
@@ -123,14 +120,13 @@ namespace SimpleWeb {
     }
 
     void handshake(std::shared_ptr<Session> &session) {
-      auto timer = get_timeout_timer(session, config.timeout_connect);
-      session->connection->socket->async_handshake(asio::ssl::stream_base::client, [this, session, timer](const error_code &ec) mutable {
-        if(timer)
-          timer->cancel();
+      session->set_timeout(this->config.timeout_connect);
+      session->connection->socket->async_handshake(asio::ssl::stream_base::client, [this, session](const error_code &ec) mutable {
+        session->cancel_timeout();
         if(!ec)
           this->write(session);
         else {
-          this->close(session);
+          session->connection->close();
           session->callback(ec);
         }
       });

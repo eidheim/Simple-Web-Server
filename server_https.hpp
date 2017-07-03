@@ -69,11 +69,9 @@ namespace SimpleWeb {
           asio::ip::tcp::no_delay option(true);
           session->socket->lowest_layer().set_option(option);
 
-          //Set timeout on the following asio::ssl::stream::async_handshake
-          auto timer = this->get_timeout_timer(session, config.timeout_request);
-          session->socket->async_handshake(asio::ssl::stream_base::server, [this, session, timer](const error_code &ec) mutable {
-            if(timer)
-              timer->cancel();
+          session->set_timeout(config.timeout_request);
+          session->socket->async_handshake(asio::ssl::stream_base::server, [this, session](const error_code &ec) mutable {
+            session->cancel_timeout();
             if(!ec)
               this->read_request_and_content(session);
             else if(this->on_error)
