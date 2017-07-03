@@ -196,7 +196,8 @@ namespace SimpleWeb {
     public:
       /// Port number to use. Defaults to 80 for HTTP and 443 for HTTPS.
       unsigned short port;
-      /// Number of threads that the server will use when start() is called. Defaults to 1 thread.
+      /// If io_service is not set, number of threads that the server will use when start() is called.
+      /// Defaults to 1 thread.
       size_t thread_pool_size = 1;
       /// Timeout on request handling. Defaults to 5 seconds.
       size_t timeout_request = 5;
@@ -234,8 +235,10 @@ namespace SimpleWeb {
     std::function<void(std::shared_ptr<socket_type> socket, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
 
     virtual void start() {
-      if(!io_service)
+      if(!io_service) {
         io_service = std::make_shared<asio::io_service>();
+        internal_io_service = true;
+      }
 
       if(io_service->stopped())
         io_service->reset();
@@ -255,27 +258,29 @@ namespace SimpleWeb {
 
       accept();
 
-      //If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
-      threads.clear();
-      for(size_t c = 1; c < config.thread_pool_size; c++) {
-        threads.emplace_back([this]() {
+      if(internal_io_service) {
+        //If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
+        threads.clear();
+        for(size_t c = 1; c < config.thread_pool_size; c++) {
+          threads.emplace_back([this]() {
+            io_service->run();
+          });
+        }
+
+        //Main thread
+        if(config.thread_pool_size > 0)
           io_service->run();
-        });
-      }
 
-      //Main thread
-      if(config.thread_pool_size > 0)
-        io_service->run();
-
-      //Wait for the rest of the threads, if any, to finish as well
-      for(auto &t : threads) {
-        t.join();
+        //Wait for the rest of the threads, if any, to finish as well
+        for(auto &t : threads) {
+          t.join();
+        }
       }
     }
 
     void stop() {
       acceptor->close();
-      if(config.thread_pool_size > 0)
+      if(internal_io_service)
         io_service->stop();
     }
 
@@ -288,10 +293,11 @@ namespace SimpleWeb {
     }
 
     /// If you have your own asio::io_service, store its pointer here before running start().
-    /// You might also want to set config.thread_pool_size to 0.
     std::shared_ptr<asio::io_service> io_service;
 
   protected:
+    bool internal_io_service = false;
+
     std::unique_ptr<asio::ip::tcp::acceptor> acceptor;
     std::vector<std::thread> threads;
 
