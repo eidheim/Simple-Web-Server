@@ -57,35 +57,31 @@ namespace SimpleWeb {
     void accept() override {
       //Create new socket for this connection
       //Shared_ptr is used to pass temporary objects to the asynchronous functions
-      auto socket = std::make_shared<HTTPS>(*io_service, context);
+      auto session = std::make_shared<Session>(this->shared_from_this(), std::make_shared<HTTPS>(*io_service, context));
 
-      acceptor->async_accept((*socket).lowest_layer(), [this, socket](const error_code &ec) mutable {
+      acceptor->async_accept(session->socket->lowest_layer(), [this, session](const error_code &ec) mutable {
         //Immediately start accepting a new connection (if io_service hasn't been stopped)
         if(ec != asio::error::operation_aborted)
-          accept();
+          this->accept();
 
 
         if(!ec) {
           asio::ip::tcp::no_delay option(true);
-          socket->lowest_layer().set_option(option);
+          session->socket->lowest_layer().set_option(option);
 
           //Set timeout on the following asio::ssl::stream::async_handshake
-          auto timer = get_timeout_timer(socket, config.timeout_request);
-          socket->async_handshake(asio::ssl::stream_base::server, [this, socket, timer](const error_code &ec) mutable {
+          auto timer = this->get_timeout_timer(session, config.timeout_request);
+          session->socket->async_handshake(asio::ssl::stream_base::server, [this, session, timer](const error_code &ec) mutable {
             if(timer)
               timer->cancel();
             if(!ec)
-              read_request_and_content(socket);
-            else if(on_error) {
-              std::shared_ptr<Request> request(new Request(*socket));
-              on_error(request, ec);
-            }
+              this->read_request_and_content(session);
+            else if(this->on_error)
+              this->on_error(session->request, ec);
           });
         }
-        else if(on_error) {
-          std::shared_ptr<Request> request(new Request(*socket));
-          on_error(request, ec);
-        }
+        else if(this->on_error)
+          this->on_error(session->request, ec);
       });
     }
   };

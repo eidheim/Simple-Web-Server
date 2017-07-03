@@ -13,10 +13,9 @@ public:
   void accept() override {}
 
   void parse_request_test() {
-    HTTP socket(*io_service);
-    std::shared_ptr<Request> request(new Request(socket));
+    auto session = std::make_shared<Session>(this->shared_from_this(), std::make_shared<HTTP>(*io_service));
 
-    std::ostream stream(&request->content.streambuf);
+    std::ostream stream(&session->request->content.streambuf);
     stream << "GET /test/ HTTP/1.1\r\n";
     stream << "TestHeader: test\r\n";
     stream << "TestHeader2:test2\r\n";
@@ -24,28 +23,28 @@ public:
     stream << "TestHeader3:test3b\r\n";
     stream << "\r\n";
 
-    assert(parse_request(request));
+    assert(parse_request(session));
 
-    assert(request->method == "GET");
-    assert(request->path == "/test/");
-    assert(request->http_version == "1.1");
+    assert(session->request->method == "GET");
+    assert(session->request->path == "/test/");
+    assert(session->request->http_version == "1.1");
 
-    assert(request->header.size() == 4);
-    auto header_it = request->header.find("TestHeader");
-    assert(header_it != request->header.end() && header_it->second == "test");
-    header_it = request->header.find("TestHeader2");
-    assert(header_it != request->header.end() && header_it->second == "test2");
+    assert(session->request->header.size() == 4);
+    auto header_it = session->request->header.find("TestHeader");
+    assert(header_it != session->request->header.end() && header_it->second == "test");
+    header_it = session->request->header.find("TestHeader2");
+    assert(header_it != session->request->header.end() && header_it->second == "test2");
 
-    header_it = request->header.find("testheader");
-    assert(header_it != request->header.end() && header_it->second == "test");
-    header_it = request->header.find("testheader2");
-    assert(header_it != request->header.end() && header_it->second == "test2");
+    header_it = session->request->header.find("testheader");
+    assert(header_it != session->request->header.end() && header_it->second == "test");
+    header_it = session->request->header.find("testheader2");
+    assert(header_it != session->request->header.end() && header_it->second == "test2");
 
-    auto range = request->header.equal_range("testheader3");
+    auto range = session->request->header.equal_range("testheader3");
     auto first = range.first;
     auto second = first;
     ++second;
-    assert(range.first != request->header.end() && range.second != request->header.end() &&
+    assert(range.first != session->request->header.end() && range.second != session->request->header.end() &&
            ((first->second == "test3a" && second->second == "test3b") ||
             (first->second == "test3b" && second->second == "test3a")));
   }
