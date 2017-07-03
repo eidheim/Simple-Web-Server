@@ -21,15 +21,6 @@ namespace SimpleWeb {
     bool set_session_id_context = false;
 
   public:
-    DEPRECATED Server(unsigned short port, size_t thread_pool_size, const std::string &cert_file, const std::string &private_key_file,
-                      long timeout_request = 5, long timeout_content = 300, const std::string &verify_file = std::string())
-        : Server(cert_file, private_key_file, verify_file) {
-      config.port = port;
-      config.thread_pool_size = thread_pool_size;
-      config.timeout_request = timeout_request;
-      config.timeout_content = timeout_content;
-    }
-
     Server(const std::string &cert_file, const std::string &private_key_file, const std::string &verify_file = std::string())
         : ServerBase<HTTPS>::ServerBase(443), context(asio::ssl::context::tlsv12) {
       context.use_certificate_chain_file(cert_file);

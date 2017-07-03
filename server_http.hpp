@@ -508,13 +508,6 @@ namespace SimpleWeb {
   template <>
   class Server<HTTP> : public ServerBase<HTTP> {
   public:
-    DEPRECATED Server(unsigned short port, size_t thread_pool_size = 1, long timeout_request = 5, long timeout_content = 300) : Server() {
-      config.port = port;
-      config.thread_pool_size = thread_pool_size;
-      config.timeout_request = timeout_request;
-      config.timeout_content = timeout_content;
-    }
-
     Server() : ServerBase<HTTP>::ServerBase(80) {}
 
   protected:

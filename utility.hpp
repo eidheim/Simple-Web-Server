@@ -6,17 +6,6 @@
 #include <string>
 #include <unordered_map>
 
-// TODO when switching to c++14, use [[deprecated]] instead
-#ifndef DEPRECATED
-#ifdef __GNUC__
-#define DEPRECATED __attribute__((deprecated))
-#elif defined(_MSC_VER)
-#define DEPRECATED __declspec(deprecated)
-#else
-#define DEPRECATED
-#endif
-#endif
-
 namespace SimpleWeb {
 #ifndef CASE_INSENSITIVE_EQUAL_AND_HASH
 #define CASE_INSENSITIVE_EQUAL_AND_HASH
@@ -145,11 +134,6 @@ namespace SimpleWeb {
       return result;
     }
   };
-
-  /// Returns query keys with percent-decoded values.
-  DEPRECATED inline CaseInsensitiveMultimap parse_query_string(const std::string &query_string) {
-    return QueryString::parse(query_string);
-  }
 } // namespace SimpleWeb
 
 #endif // SIMPLE_WEB_SERVER_UTILITY_HPP
