@@ -10,7 +10,7 @@ class ServerTest : public ServerBase<HTTP> {
 public:
   ServerTest() : ServerBase<HTTP>::ServerBase(8080) {}
 
-  void accept() {}
+  void accept() override {}
 
   void parse_request_test() {
     HTTP socket(*io_service);
@@ -58,6 +58,8 @@ public:
   std::shared_ptr<Connection> create_connection() override {
     return nullptr;
   }
+
+  void connect(std::shared_ptr<Session> &) override {}
 
   void constructor_parse_test1() {
     assert(host == "test.org");

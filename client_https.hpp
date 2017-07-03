@@ -50,70 +50,70 @@ namespace SimpleWeb {
     asio::ssl::context context;
 
     std::shared_ptr<Connection> create_connection() override {
-      return std::make_shared<Connection>(host, port, config, std::unique_ptr<HTTPS>(new HTTPS(*io_service, context)));
+      return std::make_shared<Connection>(std::unique_ptr<HTTPS>(new HTTPS(*io_service, context)));
     }
 
-    static void connect(std::shared_ptr<Session> &session) {
+    void connect(std::shared_ptr<Session> &session) override {
       if(!session->connection->socket->lowest_layer().is_open()) {
-        auto resolver = std::make_shared<asio::ip::tcp::resolver>(*session->io_service);
-        resolver->async_resolve(*session->connection->query, [session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator it) mutable {
+        auto resolver = std::make_shared<asio::ip::tcp::resolver>(*io_service);
+        resolver->async_resolve(*query, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator it) mutable {
           if(!ec) {
-            auto timer = get_timeout_timer(session, session->connection->config.timeout_connect);
-            asio::async_connect(session->connection->socket->lowest_layer(), it, [session, resolver, timer](const error_code &ec, asio::ip::tcp::resolver::iterator /*it*/) mutable {
+            auto timer = this->get_timeout_timer(session, this->config.timeout_connect);
+            asio::async_connect(session->connection->socket->lowest_layer(), it, [this, session, resolver, timer](const error_code &ec, asio::ip::tcp::resolver::iterator /*it*/) mutable {
               if(timer)
                 timer->cancel();
               if(!ec) {
                 asio::ip::tcp::no_delay option(true);
                 session->connection->socket->lowest_layer().set_option(option);
 
-                if(!session->connection->config.proxy_server.empty()) {
+                if(!this->config.proxy_server.empty()) {
                   auto write_buffer = std::make_shared<asio::streambuf>();
                   std::ostream write_stream(write_buffer.get());
-                  auto host_port = session->connection->host + ':' + std::to_string(session->connection->port);
+                  auto host_port = this->host + ':' + std::to_string(this->port);
                   write_stream << "CONNECT " + host_port + " HTTP/1.1\r\n"
                                << "Host: " << host_port << "\r\n\r\n";
-                  auto timer = get_timeout_timer(session, session->connection->config.timeout_connect);
-                  asio::async_write(session->connection->socket->next_layer(), *write_buffer, [session, write_buffer, timer](const error_code &ec, size_t /*bytes_transferred*/) mutable {
+                  auto timer = this->get_timeout_timer(session, this->config.timeout_connect);
+                  asio::async_write(session->connection->socket->next_layer(), *write_buffer, [this, session, write_buffer, timer](const error_code &ec, size_t /*bytes_transferred*/) mutable {
                     if(timer)
                       timer->cancel();
                     if(!ec) {
                       std::shared_ptr<Response> response(new Response());
-                      auto timer = get_timeout_timer(session, session->connection->config.timeout_connect);
-                      asio::async_read_until(session->connection->socket->next_layer(), response->content_buffer, "\r\n\r\n", [session, response, timer](const error_code &ec, size_t /*bytes_transferred*/) mutable {
+                      auto timer = this->get_timeout_timer(session, this->config.timeout_connect);
+                      asio::async_read_until(session->connection->socket->next_layer(), response->content_buffer, "\r\n\r\n", [this, session, response, timer](const error_code &ec, size_t /*bytes_transferred*/) mutable {
                         if(timer)
                           timer->cancel();
                         if(!ec) {
-                          parse_response_header(response);
+                          this->parse_response_header(response);
                           if(response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0) {
-                            close(session);
+                            this->close(session);
                             session->callback(make_error_code::make_error_code(errc::permission_denied));
                           }
                           else
-                            handshake(session);
+                            this->handshake(session);
                         }
                         else {
-                          close(session);
+                          this->close(session);
                           session->callback(ec);
                         }
                       });
                     }
                     else {
-                      close(session);
+                      this->close(session);
                       session->callback(ec);
                     }
                   });
                 }
                 else
-                  handshake(session);
+                  this->handshake(session);
               }
               else {
-                close(session);
+                this->close(session);
                 session->callback(ec);
               }
             });
           }
           else {
-            close(session);
+            this->close(session);
             session->callback(ec);
           }
         });
@@ -122,15 +122,15 @@ namespace SimpleWeb {
         write(session);
     }
 
-    static void handshake(std::shared_ptr<Session> &session) {
-      auto timer = get_timeout_timer(session, session->connection->config.timeout_connect);
-      session->connection->socket->async_handshake(asio::ssl::stream_base::client, [session, timer](const error_code &ec) mutable {
+    void handshake(std::shared_ptr<Session> &session) {
+      auto timer = get_timeout_timer(session, config.timeout_connect);
+      session->connection->socket->async_handshake(asio::ssl::stream_base::client, [this, session, timer](const error_code &ec) mutable {
         if(timer)
           timer->cancel();
         if(!ec)
-          write(session);
+          this->write(session);
         else {
-          close(session);
+          this->close(session);
           session->callback(ec);
         }
       });
