@@ -10,6 +10,9 @@ install_manifest.txt
 Testing
 compile_commands.json
 
+*.crt
+*.key
+
 # executables
 http_examples
 https_examples
