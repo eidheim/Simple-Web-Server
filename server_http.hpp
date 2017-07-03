@@ -54,7 +54,7 @@ namespace SimpleWeb {
 
       std::shared_ptr<socket_type> socket;
 
-      Response(const std::shared_ptr<socket_type> &socket) : std::ostream(&streambuf), socket(socket) {}
+      Response(std::shared_ptr<socket_type> &socket) : std::ostream(&streambuf), socket(socket) {}
 
       template <class size_type>
       void write_header(const CaseInsensitiveMultimap &header, size_type size) {
@@ -222,13 +222,13 @@ namespace SimpleWeb {
 
   public:
     /// Warning: do not add or remove resources after start() is called
-    std::map<regex_orderable, std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)>>> resource;
+    std::map<regex_orderable, std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response> &, std::shared_ptr<typename ServerBase<socket_type>::Request> &)>>> resource;
 
-    std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)>> default_resource;
+    std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response> &, std::shared_ptr<typename ServerBase<socket_type>::Request> &)>> default_resource;
 
-    std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request>, const error_code &)> on_error;
+    std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request> &, const error_code &)> on_error;
 
-    std::function<void(std::shared_ptr<socket_type> socket, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
+    std::function<void(std::shared_ptr<socket_type> &, std::shared_ptr<typename ServerBase<socket_type>::Request> &)> on_upgrade;
 
     virtual void start() {
       if(!io_service) {
@@ -281,8 +281,8 @@ namespace SimpleWeb {
     }
 
     ///Use this function if you need to recursively send parts of a longer message
-    void send(const std::shared_ptr<Response> &response, const std::function<void(const error_code &)> &callback = nullptr) const {
-      asio::async_write(*response->socket, response->streambuf, [this, response, callback](const error_code &ec, size_t /*bytes_transferred*/) {
+    void send(std::shared_ptr<Response> &response, const std::function<void(const error_code &)> &callback = nullptr) const {
+      asio::async_write(*response->socket, response->streambuf, [this, response, callback](const error_code &ec, size_t /*bytes_transferred*/) mutable {
         if(callback)
           callback(ec);
       });
@@ -301,13 +301,13 @@ namespace SimpleWeb {
 
     virtual void accept() = 0;
 
-    std::shared_ptr<asio::deadline_timer> get_timeout_timer(const std::shared_ptr<socket_type> &socket, long seconds) {
+    std::shared_ptr<asio::deadline_timer> get_timeout_timer(std::shared_ptr<socket_type> &socket, long seconds) {
       if(seconds == 0)
         return nullptr;
 
       auto timer = std::make_shared<asio::deadline_timer>(*io_service);
       timer->expires_from_now(boost::posix_time::seconds(seconds));
-      timer->async_wait([socket](const error_code &ec) {
+      timer->async_wait([socket](const error_code &ec) mutable {
         if(!ec) {
           error_code ec;
           socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
@@ -317,7 +317,7 @@ namespace SimpleWeb {
       return timer;
     }
 
-    void read_request_and_content(const std::shared_ptr<socket_type> &socket) {
+    void read_request_and_content(std::shared_ptr<socket_type> &socket) {
       //Create new streambuf (Request::streambuf) for async_read_until()
       //shared_ptr is used to pass temporary objects to the asynchronous functions
       std::shared_ptr<Request> request(new Request(*socket));
@@ -325,7 +325,7 @@ namespace SimpleWeb {
       //Set timeout on the following asio::async-read or write function
       auto timer = this->get_timeout_timer(socket, config.timeout_request);
 
-      asio::async_read_until(*socket, request->streambuf, "\r\n\r\n", [this, socket, request, timer](const error_code &ec, size_t bytes_transferred) {
+      asio::async_read_until(*socket, request->streambuf, "\r\n\r\n", [this, socket, request, timer](const error_code &ec, size_t bytes_transferred) mutable {
         if(timer)
           timer->cancel();
         if(!ec) {
@@ -353,7 +353,7 @@ namespace SimpleWeb {
             if(content_length > num_additional_bytes) {
               //Set timeout on the following asio::async-read or write function
               auto timer = this->get_timeout_timer(socket, config.timeout_content);
-              asio::async_read(*socket, request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, socket, request, timer](const error_code &ec, size_t /*bytes_transferred*/) {
+              asio::async_read(*socket, request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, socket, request, timer](const error_code &ec, size_t /*bytes_transferred*/) mutable {
                 if(timer)
                   timer->cancel();
                 if(!ec)
@@ -373,7 +373,7 @@ namespace SimpleWeb {
       });
     }
 
-    bool parse_request(const std::shared_ptr<Request> &request) const {
+    bool parse_request(std::shared_ptr<Request> &request) const {
       std::string line;
       getline(request->content, line);
       size_t method_end;
@@ -430,7 +430,7 @@ namespace SimpleWeb {
     }
 
     void
-    find_resource(const std::shared_ptr<socket_type> &socket, const std::shared_ptr<Request> &request) {
+    find_resource(std::shared_ptr<socket_type> &socket, std::shared_ptr<Request> &request) {
       //Upgrade connection
       if(on_upgrade) {
         auto it = request->header.find("Upgrade");
@@ -457,14 +457,14 @@ namespace SimpleWeb {
       }
     }
 
-    void write_response(const std::shared_ptr<socket_type> &socket, const std::shared_ptr<Request> &request,
-                        std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> &resource_function) {
+    void write_response(std::shared_ptr<socket_type> &socket, std::shared_ptr<Request> &request,
+                        std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response> &, std::shared_ptr<typename ServerBase<socket_type>::Request> &)> &resource_function) {
       //Set timeout on the following asio::async-read or write function
       auto timer = this->get_timeout_timer(socket, config.timeout_content);
 
-      auto response = std::shared_ptr<Response>(new Response(socket), [this, request, timer](Response *response_ptr) {
+      auto response = std::shared_ptr<Response>(new Response(socket), [this, request, timer](Response *response_ptr) mutable {
         auto response = std::shared_ptr<Response>(response_ptr);
-        this->send(response, [this, response, request, timer](const error_code &ec) {
+        this->send(response, [this, response, request, timer](const error_code &ec) mutable {
           if(timer)
             timer->cancel();
           if(!ec) {
@@ -518,12 +518,12 @@ namespace SimpleWeb {
     Server() : ServerBase<HTTP>::ServerBase(80) {}
 
   protected:
-    void accept() {
+    void accept() override {
       //Create new socket for this connection
       //Shared_ptr is used to pass temporary objects to the asynchronous functions
       auto socket = std::make_shared<HTTP>(*io_service);
 
-      acceptor->async_accept(*socket, [this, socket](const error_code &ec) {
+      acceptor->async_accept(*socket, [this, socket](const error_code &ec) mutable {
         //Immediately start accepting a new connection (if io_service hasn't been stopped)
         if(ec != asio::error::operation_aborted)
           accept();
@@ -534,8 +534,10 @@ namespace SimpleWeb {
 
           this->read_request_and_content(socket);
         }
-        else if(on_error)
-          on_error(std::shared_ptr<Request>(new Request(*socket)), ec);
+        else if(on_error) {
+          std::shared_ptr<Request> request(new Request(*socket));
+          on_error(request, ec);
+        }
       });
     }
   };

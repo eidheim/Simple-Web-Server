@@ -42,7 +42,7 @@ namespace SimpleWeb {
       }
     }
 
-    void start() {
+    void start() override {
       if(set_session_id_context) {
         // Creating session_id_context from address:port but reversed due to small SSL_MAX_SSL_SESSION_ID_LENGTH
         session_id_context = std::to_string(config.port) + ':';
@@ -56,12 +56,12 @@ namespace SimpleWeb {
   protected:
     asio::ssl::context context;
 
-    void accept() {
+    void accept() override {
       //Create new socket for this connection
       //Shared_ptr is used to pass temporary objects to the asynchronous functions
       auto socket = std::make_shared<HTTPS>(*io_service, context);
 
-      acceptor->async_accept((*socket).lowest_layer(), [this, socket](const error_code &ec) {
+      acceptor->async_accept((*socket).lowest_layer(), [this, socket](const error_code &ec) mutable {
         //Immediately start accepting a new connection (if io_service hasn't been stopped)
         if(ec != asio::error::operation_aborted)
           accept();
@@ -73,17 +73,21 @@ namespace SimpleWeb {
 
           //Set timeout on the following asio::ssl::stream::async_handshake
           auto timer = get_timeout_timer(socket, config.timeout_request);
-          socket->async_handshake(asio::ssl::stream_base::server, [this, socket, timer](const error_code &ec) {
+          socket->async_handshake(asio::ssl::stream_base::server, [this, socket, timer](const error_code &ec) mutable {
             if(timer)
               timer->cancel();
             if(!ec)
               read_request_and_content(socket);
-            else if(on_error)
-              on_error(std::shared_ptr<Request>(new Request(*socket)), ec);
+            else if(on_error) {
+              std::shared_ptr<Request> request(new Request(*socket));
+              on_error(request, ec);
+            }
           });
         }
-        else if(on_error)
-          on_error(std::shared_ptr<Request>(new Request(*socket)), ec);
+        else if(on_error) {
+          std::shared_ptr<Request> request(new Request(*socket));
+          on_error(request, ec);
+        }
       });
     }
   };

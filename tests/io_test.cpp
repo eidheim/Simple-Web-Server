@@ -12,28 +12,28 @@ int main() {
   HttpServer server;
   server.config.port = 8080;
 
-  server.resource["^/string$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+  server.resource["^/string$"]["POST"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
     auto content = request->content.string();
 
     *response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n"
               << content;
   };
 
-  server.resource["^/string2$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+  server.resource["^/string2$"]["POST"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
     response->write(request->content.string());
   };
 
-  server.resource["^/string3$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+  server.resource["^/string3$"]["POST"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
     std::stringstream stream;
     stream << request->content.rdbuf();
     response->write(stream);
   };
 
-  server.resource["^/string4$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
+  server.resource["^/string4$"]["POST"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> & /*request*/) {
     response->write(SimpleWeb::StatusCode::client_error_forbidden, {{"Test1", "test2"}, {"tesT3", "test4"}});
   };
 
-  server.resource["^/info$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+  server.resource["^/info$"]["GET"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
     stringstream content_stream;
     content_stream << request->method << " " << request->path << " " << request->http_version << " ";
     content_stream << request->header.find("test parameter")->second;
@@ -44,20 +44,20 @@ int main() {
               << content_stream.rdbuf();
   };
 
-  server.resource["^/match/([0-9]+)$"]["GET"] = [&server](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+  server.resource["^/match/([0-9]+)$"]["GET"] = [&server](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
     string number = request->path_match[1];
     *response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n"
               << number;
   };
 
-  server.resource["^/header$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+  server.resource["^/header$"]["GET"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
     auto content = request->header.find("test1")->second + request->header.find("test2")->second;
 
     *response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n"
               << content;
   };
 
-  server.resource["^/query_string$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+  server.resource["^/query_string$"]["GET"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
     assert(request->path == "/query_string");
     assert(request->query_string == "testing");
     auto queries = request->parse_query_string();
@@ -185,7 +185,7 @@ int main() {
   {
     HttpClient client("localhost:8080");
     bool call = false;
-    client.request("GET", "/match/123", [&call](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+    client.request("GET", "/match/123", [&call](shared_ptr<HttpClient::Response> &response, const SimpleWeb::error_code &ec) {
       assert(!ec);
       stringstream output;
       output << response->content.rdbuf();
@@ -201,7 +201,7 @@ int main() {
       for(size_t c = 0; c < 100; ++c) {
         calls[c] = 0;
         threads.emplace_back([c, &client, &calls] {
-          client.request("GET", "/match/123", [c, &calls](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
+          client.request("GET", "/match/123", [c, &calls](shared_ptr<HttpClient::Response> &response, const SimpleWeb::error_code &ec) {
             assert(!ec);
             stringstream output;
             output << response->content.rdbuf();
