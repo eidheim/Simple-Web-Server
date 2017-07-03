@@ -34,6 +34,9 @@ namespace SimpleWeb {
 
   template <class socket_type>
   class ClientBase {
+    ClientBase(const ClientBase &) = delete;
+    ClientBase &operator=(const ClientBase &) = delete;
+
   public:
     class Content : public std::istream {
       friend class ClientBase<socket_type>;
@@ -538,12 +541,18 @@ namespace SimpleWeb {
 
   template <>
   class Client<HTTP> : public ClientBase<HTTP> {
-  public:
     friend ClientBase<HTTP>;
+    Client(const Client &) = delete;
+    Client &operator=(const Client &) = delete;
 
-    Client(const std::string &server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
+  public:
+    static std::shared_ptr<Client> create(const std::string &server_port_path) {
+      return std::shared_ptr<Client>(new Client(server_port_path));
+    }
 
   protected:
+    Client(const std::string &server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
+
     std::shared_ptr<Connection> create_connection() override {
       return std::make_shared<Connection>(host, port, config, std::unique_ptr<HTTP>(new HTTP(*io_service)));
     }

@@ -134,18 +134,18 @@ int main() {
   auto fields_result2 = QueryString::parse(query_string2);
   assert(fields_result1 == fields_result2 && fields_result1 == fields);
 
-  ServerTest serverTest;
-  serverTest.io_service = std::make_shared<asio::io_service>();
+  auto serverTest = make_shared<ServerTest>();
+  serverTest->io_service = std::make_shared<asio::io_service>();
 
-  serverTest.parse_request_test();
+  serverTest->parse_request_test();
 
-  ClientTest clientTest("test.org:8080");
-  clientTest.constructor_parse_test1();
+  auto clientTest = make_shared<ClientTest>("test.org:8080");
+  clientTest->constructor_parse_test1();
 
-  ClientTest clientTest2("test.org");
-  clientTest2.constructor_parse_test2();
+  auto clientTest2 = make_shared<ClientTest>("test.org");
+  clientTest2->constructor_parse_test2();
 
-  clientTest2.parse_response_header_test();
+  clientTest2->parse_response_header_test();
 
 
   asio::io_service io_service;

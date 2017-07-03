@@ -17,20 +17,15 @@ namespace SimpleWeb {
 
   template <>
   class Server<HTTPS> : public ServerBase<HTTPS> {
+    Server(const Server &) = delete;
+    Server &operator=(const Server &) = delete;
+
     std::string session_id_context;
     bool set_session_id_context = false;
 
   public:
-    Server(const std::string &cert_file, const std::string &private_key_file, const std::string &verify_file = std::string())
-        : ServerBase<HTTPS>::ServerBase(443), context(asio::ssl::context::tlsv12) {
-      context.use_certificate_chain_file(cert_file);
-      context.use_private_key_file(private_key_file, asio::ssl::context::pem);
-
-      if(verify_file.size() > 0) {
-        context.load_verify_file(verify_file);
-        context.set_verify_mode(asio::ssl::verify_peer | asio::ssl::verify_fail_if_no_peer_cert | asio::ssl::verify_client_once);
-        set_session_id_context = true;
-      }
+    static std::shared_ptr<Server> create(const std::string &cert_file, const std::string &private_key_file, const std::string &verify_file = std::string()) {
+      return std::shared_ptr<Server>(new Server(cert_file, private_key_file, verify_file));
     }
 
     void start() override {
@@ -45,6 +40,18 @@ namespace SimpleWeb {
     }
 
   protected:
+    Server(const std::string &cert_file, const std::string &private_key_file, const std::string &verify_file)
+        : ServerBase<HTTPS>::ServerBase(443), context(asio::ssl::context::tlsv12) {
+      context.use_certificate_chain_file(cert_file);
+      context.use_private_key_file(private_key_file, asio::ssl::context::pem);
+
+      if(verify_file.size() > 0) {
+        context.load_verify_file(verify_file);
+        context.set_verify_mode(asio::ssl::verify_peer | asio::ssl::verify_fail_if_no_peer_cert | asio::ssl::verify_client_once);
+        set_session_id_context = true;
+      }
+    }
+
     asio::ssl::context context;
 
     void accept() override {

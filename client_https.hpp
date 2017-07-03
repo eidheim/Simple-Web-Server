@@ -14,11 +14,19 @@ namespace SimpleWeb {
 
   template <>
   class Client<HTTPS> : public ClientBase<HTTPS> {
-  public:
     friend ClientBase<HTTPS>;
+    Client(const Client &) = delete;
+    Client &operator=(const Client &) = delete;
 
-    Client(const std::string &server_port_path, bool verify_certificate = true, const std::string &cert_file = std::string(),
-           const std::string &private_key_file = std::string(), const std::string &verify_file = std::string())
+  public:
+    static std::shared_ptr<Client> create(const std::string &server_port_path, bool verify_certificate = true, const std::string &cert_file = std::string(),
+                                          const std::string &private_key_file = std::string(), const std::string &verify_file = std::string()) {
+      return std::shared_ptr<Client>(new Client(server_port_path, verify_certificate, cert_file, private_key_file, verify_file));
+    }
+
+  protected:
+    Client(const std::string &server_port_path, bool verify_certificate, const std::string &cert_file,
+           const std::string &private_key_file, const std::string &verify_file)
         : ClientBase<HTTPS>::ClientBase(server_port_path, 443), context(asio::ssl::context::tlsv12) {
       if(cert_file.size() > 0 && private_key_file.size() > 0) {
         context.use_certificate_chain_file(cert_file);
@@ -39,7 +47,6 @@ namespace SimpleWeb {
         context.set_verify_mode(asio::ssl::verify_none);
     }
 
-  protected:
     asio::ssl::context context;
 
     std::shared_ptr<Connection> create_connection() override {

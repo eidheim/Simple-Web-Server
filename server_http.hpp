@@ -44,6 +44,9 @@ namespace SimpleWeb {
 
   template <class socket_type>
   class ServerBase {
+    ServerBase(const ServerBase &) = delete;
+    ServerBase &operator=(const ServerBase &) = delete;
+
   public:
     virtual ~ServerBase() {}
 
@@ -507,10 +510,17 @@ namespace SimpleWeb {
 
   template <>
   class Server<HTTP> : public ServerBase<HTTP> {
+    Server(const Server &) = delete;
+    Server &operator=(const Server &) = delete;
+
   public:
-    Server() : ServerBase<HTTP>::ServerBase(80) {}
+    static std::shared_ptr<Server> create() {
+      return std::shared_ptr<Server>(new Server());
+    }
 
   protected:
+    Server() : ServerBase<HTTP>::ServerBase(80) {}
+
     void accept() override {
       //Create new socket for this connection
       //Shared_ptr is used to pass temporary objects to the asynchronous functions
