@@ -155,7 +155,7 @@ namespace SimpleWeb {
       friend class Server<socket_type>;
 
     public:
-      std::string method, path, http_version;
+      std::string method, path, query_string, http_version;
 
       Content content;
 
@@ -168,11 +168,7 @@ namespace SimpleWeb {
 
       /// Returns query keys with percent-decoded values.
       CaseInsensitiveMultimap parse_query_string() {
-        auto pos = path.find('?');
-        if(pos != std::string::npos && pos + 1 < path.size())
-          return SimpleWeb::QueryString::parse(path.substr(pos + 1));
-        else
-          return CaseInsensitiveMultimap();
+        return SimpleWeb::QueryString::parse(query_string);
       }
 
     private:
@@ -382,14 +378,29 @@ namespace SimpleWeb {
       getline(request->content, line);
       size_t method_end;
       if((method_end = line.find(' ')) != std::string::npos) {
-        size_t path_end;
-        if((path_end = line.find(' ', method_end + 1)) != std::string::npos) {
-          request->method = line.substr(0, method_end);
-          request->path = line.substr(method_end + 1, path_end - method_end - 1);
+        request->method = line.substr(0, method_end);
+
+        size_t query_start = std::string::npos;
+        size_t path_and_query_string_end = std::string::npos;
+        for(size_t i = method_end + 1; i < line.size(); ++i) {
+          if(line[i] == '?' && (i + 1) < line.size())
+            query_start = i + 1;
+          else if(line[i] == ' ') {
+            path_and_query_string_end = i;
+            break;
+          }
+        }
+        if(path_and_query_string_end != std::string::npos) {
+          if(query_start != std::string::npos) {
+            request->path = line.substr(method_end + 1, query_start - method_end - 2);
+            request->query_string = line.substr(query_start, path_and_query_string_end - query_start);
+          }
+          else
+            request->path = line.substr(method_end + 1, path_and_query_string_end - method_end - 1);
 
           size_t protocol_end;
-          if((protocol_end = line.find('/', path_end + 1)) != std::string::npos) {
-            if(line.compare(path_end + 1, protocol_end - path_end - 1, "HTTP") != 0)
+          if((protocol_end = line.find('/', path_and_query_string_end + 1)) != std::string::npos) {
+            if(line.compare(path_and_query_string_end + 1, protocol_end - path_and_query_string_end - 1, "HTTP") != 0)
               return false;
             request->http_version = line.substr(protocol_end + 1, line.size() - protocol_end - 2);
           }
@@ -400,7 +411,7 @@ namespace SimpleWeb {
           size_t param_end;
           while((param_end = line.find(':')) != std::string::npos) {
             size_t value_start = param_end + 1;
-            if((value_start) < line.size()) {
+            if(value_start < line.size()) {
               if(line[value_start] == ' ')
                 value_start++;
               if(value_start < line.size())
@@ -418,7 +429,8 @@ namespace SimpleWeb {
       return true;
     }
 
-    void find_resource(const std::shared_ptr<socket_type> &socket, const std::shared_ptr<Request> &request) {
+    void
+    find_resource(const std::shared_ptr<socket_type> &socket, const std::shared_ptr<Request> &request) {
       //Upgrade connection
       if(on_upgrade) {
         auto it = request->header.find("Upgrade");
@@ -486,7 +498,7 @@ namespace SimpleWeb {
         return;
       }
     }
-  };
+  }; // namespace SimpleWeb
 
   template <class socket_type>
   class Server : public ServerBase<socket_type> {};

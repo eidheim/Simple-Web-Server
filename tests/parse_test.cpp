@@ -152,27 +152,22 @@ int main() {
   asio::ip::tcp::socket socket(io_service);
   SimpleWeb::Server<HTTP>::Request request(socket);
   {
-    request.path = "/?";
+    request.query_string = "";
     auto queries = request.parse_query_string();
     assert(queries.empty());
   }
   {
-    request.path = "/";
+    request.query_string = "=";
     auto queries = request.parse_query_string();
     assert(queries.empty());
   }
   {
-    request.path = "/?=";
+    request.query_string = "=test";
     auto queries = request.parse_query_string();
     assert(queries.empty());
   }
   {
-    request.path = "/?=test";
-    auto queries = request.parse_query_string();
-    assert(queries.empty());
-  }
-  {
-    request.path = "/?a=1%202%20%203&b=3+4&c&d=æ%25ø%26å%3F";
+    request.query_string = "a=1%202%20%203&b=3+4&c&d=æ%25ø%26å%3F";
     auto queries = request.parse_query_string();
     {
       auto range = queries.equal_range("a");

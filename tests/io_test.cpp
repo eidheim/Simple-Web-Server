@@ -57,6 +57,15 @@ int main() {
               << content;
   };
 
+  server.resource["^/query_string$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+    assert(request->path == "/query_string");
+    assert(request->query_string == "testing");
+    auto queries = request->parse_query_string();
+    auto it = queries.find("Testing");
+    assert(it != queries.end() && it->first == "testing" && it->second == "");
+    response->write(request->query_string);
+  };
+
   thread server_thread([&server]() {
     //Start server
     server.start();
@@ -160,6 +169,14 @@ int main() {
       auto r = client.request("GET", "/header", "", {{"test1", "test"}, {"test2", "ing"}});
       output << r->content.rdbuf();
       assert(output.str() == "testing");
+      assert(client.connections->size() == 1);
+      assert(connection == client.connections->front().get());
+    }
+
+    {
+      stringstream output;
+      auto r = client.request("GET", "/query_string?testing");
+      assert(r->content.string() == "testing");
       assert(client.connections->size() == 1);
       assert(connection == client.connections->front().get());
     }
