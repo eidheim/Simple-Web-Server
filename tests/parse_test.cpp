@@ -58,7 +58,7 @@ public:
     return nullptr;
   }
 
-  void connect(std::shared_ptr<Session> &) override {}
+  void connect(const std::shared_ptr<Session> &) override {}
 
   void constructor_parse_test1() {
     assert(host == "test.org");

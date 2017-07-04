@@ -333,13 +333,13 @@ namespace SimpleWeb {
 
   public:
     /// Warning: do not add or remove resources after start() is called
-    std::map<regex_orderable, std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response> &, std::shared_ptr<typename ServerBase<socket_type>::Request> &)>>> resource;
+    std::map<regex_orderable, std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)>>> resource;
 
-    std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response> &, std::shared_ptr<typename ServerBase<socket_type>::Request> &)>> default_resource;
+    std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)>> default_resource;
 
-    std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request> &, const error_code &)> on_error;
+    std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request>, const error_code)> on_error;
 
-    std::function<void(std::shared_ptr<socket_type> &, std::shared_ptr<typename ServerBase<socket_type>::Request> &)> on_upgrade;
+    std::function<void(std::shared_ptr<socket_type>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
 
     virtual void start() {
       if(!io_service) {
@@ -403,9 +403,9 @@ namespace SimpleWeb {
 
     virtual void accept() = 0;
 
-    void read_request_and_content(std::shared_ptr<Session> &session) {
+    void read_request_and_content(const std::shared_ptr<Session> &session) {
       session->set_timeout(config.timeout_request);
-      asio::async_read_until(*session->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) mutable {
+      asio::async_read_until(*session->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) {
         session->cancel_timeout();
         if(!ec) {
           //request->streambuf.size() is not necessarily the same as bytes_transferred, from Boost-docs:
@@ -431,7 +431,7 @@ namespace SimpleWeb {
             }
             if(content_length > num_additional_bytes) {
               session->set_timeout(config.timeout_content);
-              asio::async_read(*session->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, size_t /*bytes_transferred*/) mutable {
+              asio::async_read(*session->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, size_t /*bytes_transferred*/) {
                 session->cancel_timeout();
                 if(!ec)
                   this->find_resource(session);
@@ -450,7 +450,7 @@ namespace SimpleWeb {
       });
     }
 
-    void find_resource(std::shared_ptr<Session> &session) {
+    void find_resource(const std::shared_ptr<Session> &session) {
       //Upgrade connection
       if(on_upgrade) {
         auto it = session->request->header.find("Upgrade");
@@ -476,12 +476,12 @@ namespace SimpleWeb {
         write_response(session, it->second);
     }
 
-    void write_response(std::shared_ptr<Session> &session,
-                        std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response> &, std::shared_ptr<typename ServerBase<socket_type>::Request> &)> &resource_function) {
+    void write_response(const std::shared_ptr<Session> &session,
+                        std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> &resource_function) {
       session->set_timeout(config.timeout_content);
-      auto response = std::shared_ptr<Response>(new Response(session), [this](Response *response_ptr) mutable {
+      auto response = std::shared_ptr<Response>(new Response(session), [this](Response *response_ptr) {
         auto response = std::shared_ptr<Response>(response_ptr);
-        response->send([this, response](const error_code &ec) mutable {
+        response->send([this, response](const error_code &ec) {
           response->session->cancel_timeout();
           if(!ec) {
             if(response->close_connection_after_response)
@@ -542,7 +542,7 @@ namespace SimpleWeb {
       //Shared_ptr is used to pass temporary objects to the asynchronous functions
       auto session = std::make_shared<Session>(this->shared_from_this(), std::make_shared<HTTP>(*io_service));
 
-      acceptor->async_accept(*session->socket, [this, session](const error_code &ec) mutable {
+      acceptor->async_accept(*session->socket, [this, session](const error_code &ec) {
         //Immediately start accepting a new connection (if io_service hasn't been stopped)
         if(ec != asio::error::operation_aborted)
           this->accept();

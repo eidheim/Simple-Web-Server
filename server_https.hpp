@@ -59,7 +59,7 @@ namespace SimpleWeb {
       //Shared_ptr is used to pass temporary objects to the asynchronous functions
       auto session = std::make_shared<Session>(this->shared_from_this(), std::make_shared<HTTPS>(*io_service, context));
 
-      acceptor->async_accept(session->socket->lowest_layer(), [this, session](const error_code &ec) mutable {
+      acceptor->async_accept(session->socket->lowest_layer(), [this, session](const error_code &ec) {
         //Immediately start accepting a new connection (if io_service hasn't been stopped)
         if(ec != asio::error::operation_aborted)
           this->accept();
@@ -70,7 +70,7 @@ namespace SimpleWeb {
           session->socket->lowest_layer().set_option(option);
 
           session->set_timeout(config.timeout_request);
-          session->socket->async_handshake(asio::ssl::stream_base::server, [this, session](const error_code &ec) mutable {
+          session->socket->async_handshake(asio::ssl::stream_base::server, [this, session](const error_code &ec) {
             session->cancel_timeout();
             if(!ec)
               this->read_request_and_content(session);

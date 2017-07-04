@@ -34,7 +34,7 @@ int main() {
 
   //Add resources using path-regex and method-string, and an anonymous function
   //POST-example for the path /string, responds the posted string
-  server->resource["^/string$"]["POST"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
+  server->resource["^/string$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     //Retrieve string:
     auto content = request->content.string();
     //request->content.string() is a convenience function for:
@@ -58,7 +58,7 @@ int main() {
   //  "lastName": "Smith",
   //  "age": 25
   //}
-  server->resource["^/json$"]["POST"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
+  server->resource["^/json$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     try {
       ptree pt;
       read_json(request->content, pt);
@@ -90,7 +90,7 @@ int main() {
 
   //GET-example for the path /info
   //Responds with request-information
-  server->resource["^/info$"]["GET"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
+  server->resource["^/info$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     stringstream stream;
     stream << "<h1>Request from " << request->remote_endpoint_address << " (" << request->remote_endpoint_port << ")</h1>";
     stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
@@ -115,7 +115,7 @@ int main() {
 
   //GET-example for the path /match/[number], responds with the matched string in path (number)
   //For instance a request GET /match/123 will receive: 123
-  server->resource["^/match/([0-9]+)$"]["GET"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
+  server->resource["^/match/([0-9]+)$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     string number = request->path_match[1];
     *response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n"
               << number;
@@ -126,7 +126,7 @@ int main() {
   };
 
   //Get example simulating heavy work in a separate thread
-  server->resource["^/work$"]["GET"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> & /*request*/) {
+  server->resource["^/work$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request>  /*request*/) {
     thread work_thread([response] {
       this_thread::sleep_for(chrono::seconds(5));
       response->write("Work done");
@@ -138,7 +138,7 @@ int main() {
   //Will respond with content in the web/-directory, and its subdirectories.
   //Default file: index.html
   //Can for instance be used to retrieve an HTML 5 client that uses REST-resources on this server
-  server->default_resource["GET"] = [](shared_ptr<HttpServer::Response> &response, shared_ptr<HttpServer::Request> &request) {
+  server->default_resource["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     try {
       auto web_root_path = boost::filesystem::canonical("web");
       auto path = boost::filesystem::canonical(web_root_path / request->path);
@@ -193,7 +193,7 @@ int main() {
     }
   };
 
-  server->on_error = [](shared_ptr<HttpServer::Request> & /*request*/, const SimpleWeb::error_code & /*ec*/) {
+  server->on_error = [](shared_ptr<HttpServer::Request>  /*request*/, const SimpleWeb::error_code  /*ec*/) {
     // handle errors here
   };
 
@@ -217,7 +217,7 @@ int main() {
   cout << r2->content.rdbuf() << endl;
 
   // asynchronous request example
-  client->request("POST", "/json", json_string, [](shared_ptr<HttpClient::Response> &response, const SimpleWeb::error_code &ec) {
+  client->request("POST", "/json", json_string, [](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
     if(!ec)
       cout << response->content.rdbuf() << endl;
   });
