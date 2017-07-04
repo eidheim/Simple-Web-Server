@@ -53,15 +53,17 @@ namespace SimpleWeb {
   public:
     virtual ~ServerBase() {}
 
-    class Response : public std::ostream {
+    class Response : public std::enable_shared_from_this<Response>, public std::ostream {
       friend class ServerBase<socket_type>;
       friend class Server<socket_type>;
 
       asio::streambuf streambuf;
 
+      std::shared_ptr<asio::io_service> io_service;
       std::shared_ptr<socket_type> socket;
 
-      Response(const std::shared_ptr<socket_type> &socket) : std::ostream(&streambuf), socket(socket) {}
+      Response(const std::shared_ptr<asio::io_service> &io_service, const std::shared_ptr<socket_type> &socket)
+          : std::ostream(&streambuf), io_service(io_service), socket(socket) {}
 
       template <class size_type>
       void write_header(const CaseInsensitiveMultimap &header, size_type size) {
@@ -84,6 +86,15 @@ namespace SimpleWeb {
     public:
       size_t size() {
         return streambuf.size();
+      }
+
+      /// Use this function if you need to recursively send parts of a longer message
+      void send(const std::function<void(const error_code &)> &callback = nullptr) {
+        auto self = this->shared_from_this();
+        asio::async_write(*socket, streambuf, [self, callback](const error_code &ec, size_t /*bytes_transferred*/) {
+          if(callback)
+            callback(ec);
+        });
       }
 
       /// Write directly to stream buffer using std::ostream::write
@@ -324,14 +335,6 @@ namespace SimpleWeb {
         io_service->stop();
     }
 
-    ///Use this function if you need to recursively send parts of a longer message
-    void send(const std::shared_ptr<Response> &response, const std::function<void(const error_code &)> &callback = nullptr) const {
-      asio::async_write(*response->socket, response->streambuf, [response, callback](const error_code &ec, size_t /*bytes_transferred*/) {
-        if(callback)
-          callback(ec);
-      });
-    }
-
     /// If you have your own asio::io_service, store its pointer here before running start().
     std::shared_ptr<asio::io_service> io_service;
 
@@ -480,9 +483,9 @@ namespace SimpleWeb {
       auto request = session->request;
       session->set_timeout(config.timeout_content);
       auto timer = session->timer;
-      auto response = std::shared_ptr<Response>(new Response(session->socket), [self, request, timer](Response *response_ptr) mutable {
+      auto response = std::shared_ptr<Response>(new Response(io_service, session->socket), [self, request, timer](Response *response_ptr) mutable {
         auto response = std::shared_ptr<Response>(response_ptr);
-        self->send(response, [self, response, request, timer](const error_code &ec) mutable {
+        response->send([self, response, request, timer](const error_code &ec) mutable {
           if(timer)
             timer->cancel();
           if(!ec) {
