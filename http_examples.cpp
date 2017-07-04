@@ -23,7 +23,8 @@ typedef SimpleWeb::Server<SimpleWeb::HTTP> HttpServer;
 typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
 //Added for the default_resource example
-void default_resource_send(const HttpServer &server, shared_ptr<HttpServer::Response> &response, shared_ptr<ifstream> &ifs);
+void default_resource_send(const shared_ptr<HttpServer> &server,
+                           const shared_ptr<HttpServer::Response> &response, const shared_ptr<ifstream> &ifs);
 
 int main() {
   //HTTP-server at port 8080 using 1 thread
@@ -183,7 +184,7 @@ int main() {
 
         header.emplace("Content-Length", to_string(length));
         response->write(header);
-        default_resource_send(*server, response, ifs);
+        default_resource_send(server, response, ifs);
       }
       else
         throw invalid_argument("could not read file");
@@ -193,7 +194,7 @@ int main() {
     }
   };
 
-  server->on_error = [](std::shared_ptr<HttpServer::Request> & /*request*/, const SimpleWeb::error_code & /*ec*/) {
+  server->on_error = [](shared_ptr<HttpServer::Request> & /*request*/, const SimpleWeb::error_code & /*ec*/) {
     // handle errors here
   };
 
@@ -217,7 +218,7 @@ int main() {
   cout << r2->content.rdbuf() << endl;
 
   // asynchronous request example
-  client->request("POST", "/json", json_string, [](std::shared_ptr<HttpClient::Response> &response, const SimpleWeb::error_code &ec) {
+  client->request("POST", "/json", json_string, [](shared_ptr<HttpClient::Response> &response, const SimpleWeb::error_code &ec) {
     if(!ec)
       cout << response->content.rdbuf() << endl;
   });
@@ -227,14 +228,15 @@ int main() {
   server_thread.join();
 }
 
-void default_resource_send(const HttpServer &server, shared_ptr<HttpServer::Response> &response, shared_ptr<ifstream> &ifs) {
+void default_resource_send(const shared_ptr<HttpServer> &server,
+                           const shared_ptr<HttpServer::Response> &response, const shared_ptr<ifstream> &ifs) {
   //read and send 128 KB at a time
   static vector<char> buffer(131072); // Safe when server is running on one thread
   streamsize read_length;
   if((read_length = ifs->read(&buffer[0], buffer.size()).gcount()) > 0) {
     response->write(&buffer[0], read_length);
     if(read_length == static_cast<streamsize>(buffer.size())) {
-      server.send(response, [&server, response, ifs](const SimpleWeb::error_code &ec) mutable {
+      server->send(response, [server, response, ifs](const SimpleWeb::error_code &ec) {
         if(!ec)
           default_resource_send(server, response, ifs);
         else
