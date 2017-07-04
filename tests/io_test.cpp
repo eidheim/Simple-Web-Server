@@ -151,8 +151,8 @@ int main() {
       auto r = client->request("POST", "/string", content);
       output << r->content.rdbuf();
       assert(output.str() == "A string");
-      assert(client->connections->size() == 1);
-      connection = client->connections->front().get();
+      assert(client->connections.size() == 1);
+      connection = client->connections.front().get();
     }
 
     {
@@ -160,8 +160,8 @@ int main() {
       auto r = client->request("POST", "/string", "A string");
       output << r->content.rdbuf();
       assert(output.str() == "A string");
-      assert(client->connections->size() == 1);
-      assert(connection == client->connections->front().get());
+      assert(client->connections.size() == 1);
+      assert(connection == client->connections.front().get());
     }
 
     {
@@ -169,16 +169,16 @@ int main() {
       auto r = client->request("GET", "/header", "", {{"test1", "test"}, {"test2", "ing"}});
       output << r->content.rdbuf();
       assert(output.str() == "testing");
-      assert(client->connections->size() == 1);
-      assert(connection == client->connections->front().get());
+      assert(client->connections.size() == 1);
+      assert(connection == client->connections.front().get());
     }
 
     {
       stringstream output;
       auto r = client->request("GET", "/query_string?testing");
       assert(r->content.string() == "testing");
-      assert(client->connections->size() == 1);
-      assert(connection == client->connections->front().get());
+      assert(client->connections.size() == 1);
+      assert(connection == client->connections.front().get());
     }
   }
 
@@ -212,10 +212,10 @@ int main() {
       }
       for(auto &thread : threads)
         thread.join();
-      assert(client->connections->size() == 100);
+      assert(client->connections.size() == 100);
       client->io_service->reset();
       client->io_service->run();
-      assert(client->connections->size() == 1);
+      assert(client->connections.size() == 1);
       for(auto call : calls)
         assert(call);
     }
@@ -223,18 +223,18 @@ int main() {
 
   {
     auto client = HttpClient::create("localhost:8080");
-    assert(client->connections->size() == 0);
+    assert(client->connections.size() == 0);
     for(size_t c = 0; c < 5000; ++c) {
       auto r1 = client->request("POST", "/string", "A string");
       assert(SimpleWeb::status_code(r1->status_code) == SimpleWeb::StatusCode::success_ok);
       assert(r1->content.string() == "A string");
-      assert(client->connections->size() == 1);
+      assert(client->connections.size() == 1);
 
       stringstream content("A string");
       auto r2 = client->request("POST", "/string", content);
       assert(SimpleWeb::status_code(r2->status_code) == SimpleWeb::StatusCode::success_ok);
       assert(r2->content.string() == "A string");
-      assert(client->connections->size() == 1);
+      assert(client->connections.size() == 1);
     }
   }
 
@@ -244,7 +244,7 @@ int main() {
       auto r = client->request("POST", "/string", "A string");
       assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
       assert(r->content.string() == "A string");
-      assert(client->connections->size() == 1);
+      assert(client->connections.size() == 1);
     }
 
     {
@@ -253,7 +253,7 @@ int main() {
       auto r = client->request("POST", "/string", content);
       assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
       assert(r->content.string() == "A string");
-      assert(client->connections->size() == 1);
+      assert(client->connections.size() == 1);
     }
   }
 

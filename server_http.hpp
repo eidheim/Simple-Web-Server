@@ -517,7 +517,7 @@ namespace SimpleWeb {
         return;
       }
     }
-  }; // namespace SimpleWeb
+  };
 
   template <class socket_type>
   class Server : public ServerBase<socket_type> {};
@@ -538,12 +538,10 @@ namespace SimpleWeb {
     Server() : ServerBase<HTTP>::ServerBase(80) {}
 
     void accept() override {
-      //Create new socket for this connection
-      //Shared_ptr is used to pass temporary objects to the asynchronous functions
       auto session = std::make_shared<Session>(this->shared_from_this(), std::make_shared<HTTP>(*io_service));
 
       acceptor->async_accept(*session->socket, [this, session](const error_code &ec) {
-        //Immediately start accepting a new connection (if io_service hasn't been stopped)
+        //Immediately start accepting a new connection (unless io_service has been stopped)
         if(ec != asio::error::operation_aborted)
           this->accept();
 

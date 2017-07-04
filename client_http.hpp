@@ -214,25 +214,24 @@ namespace SimpleWeb {
     void request(const std::string &method, const std::string &path, string_view content, const CaseInsensitiveMultimap &header,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       auto session = std::make_shared<Session>(this->shared_from_this(), get_connection(), create_request_header(method, path, header));
+      auto client = session->client;
       auto connection = session->connection;
       auto response = session->response;
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
-      auto connections = this->connections;
-      auto connections_mutex = this->connections_mutex;
-      session->callback = [connection, response, request_callback, connections, connections_mutex](const error_code &ec) {
+      session->callback = [client, connection, response, request_callback](const error_code &ec) {
         {
-          std::lock_guard<std::mutex> lock(*connections_mutex);
+          std::lock_guard<std::mutex> lock(client->connections_mutex);
           connection->in_use = false;
 
           // Remove unused connections, but keep one open for HTTP persistent connection:
           size_t unused_connections = 0;
-          for(auto it = connections->begin(); it != connections->end();) {
+          for(auto it = client->connections.begin(); it != client->connections.end();) {
             if((*it)->in_use)
               ++it;
             else {
               ++unused_connections;
               if(unused_connections > 1)
-                it = connections->erase(it);
+                it = client->connections.erase(it);
               else
                 ++it;
             }
@@ -273,25 +272,24 @@ namespace SimpleWeb {
     void request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       auto session = std::make_shared<Session>(this->shared_from_this(), get_connection(), create_request_header(method, path, header));
+      auto client = session->client;
       auto connection = session->connection;
       auto response = session->response;
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
-      auto connections = this->connections;
-      auto connections_mutex = this->connections_mutex;
-      session->callback = [connection, response, request_callback, connections, connections_mutex](const error_code &ec) {
+      session->callback = [client, connection, response, request_callback](const error_code &ec) {
         {
-          std::lock_guard<std::mutex> lock(*connections_mutex);
+          std::lock_guard<std::mutex> lock(client->connections_mutex);
           connection->in_use = false;
 
           // Remove unused connections, but keep one open for HTTP persistent connection:
           size_t unused_connections = 0;
-          for(auto it = connections->begin(); it != connections->end();) {
+          for(auto it = client->connections.begin(); it != client->connections.end();) {
             if((*it)->in_use)
               ++it;
             else {
               ++unused_connections;
               if(unused_connections > 1)
-                it = connections->erase(it);
+                it = client->connections.erase(it);
               else
                 ++it;
             }
@@ -321,17 +319,25 @@ namespace SimpleWeb {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback));
     }
 
+    /// Close connections
+    void close() {
+      std::lock_guard<std::mutex> lock(connections_mutex);
+      for(auto it = connections.begin(); it != connections.end();) {
+        (*it)->close();
+        it = connections.erase(it);
+      }
+    }
+
   protected:
     std::string host;
     unsigned short port;
 
     std::unique_ptr<asio::ip::tcp::resolver::query> query;
 
-    std::shared_ptr<std::vector<std::shared_ptr<Connection>>> connections;
-    std::shared_ptr<std::mutex> connections_mutex;
+    std::vector<std::shared_ptr<Connection>> connections;
+    std::mutex connections_mutex;
 
-    ClientBase(const std::string &host_port, unsigned short default_port)
-        : io_service(new asio::io_service()), connections(new std::vector<std::shared_ptr<Connection>>()), connections_mutex(new std::mutex()) {
+    ClientBase(const std::string &host_port, unsigned short default_port) : io_service(new asio::io_service()) {
       auto parsed_host_port = parse_host_port(host_port, default_port);
       host = parsed_host_port.first;
       port = parsed_host_port.second;
@@ -339,8 +345,8 @@ namespace SimpleWeb {
 
     std::shared_ptr<Connection> get_connection() {
       std::shared_ptr<Connection> connection;
-      std::lock_guard<std::mutex> lock(*connections_mutex);
-      for(auto it = connections->begin(); it != connections->end(); ++it) {
+      std::lock_guard<std::mutex> lock(connections_mutex);
+      for(auto it = connections.begin(); it != connections.end(); ++it) {
         if(!(*it)->in_use && !connection) {
           connection = *it;
           break;
@@ -348,7 +354,7 @@ namespace SimpleWeb {
       }
       if(!connection) {
         connection = create_connection();
-        connections->emplace_back(connection);
+        connections.emplace_back(connection);
       }
       connection->reconnecting = false;
       connection->in_use = true;
