@@ -59,11 +59,9 @@ namespace SimpleWeb {
 
       asio::streambuf streambuf;
 
-      std::shared_ptr<asio::io_service> io_service;
-      std::shared_ptr<socket_type> socket;
+      std::shared_ptr<Session> session;
 
-      Response(const std::shared_ptr<asio::io_service> &io_service, const std::shared_ptr<socket_type> &socket)
-          : std::ostream(&streambuf), io_service(io_service), socket(socket) {}
+      Response(const std::shared_ptr<Session> &session) : std::ostream(&streambuf), session(session) {}
 
       template <class size_type>
       void write_header(const CaseInsensitiveMultimap &header, size_type size) {
@@ -91,7 +89,8 @@ namespace SimpleWeb {
       /// Use this function if you need to recursively send parts of a longer message
       void send(const std::function<void(const error_code &)> &callback = nullptr) {
         auto self = this->shared_from_this();
-        asio::async_write(*socket, streambuf, [self, callback](const error_code &ec, size_t /*bytes_transferred*/) {
+        session->set_timeout(session->server->config.timeout_content);
+        asio::async_write(*session->socket, streambuf, [self, callback](const error_code &ec, size_t /*bytes_transferred*/) {
           if(callback)
             callback(ec);
         });
@@ -191,6 +190,8 @@ namespace SimpleWeb {
       }
 
     private:
+      asio::streambuf streambuf;
+
       Request(const socket_type &socket) : content(streambuf) {
         try {
           remote_endpoint_address = socket.lowest_layer().remote_endpoint().address().to_string();
@@ -200,16 +201,70 @@ namespace SimpleWeb {
         }
       }
 
-      asio::streambuf streambuf;
+      bool parse() {
+        std::string line;
+        getline(content, line);
+        size_t method_end;
+        if((method_end = line.find(' ')) != std::string::npos) {
+          method = line.substr(0, method_end);
+
+          size_t query_start = std::string::npos;
+          size_t path_and_query_string_end = std::string::npos;
+          for(size_t i = method_end + 1; i < line.size(); ++i) {
+            if(line[i] == '?' && (i + 1) < line.size())
+              query_start = i + 1;
+            else if(line[i] == ' ') {
+              path_and_query_string_end = i;
+              break;
+            }
+          }
+          if(path_and_query_string_end != std::string::npos) {
+            if(query_start != std::string::npos) {
+              path = line.substr(method_end + 1, query_start - method_end - 2);
+              query_string = line.substr(query_start, path_and_query_string_end - query_start);
+            }
+            else
+              path = line.substr(method_end + 1, path_and_query_string_end - method_end - 1);
+
+            size_t protocol_end;
+            if((protocol_end = line.find('/', path_and_query_string_end + 1)) != std::string::npos) {
+              if(line.compare(path_and_query_string_end + 1, protocol_end - path_and_query_string_end - 1, "HTTP") != 0)
+                return false;
+              http_version = line.substr(protocol_end + 1, line.size() - protocol_end - 2);
+            }
+            else
+              return false;
+
+            getline(content, line);
+            size_t param_end;
+            while((param_end = line.find(':')) != std::string::npos) {
+              size_t value_start = param_end + 1;
+              if(value_start < line.size()) {
+                if(line[value_start] == ' ')
+                  value_start++;
+                if(value_start < line.size())
+                  header.emplace(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1));
+              }
+
+              getline(content, line);
+            }
+          }
+          else
+            return false;
+        }
+        else
+          return false;
+        return true;
+      }
     };
 
   protected:
     class Session {
     public:
-      Session(const std::shared_ptr<ServerBase<socket_type>> &self, const std::shared_ptr<socket_type> &socket)
-          : self(self), socket(socket), request(new Request(*this->socket)) {}
+      Session(const std::shared_ptr<ServerBase<socket_type>> &server, const std::shared_ptr<socket_type> &socket)
+          : server(server), socket(socket), request(new Request(*this->socket)) {}
 
-      std::shared_ptr<ServerBase<socket_type>> self;
+      std::shared_ptr<ServerBase<socket_type>> server;
       std::shared_ptr<socket_type> socket;
       std::shared_ptr<Request> request;
 
@@ -359,7 +414,7 @@ namespace SimpleWeb {
           //streambuf (maybe some bytes of the content) is appended to in the async_read-function below (for retrieving content).
           size_t num_additional_bytes = session->request->streambuf.size() - bytes_transferred;
 
-          if(!this->parse_request(session))
+          if(!session->request->parse())
             return;
 
           //If content, read that as well
@@ -395,62 +450,6 @@ namespace SimpleWeb {
       });
     }
 
-    bool parse_request(std::shared_ptr<Session> &session) const {
-      std::string line;
-      getline(session->request->content, line);
-      size_t method_end;
-      if((method_end = line.find(' ')) != std::string::npos) {
-        session->request->method = line.substr(0, method_end);
-
-        size_t query_start = std::string::npos;
-        size_t path_and_query_string_end = std::string::npos;
-        for(size_t i = method_end + 1; i < line.size(); ++i) {
-          if(line[i] == '?' && (i + 1) < line.size())
-            query_start = i + 1;
-          else if(line[i] == ' ') {
-            path_and_query_string_end = i;
-            break;
-          }
-        }
-        if(path_and_query_string_end != std::string::npos) {
-          if(query_start != std::string::npos) {
-            session->request->path = line.substr(method_end + 1, query_start - method_end - 2);
-            session->request->query_string = line.substr(query_start, path_and_query_string_end - query_start);
-          }
-          else
-            session->request->path = line.substr(method_end + 1, path_and_query_string_end - method_end - 1);
-
-          size_t protocol_end;
-          if((protocol_end = line.find('/', path_and_query_string_end + 1)) != std::string::npos) {
-            if(line.compare(path_and_query_string_end + 1, protocol_end - path_and_query_string_end - 1, "HTTP") != 0)
-              return false;
-            session->request->http_version = line.substr(protocol_end + 1, line.size() - protocol_end - 2);
-          }
-          else
-            return false;
-
-          getline(session->request->content, line);
-          size_t param_end;
-          while((param_end = line.find(':')) != std::string::npos) {
-            size_t value_start = param_end + 1;
-            if(value_start < line.size()) {
-              if(line[value_start] == ' ')
-                value_start++;
-              if(value_start < line.size())
-                session->request->header.emplace(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1));
-            }
-
-            getline(session->request->content, line);
-          }
-        }
-        else
-          return false;
-      }
-      else
-        return false;
-      return true;
-    }
-
     void find_resource(std::shared_ptr<Session> &session) {
       //Upgrade connection
       if(on_upgrade) {
@@ -479,37 +478,33 @@ namespace SimpleWeb {
 
     void write_response(std::shared_ptr<Session> &session,
                         std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response> &, std::shared_ptr<typename ServerBase<socket_type>::Request> &)> &resource_function) {
-      auto self = session->self;
-      auto request = session->request;
       session->set_timeout(config.timeout_content);
-      auto timer = session->timer;
-      auto response = std::shared_ptr<Response>(new Response(io_service, session->socket), [self, request, timer](Response *response_ptr) mutable {
+      auto response = std::shared_ptr<Response>(new Response(session), [this](Response *response_ptr) mutable {
         auto response = std::shared_ptr<Response>(response_ptr);
-        response->send([self, response, request, timer](const error_code &ec) mutable {
-          if(timer)
-            timer->cancel();
+        response->send([this, response](const error_code &ec) mutable {
+          response->session->cancel_timeout();
           if(!ec) {
             if(response->close_connection_after_response)
               return;
 
-            auto range = request->header.equal_range("Connection");
+            auto range = response->session->request->header.equal_range("Connection");
             for(auto it = range.first; it != range.second; it++) {
               if(case_insensitive_equal(it->second, "close"))
                 return;
               else if(case_insensitive_equal(it->second, "keep-alive")) {
-                auto session = std::make_shared<Session>(self, response->socket);
-                self->read_request_and_content(session);
+                auto new_session = std::make_shared<Session>(response->session->server, response->session->socket);
+                this->read_request_and_content(new_session);
                 return;
               }
             }
-            if(request->http_version >= "1.1") {
-              auto session = std::make_shared<Session>(self, response->socket);
-              self->read_request_and_content(session);
+            if(response->session->request->http_version >= "1.1") {
+              auto new_session = std::make_shared<Session>(response->session->server, response->session->socket);
+              this->read_request_and_content(new_session);
               return;
             }
           }
-          else if(self->on_error)
-            self->on_error(request, ec);
+          else if(this->on_error)
+            this->on_error(response->session->request, ec);
         });
       });
 

@@ -80,7 +80,7 @@ namespace SimpleWeb {
                       asio::async_read_until(session->connection->socket->next_layer(), response->content_buffer, "\r\n\r\n", [this, session, response](const error_code &ec, size_t /*bytes_transferred*/) mutable {
                         session->cancel_timeout();
                         if(!ec) {
-                          this->parse_response_header(response);
+                          response->parse_header();
                           if(response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0) {
                             session->connection->close();
                             session->callback(make_error_code::make_error_code(errc::permission_denied));

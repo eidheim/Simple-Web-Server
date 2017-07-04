@@ -72,6 +72,32 @@ namespace SimpleWeb {
       asio::streambuf content_buffer;
 
       Response() : content(content_buffer) {}
+
+      void parse_header() {
+        std::string line;
+        getline(content, line);
+        size_t version_end = line.find(' ');
+        if(version_end != std::string::npos) {
+          if(5 < line.size())
+            http_version = line.substr(5, version_end - 5);
+          if((version_end + 1) < line.size())
+            status_code = line.substr(version_end + 1, line.size() - (version_end + 1) - 1);
+
+          getline(content, line);
+          size_t param_end;
+          while((param_end = line.find(':')) != std::string::npos) {
+            size_t value_start = param_end + 1;
+            if((value_start) < line.size()) {
+              if(line[value_start] == ' ')
+                value_start++;
+              if(value_start < line.size())
+                header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1)));
+            }
+
+            getline(content, line);
+          }
+        }
+      }
     };
 
     class Config {
@@ -107,9 +133,9 @@ namespace SimpleWeb {
 
     class Session {
     public:
-      Session(std::shared_ptr<ClientBase<socket_type>> &&self, const std::shared_ptr<Connection> &connection, std::unique_ptr<asio::streambuf> &&request_buffer)
-          : self(std::move(self)), connection(connection), request_buffer(std::move(request_buffer)), response(new Response()) {}
-      std::shared_ptr<ClientBase<socket_type>> self;
+      Session(const std::shared_ptr<ClientBase<socket_type>> &client, const std::shared_ptr<Connection> &connection, std::unique_ptr<asio::streambuf> &&request_buffer)
+          : client(client), connection(connection), request_buffer(std::move(request_buffer)), response(new Response()) {}
+      std::shared_ptr<ClientBase<socket_type>> client;
       std::shared_ptr<Connection> connection;
       std::unique_ptr<asio::streambuf> request_buffer;
       std::shared_ptr<Response> response;
@@ -119,7 +145,7 @@ namespace SimpleWeb {
 
       void set_timeout(long seconds = 0) {
         if(seconds == 0)
-          seconds = self->config.timeout;
+          seconds = client->config.timeout;
         if(seconds == 0) {
           timer = nullptr;
           return;
@@ -372,32 +398,6 @@ namespace SimpleWeb {
       return parsed_host_port;
     }
 
-    void parse_response_header(std::shared_ptr<Response> &response) const {
-      std::string line;
-      getline(response->content, line);
-      size_t version_end = line.find(' ');
-      if(version_end != std::string::npos) {
-        if(5 < line.size())
-          response->http_version = line.substr(5, version_end - 5);
-        if((version_end + 1) < line.size())
-          response->status_code = line.substr(version_end + 1, line.size() - (version_end + 1) - 1);
-
-        getline(response->content, line);
-        size_t param_end;
-        while((param_end = line.find(':')) != std::string::npos) {
-          size_t value_start = param_end + 1;
-          if((value_start) < line.size()) {
-            if(line[value_start] == ' ')
-              value_start++;
-            if(value_start < line.size())
-              response->header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1)));
-          }
-
-          getline(response->content, line);
-        }
-      }
-    }
-
     void write(std::shared_ptr<Session> &session) {
       session->set_timeout();
       asio::async_write(*session->connection->socket, session->request_buffer->data(), [this, session](const error_code &ec, size_t /*bytes_transferred*/) mutable {
@@ -420,7 +420,7 @@ namespace SimpleWeb {
 
           size_t num_additional_bytes = session->response->content_buffer.size() - bytes_transferred;
 
-          this->parse_response_header(session->response);
+          session->response->parse_header();
 
           auto header_it = session->response->header.find("Content-Length");
           if(header_it != session->response->header.end()) {
