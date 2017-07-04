@@ -268,7 +268,7 @@ namespace SimpleWeb {
       std::shared_ptr<socket_type> socket;
       std::shared_ptr<Request> request;
 
-      std::shared_ptr<asio::deadline_timer> timer;
+      std::unique_ptr<asio::deadline_timer> timer;
 
       void set_timeout(long seconds) {
         if(seconds == 0) {
@@ -276,7 +276,7 @@ namespace SimpleWeb {
           return;
         }
 
-        timer = std::make_shared<asio::deadline_timer>(socket->get_io_service());
+        timer = std::unique_ptr<asio::deadline_timer>(new asio::deadline_timer(socket->get_io_service()));
         timer->expires_from_now(boost::posix_time::seconds(seconds));
         auto socket = this->socket;
         timer->async_wait([socket](const error_code &ec) {
