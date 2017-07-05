@@ -24,8 +24,16 @@ namespace SimpleWeb {
     bool set_session_id_context = false;
 
   public:
-    static std::shared_ptr<Server> create(const std::string &cert_file, const std::string &private_key_file, const std::string &verify_file = std::string()) {
-      return std::shared_ptr<Server>(new Server(cert_file, private_key_file, verify_file));
+    Server(const std::string &cert_file, const std::string &private_key_file, const std::string &verify_file = std::string())
+        : ServerBase<HTTPS>::ServerBase(443), context(asio::ssl::context::tlsv12) {
+      context.use_certificate_chain_file(cert_file);
+      context.use_private_key_file(private_key_file, asio::ssl::context::pem);
+
+      if(verify_file.size() > 0) {
+        context.load_verify_file(verify_file);
+        context.set_verify_mode(asio::ssl::verify_peer | asio::ssl::verify_fail_if_no_peer_cert | asio::ssl::verify_client_once);
+        set_session_id_context = true;
+      }
     }
 
     void start() override {
@@ -40,34 +48,30 @@ namespace SimpleWeb {
     }
 
   protected:
-    Server(const std::string &cert_file, const std::string &private_key_file, const std::string &verify_file)
-        : ServerBase<HTTPS>::ServerBase(443), context(asio::ssl::context::tlsv12) {
-      context.use_certificate_chain_file(cert_file);
-      context.use_private_key_file(private_key_file, asio::ssl::context::pem);
-
-      if(verify_file.size() > 0) {
-        context.load_verify_file(verify_file);
-        context.set_verify_mode(asio::ssl::verify_peer | asio::ssl::verify_fail_if_no_peer_cert | asio::ssl::verify_client_once);
-        set_session_id_context = true;
-      }
-    }
-
     asio::ssl::context context;
 
     void accept() override {
-      auto session = std::make_shared<Session>(this->shared_from_this(), std::make_shared<HTTPS>(*io_service, context));
+      auto session = std::make_shared<Session>(this, std::make_shared<HTTPS>(*io_service, context));
 
       acceptor->async_accept(session->socket->lowest_layer(), [this, session](const error_code &ec) {
+        auto lock = session->cancel_callbacks_mutex->shared_lock();
+        if(*session->cancel_callbacks)
+          return;
+
         if(ec != asio::error::operation_aborted)
           this->accept();
 
         if(!ec) {
           asio::ip::tcp::no_delay option(true);
-          session->socket->lowest_layer().set_option(option);
+          error_code ec;
+          session->socket->lowest_layer().set_option(option, ec);
 
           session->set_timeout(config.timeout_request);
           session->socket->async_handshake(asio::ssl::stream_base::server, [this, session](const error_code &ec) {
             session->cancel_timeout();
+            auto lock = session->cancel_callbacks_mutex->shared_lock();
+            if(*session->cancel_callbacks)
+              return;
             if(!ec)
               this->read_request_and_content(session);
             else if(this->on_error)

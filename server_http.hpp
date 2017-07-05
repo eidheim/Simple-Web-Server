@@ -2,6 +2,7 @@
 #define SERVER_HTTP_HPP
 
 #include "utility.hpp"
+#include <condition_variable>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -43,7 +44,7 @@ namespace SimpleWeb {
   class Server;
 
   template <class socket_type>
-  class ServerBase : public std::enable_shared_from_this<ServerBase<socket_type>> {
+  class ServerBase {
     ServerBase(const ServerBase &) = delete;
     ServerBase &operator=(const ServerBase &) = delete;
 
@@ -51,8 +52,6 @@ namespace SimpleWeb {
     class Session;
 
   public:
-    virtual ~ServerBase() {}
-
     class Response : public std::enable_shared_from_this<Response>, public std::ostream {
       friend class ServerBase<socket_type>;
       friend class Server<socket_type>;
@@ -88,9 +87,16 @@ namespace SimpleWeb {
 
       /// Use this function if you need to recursively send parts of a longer message
       void send(const std::function<void(const error_code &)> &callback = nullptr) {
+        auto lock = session->cancel_callbacks_mutex->shared_lock();
+        if(*session->cancel_callbacks)
+          return;
         auto self = this->shared_from_this();
         session->set_timeout(session->server->config.timeout_content);
         asio::async_write(*session->socket, streambuf, [self, callback](const error_code &ec, size_t /*bytes_transferred*/) {
+          self->session->cancel_timeout();
+          auto lock = self->session->cancel_callbacks_mutex->shared_lock();
+          if(*self->session->cancel_callbacks)
+            return;
           if(callback)
             callback(ec);
         });
@@ -261,11 +267,15 @@ namespace SimpleWeb {
   protected:
     class Session {
     public:
-      Session(const std::shared_ptr<ServerBase<socket_type>> &server, const std::shared_ptr<socket_type> &socket)
-          : server(server), socket(socket), request(new Request(*this->socket)) {}
+      Session(ServerBase<socket_type> *server, const std::shared_ptr<socket_type> &socket)
+          : server(server), cancel_callbacks(server->cancel_callbacks), cancel_callbacks_mutex(server->cancel_callbacks_mutex),
+            socket(socket), socket_close_mutex(new std::mutex()), request(new Request(*this->socket)) {}
 
-      std::shared_ptr<ServerBase<socket_type>> server;
+      ServerBase<socket_type> *server;
+      std::shared_ptr<bool> cancel_callbacks;
+      std::shared_ptr<SharedMutex> cancel_callbacks_mutex;
       std::shared_ptr<socket_type> socket;
+      std::shared_ptr<std::mutex> socket_close_mutex;
       std::shared_ptr<Request> request;
 
       std::unique_ptr<asio::deadline_timer> timer;
@@ -279,11 +289,13 @@ namespace SimpleWeb {
         timer = std::unique_ptr<asio::deadline_timer>(new asio::deadline_timer(socket->get_io_service()));
         timer->expires_from_now(boost::posix_time::seconds(seconds));
         auto socket = this->socket;
-        timer->async_wait([socket](const error_code &ec) {
+        auto socket_close_mutex = this->socket_close_mutex;
+        timer->async_wait([socket, socket_close_mutex](const error_code &ec) {
           if(!ec) {
             error_code ec;
+            std::unique_lock<std::mutex> lock(*socket_close_mutex); // the following operations seems to be needed to run sequentially
             socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
-            socket->lowest_layer().close();
+            socket->lowest_layer().close(ec);
           }
         });
       }
@@ -341,14 +353,14 @@ namespace SimpleWeb {
 
     std::function<void(std::shared_ptr<socket_type>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
 
+    /// If you have your own asio::io_service, store its pointer here before running start().
+    std::shared_ptr<asio::io_service> io_service;
+
     virtual void start() {
       if(!io_service) {
         io_service = std::make_shared<asio::io_service>();
         internal_io_service = true;
       }
-
-      if(io_service->stopped())
-        io_service->reset();
 
       asio::ip::tcp::endpoint endpoint;
       if(config.address.size() > 0)
@@ -384,14 +396,26 @@ namespace SimpleWeb {
       }
     }
 
+    /// Stop accepting new requests, and close current sessions.
     void stop() {
-      acceptor->close();
-      if(internal_io_service)
-        io_service->stop();
+      if(acceptor) {
+        acceptor->close();
+        if(internal_io_service) {
+          io_service->stop();
+          while(!io_service->stopped())
+            std::this_thread::yield();
+          io_service->reset();
+        }
+      }
     }
 
-    /// If you have your own asio::io_service, store its pointer here before running start().
-    std::shared_ptr<asio::io_service> io_service;
+    virtual ~ServerBase() {
+      {
+        auto lock = cancel_callbacks_mutex->unique_lock();
+        *cancel_callbacks = true;
+      }
+      stop();
+    }
 
   protected:
     bool internal_io_service = false;
@@ -399,7 +423,10 @@ namespace SimpleWeb {
     std::unique_ptr<asio::ip::tcp::acceptor> acceptor;
     std::vector<std::thread> threads;
 
-    ServerBase(unsigned short port) : config(port) {}
+    std::shared_ptr<bool> cancel_callbacks;
+    std::shared_ptr<SharedMutex> cancel_callbacks_mutex;
+
+    ServerBase(unsigned short port) : config(port), cancel_callbacks(new bool(false)), cancel_callbacks_mutex(new SharedMutex()) {}
 
     virtual void accept() = 0;
 
@@ -407,6 +434,9 @@ namespace SimpleWeb {
       session->set_timeout(config.timeout_request);
       asio::async_read_until(*session->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) {
         session->cancel_timeout();
+        auto lock = session->cancel_callbacks_mutex->shared_lock();
+        if(*session->cancel_callbacks)
+          return;
         if(!ec) {
           //request->streambuf.size() is not necessarily the same as bytes_transferred, from Boost-docs:
           //"After a successful async_read_until operation, the streambuf may contain additional data beyond the delimiter"
@@ -433,6 +463,9 @@ namespace SimpleWeb {
               session->set_timeout(config.timeout_content);
               asio::async_read(*session->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, size_t /*bytes_transferred*/) {
                 session->cancel_timeout();
+                auto lock = session->cancel_callbacks_mutex->shared_lock();
+                if(*session->cancel_callbacks)
+                  return;
                 if(!ec)
                   this->find_resource(session);
                 else if(this->on_error)
@@ -482,7 +515,6 @@ namespace SimpleWeb {
       auto response = std::shared_ptr<Response>(new Response(session), [this](Response *response_ptr) {
         auto response = std::shared_ptr<Response>(response_ptr);
         response->send([this, response](const error_code &ec) {
-          response->session->cancel_timeout();
           if(!ec) {
             if(response->close_connection_after_response)
               return;
@@ -530,24 +562,25 @@ namespace SimpleWeb {
     Server &operator=(const Server &) = delete;
 
   public:
-    static std::shared_ptr<Server> create() {
-      return std::shared_ptr<Server>(new Server());
-    }
-
-  protected:
     Server() : ServerBase<HTTP>::ServerBase(80) {}
 
+  protected:
     void accept() override {
-      auto session = std::make_shared<Session>(this->shared_from_this(), std::make_shared<HTTP>(*io_service));
+      auto session = std::make_shared<Session>(this, std::make_shared<HTTP>(*io_service));
 
       acceptor->async_accept(*session->socket, [this, session](const error_code &ec) {
+        auto lock = session->cancel_callbacks_mutex->shared_lock();
+        if(*session->cancel_callbacks)
+          return;
+
         //Immediately start accepting a new connection (unless io_service has been stopped)
         if(ec != asio::error::operation_aborted)
           this->accept();
 
         if(!ec) {
           asio::ip::tcp::no_delay option(true);
-          session->socket->set_option(option);
+          error_code ec;
+          session->socket->set_option(option, ec);
 
           this->read_request_and_content(session);
         }

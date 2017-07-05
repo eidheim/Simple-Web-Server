@@ -2,7 +2,9 @@
 #define SIMPLE_WEB_SERVER_UTILITY_HPP
 
 #include "status_code.hpp"
+#include <condition_variable>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -134,6 +136,131 @@ namespace SimpleWeb {
       return result;
     }
   };
+}
+
+//TODO: see if there is an MSYS2 definition in an MSYS2 environment
+#ifdef PTHREAD_RWLOCK_INITIALIZER
+namespace SimpleWeb {
+  /// Read-preferring R/W lock.
+  /// Uses pthread_rwlock.
+  class SharedMutex {
+    pthread_rwlock_t rwlock;
+
+  public:
+    class SharedLock {
+      friend class SharedMutex;
+      pthread_rwlock_t &rwlock;
+
+      SharedLock(pthread_rwlock_t &rwlock) : rwlock(rwlock) {
+        pthread_rwlock_rdlock(&rwlock);
+      }
+
+    public:
+      ~SharedLock() {
+        pthread_rwlock_unlock(&rwlock);
+      }
+    };
+
+    class UniqueLock {
+      friend class SharedMutex;
+      pthread_rwlock_t &rwlock;
+
+      UniqueLock(pthread_rwlock_t &rwlock) : rwlock(rwlock) {
+        pthread_rwlock_wrlock(&rwlock);
+      }
+
+    public:
+      ~UniqueLock() {
+        pthread_rwlock_unlock(&rwlock);
+      }
+    };
+
+  public:
+    SharedMutex() {
+
+      pthread_rwlock_init(&rwlock, nullptr);
+    }
+
+    ~SharedMutex() {
+      pthread_rwlock_destroy(&rwlock);
+    }
+
+    std::unique_ptr<SharedLock> shared_lock() {
+      return std::unique_ptr<SharedLock>(new SharedLock(rwlock));
+    }
+
+    std::unique_ptr<UniqueLock> unique_lock() {
+      return std::unique_ptr<UniqueLock>(new UniqueLock(rwlock));
+    }
+  };
 } // namespace SimpleWeb
+#else
+namespace SimpleWeb {
+  /// Read-preferring R/W lock.
+  /// Based on https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock#Using_a_condition_variable_and_a_mutex pseudocode.
+  /// TODO: Someone that uses Windows should implement Windows specific R/W locks here.
+  class SharedMutex {
+    std::mutex m;
+    std::condition_variable c;
+    int r = 0;
+    bool w = false;
+
+  public:
+    class SharedLock {
+      friend class SharedMutex;
+      std::condition_variable &c;
+      int &r;
+      std::unique_lock<std::mutex> lock;
+
+      SharedLock(std::mutex &m, std::condition_variable &c, int &r, bool &w) : c(c), r(r), lock(m) {
+        while(w)
+          c.wait(lock);
+        ++r;
+        lock.unlock();
+      }
+
+    public:
+      ~SharedLock() {
+        lock.lock();
+        --r;
+        if(r == 0)
+          c.notify_all();
+        lock.unlock();
+      }
+    };
+
+    class UniqueLock {
+      friend class SharedMutex;
+      std::condition_variable &c;
+      bool &w;
+      std::unique_lock<std::mutex> lock;
+
+      UniqueLock(std::mutex &m, std::condition_variable &c, int &r, bool &w) : c(c), w(w), lock(m) {
+        while(w || r > 0)
+          c.wait(lock);
+        w = true;
+        lock.unlock();
+      }
+
+    public:
+      ~UniqueLock() {
+        lock.lock();
+        w = false;
+        c.notify_all();
+        lock.unlock();
+      }
+    };
+
+  public:
+    std::unique_ptr<SharedLock> shared_lock() {
+      return std::unique_ptr<SharedLock>(new SharedLock(m, c, r, w));
+    }
+
+    std::unique_ptr<UniqueLock> unique_lock() {
+      return std::unique_ptr<UniqueLock>(new UniqueLock(m, c, r, w));
+    }
+  };
+} // namespace SimpleWeb
+#endif
 
 #endif // SIMPLE_WEB_SERVER_UTILITY_HPP
