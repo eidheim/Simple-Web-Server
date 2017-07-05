@@ -9,6 +9,7 @@
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>
 namespace SimpleWeb {
+  namespace asio = asio;
   using error_code = std::error_code;
   using errc = std::errc;
   using system_error = std::system_error;
