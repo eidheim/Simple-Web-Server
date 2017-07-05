@@ -210,7 +210,7 @@ int main() {
     }
   };
 
-  server->on_error = [](shared_ptr<HttpServer::Request> /*request*/, const SimpleWeb::error_code /*ec*/) {
+  server->on_error = [](shared_ptr<HttpServer::Request> /*request*/, const SimpleWeb::error_code & /*ec*/) {
     // handle errors here
   };
 

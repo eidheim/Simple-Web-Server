@@ -337,7 +337,7 @@ namespace SimpleWeb {
 
     std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)>> default_resource;
 
-    std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request>, const error_code)> on_error;
+    std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request>, const error_code &)> on_error;
 
     std::function<void(std::shared_ptr<socket_type>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
 
