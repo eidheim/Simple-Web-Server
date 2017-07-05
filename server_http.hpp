@@ -11,7 +11,6 @@
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>
 namespace SimpleWeb {
-  namespace asio = asio;
   using error_code = std::error_code;
   using errc = std::errc;
   namespace make_error_code = std;
