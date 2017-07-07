@@ -70,8 +70,8 @@ namespace SimpleWeb {
     server_error_network_authentication_required
   };
 
-  inline const static std::vector<std::pair<StatusCode, std::string>> &status_codes() {
-    static std::vector<std::pair<StatusCode, std::string>> status_codes = {
+  const static std::vector<std::pair<StatusCode, std::string>> &status_codes() {
+    const static std::vector<std::pair<StatusCode, std::string>> status_codes = {
         {StatusCode::unknown, ""},
         {StatusCode::information_continue, "100 Continue"},
         {StatusCode::information_switching_protocols, "101 Switching Protocols"},

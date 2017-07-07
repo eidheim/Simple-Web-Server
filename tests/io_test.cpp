@@ -241,7 +241,6 @@ int main() {
       vector<int> calls(100, 0);
       vector<thread> threads;
       for(size_t c = 0; c < 100; ++c) {
-        calls[c] = 0;
         threads.emplace_back([c, &client, &calls] {
           client.request("GET", "/match/123", [c, &calls](shared_ptr<HttpClient::Response> response, const SimpleWeb::error_code &ec) {
             assert(!ec);
@@ -267,10 +266,9 @@ int main() {
   {
     HttpClient client("localhost:8080");
     {
-      vector<int> calls(100, 0);
+      vector<int> calls(2, 0);
       vector<thread> threads;
-      for(size_t c = 0; c < 100; ++c) {
-        calls[c] = 0;
+      for(size_t c = 0; c < 2; ++c) {
         threads.emplace_back([c, &client, &calls] {
           try {
             auto r = client.request("GET", "/match/123");

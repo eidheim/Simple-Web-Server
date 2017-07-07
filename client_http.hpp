@@ -186,10 +186,10 @@ namespace SimpleWeb {
     std::shared_ptr<Response> request(const std::string &method, const std::string &path = std::string("/"),
                                       string_view content = "", const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
       std::shared_ptr<Response> response;
-      request(method, path, content, header, [&response](std::shared_ptr<Response> response_, const error_code &ec) {
+      error_code ec;
+      request(method, path, content, header, [&response, &ec](std::shared_ptr<Response> response_, const error_code &ec_) {
         response = response_;
-        if(ec)
-          throw system_error(ec);
+        ec = ec_;
       });
 
       {
@@ -199,9 +199,13 @@ namespace SimpleWeb {
       io_service->run();
       {
         std::unique_lock<std::mutex> lock(concurrent_synchronous_requests_mutex);
-        if(--concurrent_synchronous_requests == 0)
+        --concurrent_synchronous_requests;
+        if(!concurrent_synchronous_requests)
           io_service->reset();
       }
+
+      if(ec)
+        throw system_error(ec);
 
       return response;
     }
@@ -212,10 +216,10 @@ namespace SimpleWeb {
     std::shared_ptr<Response> request(const std::string &method, const std::string &path, std::istream &content,
                                       const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
       std::shared_ptr<Response> response;
-      request(method, path, content, header, [&response](std::shared_ptr<Response> response_, const error_code &ec) {
+      error_code ec;
+      request(method, path, content, header, [&response, &ec](std::shared_ptr<Response> response_, const error_code &ec_) {
         response = response_;
-        if(ec)
-          throw system_error(ec);
+        ec = ec_;
       });
 
       {
@@ -225,9 +229,13 @@ namespace SimpleWeb {
       io_service->run();
       {
         std::unique_lock<std::mutex> lock(concurrent_synchronous_requests_mutex);
-        if(--concurrent_synchronous_requests == 0)
+        --concurrent_synchronous_requests;
+        if(!concurrent_synchronous_requests)
           io_service->reset();
       }
+
+      if(ec)
+        throw system_error(ec);
 
       return response;
     }
