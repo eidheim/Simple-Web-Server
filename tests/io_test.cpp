@@ -114,6 +114,17 @@ int main() {
   });
 
   this_thread::sleep_for(chrono::seconds(1));
+
+  server.stop();
+  server_thread.join();
+
+  server_thread = thread([&server]() {
+    //Start server
+    server.start();
+  });
+
+  this_thread::sleep_for(chrono::seconds(1));
+
   {
     HttpClient client("localhost:8080");
 
