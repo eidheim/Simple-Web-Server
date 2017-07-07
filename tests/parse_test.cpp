@@ -13,7 +13,7 @@ public:
   void accept() override {}
 
   void parse_request_test() {
-    auto session = std::make_shared<Session>(this, std::make_shared<HTTP>(*io_service));
+    auto session = std::make_shared<Session>(this, create_connection(new HTTP(*io_service)));
 
     std::ostream stream(&session->request->content.streambuf);
     stream << "GET /test/ HTTP/1.1\r\n";

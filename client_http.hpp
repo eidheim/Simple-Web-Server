@@ -121,7 +121,7 @@ namespace SimpleWeb {
     public:
       Connection(std::unique_ptr<socket_type> &&socket) : socket(std::move(socket)) {}
 
-      std::unique_ptr<socket_type> socket;
+      std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
       std::mutex socket_close_mutex;
       bool in_use = false;
       bool attempt_reconnect = true;

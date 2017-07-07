@@ -51,9 +51,9 @@ namespace SimpleWeb {
     asio::ssl::context context;
 
     void accept() override {
-      auto session = std::make_shared<Session>(this, std::make_shared<HTTPS>(*io_service, context));
+      auto session = std::make_shared<Session>(this, create_connection(new HTTPS(*io_service, context)));
 
-      acceptor->async_accept(session->socket->lowest_layer(), [this, session](const error_code &ec) {
+      acceptor->async_accept(session->connection->socket->lowest_layer(), [this, session](const error_code &ec) {
         auto lock = session->cancel_callbacks_mutex->shared_lock();
         if(*session->cancel_callbacks)
           return;
@@ -64,10 +64,10 @@ namespace SimpleWeb {
         if(!ec) {
           asio::ip::tcp::no_delay option(true);
           error_code ec;
-          session->socket->lowest_layer().set_option(option, ec);
+          session->connection->socket->lowest_layer().set_option(option, ec);
 
           session->set_timeout(config.timeout_request);
-          session->socket->async_handshake(asio::ssl::stream_base::server, [this, session](const error_code &ec) {
+          session->connection->socket->async_handshake(asio::ssl::stream_base::server, [this, session](const error_code &ec) {
             session->cancel_timeout();
             auto lock = session->cancel_callbacks_mutex->shared_lock();
             if(*session->cancel_callbacks)
