@@ -237,7 +237,6 @@ int main() {
     if(!ec)
       cout << response->content.rdbuf() << endl;
   });
-  client.io_service->reset(); // needed because the io_service has been run already in the synchronous examples
   client.io_service->run();
 
   server_thread.join();
