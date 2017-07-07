@@ -362,6 +362,9 @@ namespace SimpleWeb {
         internal_io_service = true;
       }
 
+      if(io_service->stopped())
+        io_service->reset();
+
       asio::ip::tcp::endpoint endpoint;
       if(config.address.size() > 0)
         endpoint = asio::ip::tcp::endpoint(asio::ip::address::from_string(config.address), config.port);
@@ -400,12 +403,8 @@ namespace SimpleWeb {
     void stop() {
       if(acceptor) {
         acceptor->close();
-        if(internal_io_service) {
+        if(internal_io_service)
           io_service->stop();
-          while(!io_service->stopped())
-            std::this_thread::yield();
-          io_service->reset();
-        }
       }
     }
 
