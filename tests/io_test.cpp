@@ -179,7 +179,7 @@ int main() {
     assert(call);
 
     {
-      vector<int> calls(100);
+      vector<int> calls(100, 0);
       vector<thread> threads;
       for(size_t c = 0; c < 100; ++c) {
         calls[c] = 0;
@@ -198,6 +198,34 @@ int main() {
       assert(client.connections->size() == 100);
       client.io_service->reset();
       client.io_service->run();
+      assert(client.connections->size() == 1);
+      for(auto call : calls)
+        assert(call);
+    }
+  }
+
+  /// Test concurrent synchronous request calls
+  {
+    HttpClient client("localhost:8080");
+    {
+      vector<int> calls(100, 0);
+      vector<thread> threads;
+      for(size_t c = 0; c < 100; ++c) {
+        calls[c] = 0;
+        threads.emplace_back([c, &client, &calls] {
+          try {
+            auto r = client.request("GET", "/match/123");
+            assert(SimpleWeb::status_code(r->status_code) == SimpleWeb::StatusCode::success_ok);
+            assert(r->content.string() == "123");
+            calls[c] = 1;
+          }
+          catch(...) {
+            assert(false);
+          }
+        });
+      }
+      for(auto &thread : threads)
+        thread.join();
       assert(client.connections->size() == 1);
       for(auto call : calls)
         assert(call);

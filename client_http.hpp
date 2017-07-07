@@ -132,7 +132,8 @@ namespace SimpleWeb {
     virtual ~ClientBase() {}
 
     /// Convenience function to perform synchronous request. The io_service is run within this function.
-    /// If reusing the io_service for other tasks, please use the asynchronous request functions instead.
+    /// If reusing the io_service for other tasks, use the asynchronous request functions instead.
+    /// Do not use concurrently with the asynchronous request functions.
     std::shared_ptr<Response> request(const std::string &method, const std::string &path = std::string("/"),
                                       string_view content = "", const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
       std::shared_ptr<Response> response;
@@ -142,14 +143,23 @@ namespace SimpleWeb {
           throw system_error(ec);
       });
 
-      io_service->reset();
+      {
+        std::unique_lock<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        ++concurrent_synchronous_requests;
+      }
       io_service->run();
+      {
+        std::unique_lock<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        if(--concurrent_synchronous_requests == 0)
+          io_service->reset();
+      }
 
       return response;
     }
 
     /// Convenience function to perform synchronous request. The io_service is run within this function.
-    /// If reusing the io_service for other tasks, please use the asynchronous request functions instead.
+    /// If reusing the io_service for other tasks, use the asynchronous request functions instead.
+    /// Do not use concurrently with the asynchronous request functions.
     std::shared_ptr<Response> request(const std::string &method, const std::string &path, std::istream &content,
                                       const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
       std::shared_ptr<Response> response;
@@ -159,13 +169,22 @@ namespace SimpleWeb {
           throw system_error(ec);
       });
 
-      io_service->reset();
+      {
+        std::unique_lock<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        ++concurrent_synchronous_requests;
+      }
       io_service->run();
+      {
+        std::unique_lock<std::mutex> lock(concurrent_synchronous_requests_mutex);
+        if(--concurrent_synchronous_requests == 0)
+          io_service->reset();
+      }
 
       return response;
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Do not use concurrently with the synchronous request functions.
     void request(const std::string &method, const std::string &path, string_view content, const CaseInsensitiveMultimap &header,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       auto session = std::make_shared<Session>(io_service, get_connection(), create_request_header(method, path, header));
@@ -208,6 +227,7 @@ namespace SimpleWeb {
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
+    /// Do not use concurrently with the synchronous request functions.
     void request(const std::string &method, const std::string &path, string_view content,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback));
@@ -282,6 +302,9 @@ namespace SimpleWeb {
 
     std::shared_ptr<std::vector<std::shared_ptr<Connection>>> connections;
     std::shared_ptr<std::mutex> connections_mutex;
+
+    size_t concurrent_synchronous_requests = 0;
+    std::mutex concurrent_synchronous_requests_mutex;
 
     ClientBase(const std::string &host_port, unsigned short default_port)
         : io_service(new asio::io_service()), connections(new std::vector<std::shared_ptr<Connection>>()), connections_mutex(new std::mutex()) {
