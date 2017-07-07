@@ -352,7 +352,7 @@ namespace SimpleWeb {
     }
 
     /// Close connections
-    void close() {
+    void stop() {
       std::unique_lock<std::mutex> lock(connections_mutex);
       for(auto it = connections.begin(); it != connections.end();) {
         (*it)->attempt_reconnect = false;
@@ -366,7 +366,7 @@ namespace SimpleWeb {
         auto lock = cancel_callbacks_mutex->unique_lock();
         *cancel_callbacks = true;
       }
-      close();
+      stop();
     }
 
   protected:

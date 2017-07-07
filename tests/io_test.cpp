@@ -350,7 +350,7 @@ int main() {
       io_service->run();
     });
     this_thread::sleep_for(chrono::milliseconds(100));
-    client.close();
+    client.stop();
     this_thread::sleep_for(chrono::milliseconds(100));
     thread.join();
     assert(call);
