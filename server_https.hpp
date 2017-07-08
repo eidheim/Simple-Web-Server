@@ -17,9 +17,6 @@ namespace SimpleWeb {
 
   template <>
   class Server<HTTPS> : public ServerBase<HTTPS> {
-    Server(const Server &) = delete;
-    Server &operator=(const Server &) = delete;
-
     std::string session_id_context;
     bool set_session_id_context = false;
 
@@ -51,11 +48,11 @@ namespace SimpleWeb {
     asio::ssl::context context;
 
     void accept() override {
-      auto session = std::make_shared<Session>(this, create_connection(new HTTPS(*io_service, context)));
+      auto session = std::make_shared<Session>(cancel_handlers, cancel_handlers_mutex, create_connection(*io_service, context));
 
       acceptor->async_accept(session->connection->socket->lowest_layer(), [this, session](const error_code &ec) {
-        auto lock = session->cancel_callbacks_mutex->shared_lock();
-        if(*session->cancel_callbacks)
+        auto lock = session->cancel_handlers_mutex->shared_lock();
+        if(*session->cancel_handlers)
           return;
 
         if(ec != asio::error::operation_aborted)
@@ -69,8 +66,8 @@ namespace SimpleWeb {
           session->set_timeout(config.timeout_request);
           session->connection->socket->async_handshake(asio::ssl::stream_base::server, [this, session](const error_code &ec) {
             session->cancel_timeout();
-            auto lock = session->cancel_callbacks_mutex->shared_lock();
-            if(*session->cancel_callbacks)
+            auto lock = session->cancel_handlers_mutex->shared_lock();
+            if(*session->cancel_handlers)
               return;
             if(!ec)
               this->read_request_and_content(session);

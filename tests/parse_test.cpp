@@ -13,7 +13,7 @@ public:
   void accept() override {}
 
   void parse_request_test() {
-    auto session = std::make_shared<Session>(this, create_connection(new HTTP(*io_service)));
+    auto session = std::make_shared<Session>(cancel_handlers, cancel_handlers_mutex, create_connection(*io_service));
 
     std::ostream stream(&session->request->content.streambuf);
     stream << "GET /test/ HTTP/1.1\r\n";
@@ -151,7 +151,7 @@ int main() {
 
   asio::io_service io_service;
   asio::ip::tcp::socket socket(io_service);
-  SimpleWeb::Server<HTTP>::Request request(socket);
+  SimpleWeb::Server<HTTP>::Request request;
   {
     request.query_string = "";
     auto queries = request.parse_query_string();

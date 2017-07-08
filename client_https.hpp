@@ -14,10 +14,6 @@ namespace SimpleWeb {
 
   template <>
   class Client<HTTPS> : public ClientBase<HTTPS> {
-    friend ClientBase<HTTPS>;
-    Client(const Client &) = delete;
-    Client &operator=(const Client &) = delete;
-
   public:
     Client(const std::string &server_port_path, bool verify_certificate = true, const std::string &cert_file = std::string(),
            const std::string &private_key_file = std::string(), const std::string &verify_file = std::string())
@@ -45,22 +41,22 @@ namespace SimpleWeb {
     asio::ssl::context context;
 
     std::shared_ptr<Connection> create_connection() override {
-      return std::make_shared<Connection>(std::unique_ptr<HTTPS>(new HTTPS(*io_service, context)));
+      return std::make_shared<Connection>(*io_service, context);
     }
 
     void connect(const std::shared_ptr<Session> &session) override {
       if(!session->connection->socket->lowest_layer().is_open()) {
         auto resolver = std::make_shared<asio::ip::tcp::resolver>(*io_service);
         resolver->async_resolve(*query, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator it) {
-          auto lock = session->cancel_callbacks_mutex->shared_lock();
-          if(*session->cancel_callbacks)
+          auto lock = session->cancel_handlers_mutex->shared_lock();
+          if(*session->cancel_handlers)
             return;
           if(!ec) {
             session->set_timeout(this->config.timeout_connect);
             asio::async_connect(session->connection->socket->lowest_layer(), it, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator /*it*/) {
               session->cancel_timeout();
-              auto lock = session->cancel_callbacks_mutex->shared_lock();
-              if(*session->cancel_callbacks)
+              auto lock = session->cancel_handlers_mutex->shared_lock();
+              if(*session->cancel_handlers)
                 return;
               if(!ec) {
                 asio::ip::tcp::no_delay option(true);
@@ -76,16 +72,16 @@ namespace SimpleWeb {
                   session->set_timeout(this->config.timeout_connect);
                   asio::async_write(session->connection->socket->next_layer(), *write_buffer, [this, session, write_buffer](const error_code &ec, size_t /*bytes_transferred*/) {
                     session->cancel_timeout();
-                    auto lock = session->cancel_callbacks_mutex->shared_lock();
-                    if(*session->cancel_callbacks)
+                    auto lock = session->cancel_handlers_mutex->shared_lock();
+                    if(*session->cancel_handlers)
                       return;
                     if(!ec) {
                       std::shared_ptr<Response> response(new Response());
                       session->set_timeout(this->config.timeout_connect);
                       asio::async_read_until(session->connection->socket->next_layer(), response->content_buffer, "\r\n\r\n", [this, session, response](const error_code &ec, size_t /*bytes_transferred*/) {
                         session->cancel_timeout();
-                        auto lock = session->cancel_callbacks_mutex->shared_lock();
-                        if(*session->cancel_callbacks)
+                        auto lock = session->cancel_handlers_mutex->shared_lock();
+                        if(*session->cancel_handlers)
                           return;
                         if(!ec) {
                           response->parse_header();
@@ -131,8 +127,8 @@ namespace SimpleWeb {
       session->set_timeout(this->config.timeout_connect);
       session->connection->socket->async_handshake(asio::ssl::stream_base::client, [this, session](const error_code &ec) {
         session->cancel_timeout();
-        auto lock = session->cancel_callbacks_mutex->shared_lock();
-        if(*session->cancel_callbacks)
+        auto lock = session->cancel_handlers_mutex->shared_lock();
+        if(*session->cancel_handlers)
           return;
         if(!ec)
           this->write(session);
