@@ -48,11 +48,11 @@ namespace SimpleWeb {
     asio::ssl::context context;
 
     void accept() override {
-      auto session = std::make_shared<Session>(cancel_handlers, cancel_handlers_mutex, create_connection(*io_service, context));
+      auto session = std::make_shared<Session>(create_connection(*io_service, context));
 
       acceptor->async_accept(session->connection->socket->lowest_layer(), [this, session](const error_code &ec) {
-        auto cancel = session->cancel_handlers_and_lock();
-        if(cancel.first)
+        auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
+        if(cancel_pair.first)
           return;
 
         if(ec != asio::error::operation_aborted)
@@ -63,11 +63,11 @@ namespace SimpleWeb {
           error_code ec;
           session->connection->socket->lowest_layer().set_option(option, ec);
 
-          session->set_timeout(config.timeout_request);
+          session->connection->set_timeout(config.timeout_request);
           session->connection->socket->async_handshake(asio::ssl::stream_base::server, [this, session](const error_code &ec) {
-            session->cancel_timeout();
-            auto cancel = session->cancel_handlers_and_lock();
-            if(cancel.first)
+            session->connection->cancel_timeout();
+            auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
+            if(cancel_pair.first)
               return;
             if(!ec)
               this->read_request_and_content(session);

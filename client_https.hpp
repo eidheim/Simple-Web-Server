@@ -41,22 +41,22 @@ namespace SimpleWeb {
     asio::ssl::context context;
 
     std::shared_ptr<Connection> create_connection() override {
-      return std::make_shared<Connection>(*io_service, context);
+      return std::make_shared<Connection>(cancel_handlers, cancel_handlers_mutex, config.timeout, *io_service, context);
     }
 
     void connect(const std::shared_ptr<Session> &session) override {
       if(!session->connection->socket->lowest_layer().is_open()) {
         auto resolver = std::make_shared<asio::ip::tcp::resolver>(*io_service);
         resolver->async_resolve(*query, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator it) {
-          auto lock = session->cancel_handlers_mutex->shared_lock();
-          if(*session->cancel_handlers)
+          auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
+          if(cancel_pair.first)
             return;
           if(!ec) {
-            session->set_timeout(this->config.timeout_connect);
+            session->connection->set_timeout(this->config.timeout_connect);
             asio::async_connect(session->connection->socket->lowest_layer(), it, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator /*it*/) {
-              session->cancel_timeout();
-              auto lock = session->cancel_handlers_mutex->shared_lock();
-              if(*session->cancel_handlers)
+              session->connection->cancel_timeout();
+              auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
+              if(cancel_pair.first)
                 return;
               if(!ec) {
                 asio::ip::tcp::no_delay option(true);
@@ -69,19 +69,19 @@ namespace SimpleWeb {
                   auto host_port = this->host + ':' + std::to_string(this->port);
                   write_stream << "CONNECT " + host_port + " HTTP/1.1\r\n"
                                << "Host: " << host_port << "\r\n\r\n";
-                  session->set_timeout(this->config.timeout_connect);
+                  session->connection->set_timeout(this->config.timeout_connect);
                   asio::async_write(session->connection->socket->next_layer(), *write_buffer, [this, session, write_buffer](const error_code &ec, size_t /*bytes_transferred*/) {
-                    session->cancel_timeout();
-                    auto lock = session->cancel_handlers_mutex->shared_lock();
-                    if(*session->cancel_handlers)
+                    session->connection->cancel_timeout();
+                    auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
+                    if(cancel_pair.first)
                       return;
                     if(!ec) {
                       std::shared_ptr<Response> response(new Response());
-                      session->set_timeout(this->config.timeout_connect);
+                      session->connection->set_timeout(this->config.timeout_connect);
                       asio::async_read_until(session->connection->socket->next_layer(), response->content_buffer, "\r\n\r\n", [this, session, response](const error_code &ec, size_t /*bytes_transferred*/) {
-                        session->cancel_timeout();
-                        auto lock = session->cancel_handlers_mutex->shared_lock();
-                        if(*session->cancel_handlers)
+                        session->connection->cancel_timeout();
+                        auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
+                        if(cancel_pair.first)
                           return;
                         if(!ec) {
                           response->parse_header();
@@ -124,11 +124,11 @@ namespace SimpleWeb {
     }
 
     void handshake(const std::shared_ptr<Session> &session) {
-      session->set_timeout(this->config.timeout_connect);
+      session->connection->set_timeout(this->config.timeout_connect);
       session->connection->socket->async_handshake(asio::ssl::stream_base::client, [this, session](const error_code &ec) {
-        session->cancel_timeout();
-        auto lock = session->cancel_handlers_mutex->shared_lock();
-        if(*session->cancel_handlers)
+        session->connection->cancel_timeout();
+        auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
+        if(cancel_pair.first)
           return;
         if(!ec)
           this->write(session);
