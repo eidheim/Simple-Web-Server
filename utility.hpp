@@ -2,9 +2,8 @@
 #define SIMPLE_WEB_SERVER_UTILITY_HPP
 
 #include "status_code.hpp"
-#include <condition_variable>
 #include <iostream>
-#include <mutex>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -195,6 +194,8 @@ namespace SimpleWeb {
   };
 } // namespace SimpleWeb
 #else
+#include <condition_variable>
+#include <mutex>
 namespace SimpleWeb {
   /// Read-preferring R/W lock.
   /// Based on https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock#Using_a_condition_variable_and_a_mutex pseudocode.
