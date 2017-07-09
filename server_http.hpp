@@ -86,15 +86,15 @@ namespace SimpleWeb {
 
       /// Use this function if you need to recursively send parts of a longer message
       void send(const std::function<void(const error_code &)> &callback = nullptr) {
-        auto lock = session->cancel_handlers_mutex->shared_lock();
-        if(*session->cancel_handlers)
+        auto cancel = session->cancel_handlers_and_lock();
+        if(cancel.first)
           return;
         session->set_timeout(timeout_content);
         auto session = this->session;
         asio::async_write(*session->connection->socket, streambuf, [session, callback](const error_code &ec, size_t /*bytes_transferred*/) {
           session->cancel_timeout();
-          auto lock = session->cancel_handlers_mutex->shared_lock();
-          if(*session->cancel_handlers)
+          auto cancel = session->cancel_handlers_and_lock();
+          if(cancel.first)
             return;
           if(callback)
             callback(ec);
@@ -289,10 +289,17 @@ namespace SimpleWeb {
 
       std::shared_ptr<bool> cancel_handlers;
       std::shared_ptr<SharedMutex> cancel_handlers_mutex;
+
       std::shared_ptr<Connection> connection;
       std::shared_ptr<Request> request;
-
       std::unique_ptr<asio::deadline_timer> timer;
+
+      std::pair<bool, std::unique_ptr<SharedMutex::SharedLock>> cancel_handlers_and_lock() {
+        if(!cancel_handlers)
+          return {false, nullptr};
+        auto lock = cancel_handlers_mutex->shared_lock();
+        return {*cancel_handlers, std::move(lock)};
+      }
 
       void set_timeout(long seconds) {
         if(seconds == 0) {
@@ -369,6 +376,7 @@ namespace SimpleWeb {
       if(!io_service) {
         io_service = std::make_shared<asio::io_service>();
         internal_io_service = true;
+        cancel_handlers = nullptr;
       }
 
       if(io_service->stopped())
@@ -426,8 +434,10 @@ namespace SimpleWeb {
 
     virtual ~ServerBase() {
       {
-        auto lock = cancel_handlers_mutex->unique_lock();
-        *cancel_handlers = true;
+        if(!internal_io_service) {
+          auto lock = cancel_handlers_mutex->unique_lock();
+          *cancel_handlers = true;
+        }
       }
       stop();
     }
@@ -473,8 +483,8 @@ namespace SimpleWeb {
       session->set_timeout(config.timeout_request);
       asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) {
         session->cancel_timeout();
-        auto lock = session->cancel_handlers_mutex->shared_lock();
-        if(*session->cancel_handlers)
+        auto cancel = session->cancel_handlers_and_lock();
+        if(cancel.first)
           return;
         if(!ec) {
           //request->streambuf.size() is not necessarily the same as bytes_transferred, from Boost-docs:
@@ -502,8 +512,8 @@ namespace SimpleWeb {
               session->set_timeout(config.timeout_content);
               asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, size_t /*bytes_transferred*/) {
                 session->cancel_timeout();
-                auto lock = session->cancel_handlers_mutex->shared_lock();
-                if(*session->cancel_handlers)
+                auto cancel = session->cancel_handlers_and_lock();
+                if(cancel.first)
                   return;
                 if(!ec)
                   this->find_resource(session);
@@ -605,8 +615,8 @@ namespace SimpleWeb {
       auto session = std::make_shared<Session>(cancel_handlers, cancel_handlers_mutex, create_connection(*io_service));
 
       acceptor->async_accept(*session->connection->socket, [this, session](const error_code &ec) {
-        auto lock = session->cancel_handlers_mutex->shared_lock();
-        if(*session->cancel_handlers)
+        auto cancel = session->cancel_handlers_and_lock();
+        if(cancel.first)
           return;
 
         //Immediately start accepting a new connection (unless io_service has been stopped)

@@ -138,15 +138,14 @@ namespace SimpleWeb {
               std::shared_ptr<Connection> connection, std::unique_ptr<asio::streambuf> request_buffer)
           : cancel_handlers(std::move(cancel_handlers)), cancel_handlers_mutex(std::move(cancel_handlers_mutex)), timeout(timeout),
             connection(std::move(connection)), request_buffer(std::move(request_buffer)), response(new Response()) {}
-      ClientBase<socket_type> *client;
       std::shared_ptr<bool> cancel_handlers;
       std::shared_ptr<SharedMutex> cancel_handlers_mutex;
       long timeout;
+
       std::shared_ptr<Connection> connection;
       std::unique_ptr<asio::streambuf> request_buffer;
       std::shared_ptr<Response> response;
       std::function<void(const error_code &)> callback;
-
       std::unique_ptr<asio::deadline_timer> timer;
 
       void set_timeout(long seconds = 0) {
