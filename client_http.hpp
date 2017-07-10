@@ -134,7 +134,7 @@ namespace SimpleWeb {
 
       void close() {
         error_code ec;
-        std::unique_lock<std::mutex> lock(socket_close_mutex); // the following operations seems to be needed to run sequentially
+        std::unique_lock<std::mutex> lock(socket_close_mutex); // The following operations seems to be needed to run sequentially
         socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
         socket->lowest_layer().close(ec);
       }
@@ -586,7 +586,7 @@ namespace SimpleWeb {
               tmp_stream.write(&buffer[0], length);
             }
 
-            //Remove "\r\n"
+            // Remove "\r\n"
             session->response->content.get();
             session->response->content.get();
 

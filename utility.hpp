@@ -45,7 +45,7 @@ namespace SimpleWeb {
       static auto hex_chars = "0123456789ABCDEF";
 
       std::string result;
-      result.reserve(value.size()); // minimum size of result
+      result.reserve(value.size()); // Minimum size of result
 
       for(auto &chr : value) {
         if(chr == ' ')
@@ -62,7 +62,7 @@ namespace SimpleWeb {
     /// Returns percent-decoded string
     static std::string decode(const std::string &value) {
       std::string result;
-      result.reserve(value.size() / 3 + (value.size() % 3)); // minimum size of result
+      result.reserve(value.size() / 3 + (value.size() % 3)); // Minimum size of result
 
       for(size_t i = 0; i < value.size(); ++i) {
         auto &chr = value[i];
@@ -137,7 +137,6 @@ namespace SimpleWeb {
   };
 }
 
-//TODO: see if there is an MSYS2 definition in an MSYS2 environment
 #ifdef PTHREAD_RWLOCK_INITIALIZER
 namespace SimpleWeb {
   /// Read-preferring R/W lock.

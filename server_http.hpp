@@ -271,7 +271,7 @@ namespace SimpleWeb {
 
       void close() {
         error_code ec;
-        std::unique_lock<std::mutex> lock(socket_close_mutex); // the following operations seems to be needed to run sequentially
+        std::unique_lock<std::mutex> lock(socket_close_mutex); // The following operations seems to be needed to run sequentially
         socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
         socket->lowest_layer().close(ec);
       }
@@ -342,7 +342,7 @@ namespace SimpleWeb {
       /// Set to false to avoid binding the socket to an address that is already in use. Defaults to true.
       bool reuse_address = true;
     };
-    ///Set before calling start().
+    /// Set before calling start().
     Config config;
 
   private:
@@ -397,7 +397,7 @@ namespace SimpleWeb {
       accept();
 
       if(internal_io_service) {
-        //If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
+        // If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
         threads.clear();
         for(size_t c = 1; c < config.thread_pool_size; c++) {
           threads.emplace_back([this]() {
@@ -405,11 +405,11 @@ namespace SimpleWeb {
           });
         }
 
-        //Main thread
+        // Main thread
         if(config.thread_pool_size > 0)
           io_service->run();
 
-        //Wait for the rest of the threads, if any, to finish as well
+        // Wait for the rest of the threads, if any, to finish as well
         for(auto &t : threads)
           t.join();
       }
@@ -486,16 +486,16 @@ namespace SimpleWeb {
         if(cancel_pair.first)
           return;
         if(!ec) {
-          //request->streambuf.size() is not necessarily the same as bytes_transferred, from Boost-docs:
-          //"After a successful async_read_until operation, the streambuf may contain additional data beyond the delimiter"
-          //The chosen solution is to extract lines from the stream directly when parsing the header. What is left of the
-          //streambuf (maybe some bytes of the content) is appended to in the async_read-function below (for retrieving content).
+          // request->streambuf.size() is not necessarily the same as bytes_transferred, from Boost-docs:
+          // "After a successful async_read_until operation, the streambuf may contain additional data beyond the delimiter"
+          // The chosen solution is to extract lines from the stream directly when parsing the header. What is left of the
+          // streambuf (maybe some bytes of the content) is appended to in the async_read-function below (for retrieving content).
           size_t num_additional_bytes = session->request->streambuf.size() - bytes_transferred;
 
           if(!session->request->parse())
             return;
 
-          //If content, read that as well
+          // If content, read that as well
           auto it = session->request->header.find("Content-Length");
           if(it != session->request->header.end()) {
             unsigned long long content_length;
@@ -532,7 +532,7 @@ namespace SimpleWeb {
     }
 
     void find_resource(const std::shared_ptr<Session> &session) {
-      //Upgrade connection
+      // Upgrade connection
       if(on_upgrade) {
         auto it = session->request->header.find("Upgrade");
         if(it != session->request->header.end()) {
@@ -540,7 +540,7 @@ namespace SimpleWeb {
           return;
         }
       }
-      //Find path- and method-match, and call write_response
+      // Find path- and method-match, and call write_response
       for(auto &regex_method : resource) {
         auto it = regex_method.second.find(session->request->method);
         if(it != regex_method.second.end()) {
@@ -618,7 +618,7 @@ namespace SimpleWeb {
         if(cancel_pair.first)
           return;
 
-        //Immediately start accepting a new connection (unless io_service has been stopped)
+        // Immediately start accepting a new connection (unless io_service has been stopped)
         if(ec != asio::error::operation_aborted)
           this->accept();
 

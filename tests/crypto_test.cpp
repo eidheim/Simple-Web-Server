@@ -63,7 +63,7 @@ int main() {
     assert(Crypto::to_hex_string(Crypto::sha512(ss)) == string_test.second);
   }
 
-  //Testing iterations
+  // Testing iterations
   assert(Crypto::to_hex_string(Crypto::sha1("Test", 1)) == "640ab2bae07bedc4c163f679a746f7ab7fb5d1fa");
   assert(Crypto::to_hex_string(Crypto::sha1("Test", 2)) == "af31c6cbdecd88726d0a9b3798c71ef41f1624d5");
   stringstream ss("Test");

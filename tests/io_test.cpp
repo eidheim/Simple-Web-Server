@@ -14,6 +14,7 @@ typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
 int main() {
   {
+    // Test SharedMutex
     SimpleWeb::SharedMutex mutex;
     int count = 0;
     {
@@ -109,7 +110,7 @@ int main() {
   };
 
   thread server_thread([&server]() {
-    //Start server
+    // Start server
     server.start();
   });
 
@@ -119,15 +120,15 @@ int main() {
   server_thread.join();
 
   server_thread = thread([&server]() {
-    //Start server
+    // Start server
     server.start();
   });
 
   this_thread::sleep_for(chrono::seconds(1));
 
+  // Test various request types
   {
     HttpClient client("localhost:8080");
-
     {
       stringstream output;
       auto r = client.request("POST", "/string", "A string");
@@ -235,6 +236,7 @@ int main() {
     }
   }
 
+  // Test asynchronous requests
   {
     HttpClient client("localhost:8080");
     bool call = false;
@@ -273,7 +275,7 @@ int main() {
     }
   }
 
-  /// Test concurrent synchronous request calls
+  // Test concurrent synchronous request calls
   {
     HttpClient client("localhost:8080");
     {
@@ -300,6 +302,7 @@ int main() {
     }
   }
 
+  // Test multiple requests through a persistent connection
   {
     HttpClient client("localhost:8080");
     assert(client.connections.size() == 0);
@@ -317,6 +320,7 @@ int main() {
     }
   }
 
+  // Test multiple requests through new several client objects
   for(size_t c = 0; c < 100; ++c) {
     {
       HttpClient client("localhost:8080");
