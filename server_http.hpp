@@ -419,15 +419,16 @@ namespace SimpleWeb {
     void stop() {
       if(acceptor) {
         acceptor->close();
-        if(internal_io_service)
-          io_service->stop();
 
-        std::unique_lock<std::mutex> lock(*connections_mutex);
-        if(!internal_io_service) {
+        {
+          std::unique_lock<std::mutex> lock(*connections_mutex);
           for(auto &connection : *connections)
             connection->close();
+          connections->clear();
         }
-        connections->clear();
+
+        if(internal_io_service)
+          io_service->stop();
       }
     }
 

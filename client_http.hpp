@@ -360,10 +360,8 @@ namespace SimpleWeb {
     void stop() {
       std::unique_lock<std::mutex> lock(connections_mutex);
       for(auto it = connections.begin(); it != connections.end();) {
-        if(!internal_io_service) {
-          (*it)->attempt_reconnect = false;
-          (*it)->close();
-        }
+        (*it)->attempt_reconnect = false;
+        (*it)->close();
         it = connections.erase(it);
       }
     }
