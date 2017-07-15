@@ -500,7 +500,7 @@ namespace SimpleWeb {
           // If content, read that as well
           auto it = session->request->header.find("Content-Length");
           if(it != session->request->header.end()) {
-            unsigned long long content_length;
+            unsigned long long content_length = 0;
             try {
               content_length = stoull(it->second);
             }
