@@ -86,27 +86,27 @@ namespace SimpleWeb {
                         if(!ec) {
                           response->parse_header();
                           if(response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0)
-                            this->close(session, make_error_code::make_error_code(errc::permission_denied));
+                            session->callback(session->connection, make_error_code::make_error_code(errc::permission_denied));
                           else
                             this->handshake(session);
                         }
                         else
-                          this->close(session, ec);
+                          session->callback(session->connection, ec);
                       });
                     }
                     else
-                      this->close(session, ec);
+                      session->callback(session->connection, ec);
                   });
                 }
                 else
                   this->handshake(session);
               }
               else
-                this->close(session, ec);
+                session->callback(session->connection, ec);
             });
           }
           else
-            this->close(session, ec);
+            session->callback(session->connection, ec);
         });
       }
       else
@@ -123,7 +123,7 @@ namespace SimpleWeb {
         if(!ec)
           this->write(session);
         else
-          this->close(session, ec);
+          session->callback(session->connection, ec);
       });
     }
   };

@@ -126,18 +126,10 @@ namespace SimpleWeb {
       long timeout;
 
       std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
-      std::mutex socket_close_mutex;
       bool in_use = false;
       bool attempt_reconnect = true;
 
       std::unique_ptr<asio::deadline_timer> timer;
-
-      void close() {
-        error_code ec;
-        std::unique_lock<std::mutex> lock(socket_close_mutex); // The following operations seems to be needed to run sequentially
-        socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
-        socket->lowest_layer().close(ec);
-      }
 
       void set_timeout(long seconds = 0) {
         if(seconds == 0)
@@ -150,8 +142,10 @@ namespace SimpleWeb {
         timer->expires_from_now(boost::posix_time::seconds(seconds));
         auto self = this->shared_from_this();
         timer->async_wait([self](const error_code &ec) {
-          if(!ec)
-            self->close();
+          if(!ec) {
+            error_code ec;
+            self->socket->lowest_layer().cancel(ec);
+          }
         });
       }
 
@@ -176,7 +170,7 @@ namespace SimpleWeb {
       std::shared_ptr<Connection> connection;
       std::unique_ptr<asio::streambuf> request_buffer;
       std::shared_ptr<Response> response;
-      std::function<void(const error_code &)> callback;
+      std::function<void(const std::shared_ptr<Connection> &, const error_code &)> callback;
     };
 
   public:
@@ -252,10 +246,9 @@ namespace SimpleWeb {
     void request(const std::string &method, const std::string &path, string_view content, const CaseInsensitiveMultimap &header,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       auto session = std::make_shared<Session>(get_connection(), create_request_header(method, path, header));
-      auto connection = session->connection;
       auto response = session->response;
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
-      session->callback = [this, connection, response, request_callback](const error_code &ec) {
+      session->callback = [this, response, request_callback](const std::shared_ptr<Connection> &connection, const error_code &ec) {
         {
           std::unique_lock<std::mutex> lock(this->connections_mutex);
           connection->in_use = false;
@@ -263,7 +256,9 @@ namespace SimpleWeb {
           // Remove unused connections, but keep one open for HTTP persistent connection:
           size_t unused_connections = 0;
           for(auto it = this->connections.begin(); it != this->connections.end();) {
-            if((*it)->in_use)
+            if(ec && connection == *it)
+              it = this->connections.erase(it);
+            else if((*it)->in_use)
               ++it;
             else {
               ++unused_connections;
@@ -310,10 +305,9 @@ namespace SimpleWeb {
     void request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header,
                  std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       auto session = std::make_shared<Session>(get_connection(), create_request_header(method, path, header));
-      auto connection = session->connection;
       auto response = session->response;
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
-      session->callback = [this, connection, response, request_callback](const error_code &ec) {
+      session->callback = [this, response, request_callback](const std::shared_ptr<Connection> &connection, const error_code &ec) {
         {
           std::unique_lock<std::mutex> lock(this->connections_mutex);
           connection->in_use = false;
@@ -321,7 +315,9 @@ namespace SimpleWeb {
           // Remove unused connections, but keep one open for HTTP persistent connection:
           size_t unused_connections = 0;
           for(auto it = this->connections.begin(); it != this->connections.end();) {
-            if((*it)->in_use)
+            if(ec && connection == *it)
+              it = this->connections.erase(it);
+            else if((*it)->in_use)
               ++it;
             else {
               ++unused_connections;
@@ -360,8 +356,8 @@ namespace SimpleWeb {
     void stop() {
       std::unique_lock<std::mutex> lock(connections_mutex);
       for(auto it = connections.begin(); it != connections.end();) {
-        (*it)->attempt_reconnect = false;
-        (*it)->close();
+        error_code ec;
+        (*it)->socket->lowest_layer().cancel(ec);
         it = connections.erase(it);
       }
     }
@@ -478,7 +474,7 @@ namespace SimpleWeb {
         if(!ec)
           this->read(session);
         else
-          this->close(session, ec);
+          session->callback(session->connection, ec);
       });
     }
 
@@ -507,13 +503,13 @@ namespace SimpleWeb {
                 if(cancel_pair.first)
                   return;
                 if(!ec)
-                  session->callback(ec);
+                  session->callback(session->connection, ec);
                 else
-                  this->close(session, ec);
+                  session->callback(session->connection, ec);
               });
             }
             else
-              session->callback(ec);
+              session->callback(session->connection, ec);
           }
           else if((header_it = session->response->header.find("Transfer-Encoding")) != session->response->header.end() && header_it->second == "chunked") {
             auto tmp_streambuf = std::make_shared<asio::streambuf>();
@@ -527,21 +523,20 @@ namespace SimpleWeb {
               if(cancel_pair.first)
                 return;
               if(!ec)
-                session->callback(ec);
+                session->callback(session->connection, ec);
               else
-                close(session, ec == asio::error::eof ? error_code() : ec);
+                session->callback(session->connection, ec == asio::error::eof ? error_code() : ec);
             });
           }
           else
-            session->callback(ec);
+            session->callback(session->connection, ec);
         }
         else {
-          if(session->connection->attempt_reconnect) {
+          if(session->connection->attempt_reconnect && ec != asio::error::operation_aborted) {
             std::unique_lock<std::mutex> lock(connections_mutex);
             auto it = connections.find(session->connection);
             if(it != connections.end()) {
               connections.erase(it);
-              session->connection->close();
               session->connection = create_connection();
               session->connection->attempt_reconnect = false;
               session->connection->in_use = true;
@@ -549,10 +544,10 @@ namespace SimpleWeb {
               this->connect(session);
             }
             else
-              this->close(session, ec);
+              session->callback(session->connection, ec);
           }
           else
-            this->close(session, ec);
+            session->callback(session->connection, ec);
         }
       });
     }
@@ -591,7 +586,7 @@ namespace SimpleWeb {
               std::ostream response_stream(&session->response->content_buffer);
               response_stream << tmp_stream.rdbuf();
               error_code ec;
-              session->callback(ec);
+              session->callback(session->connection, ec);
             }
           };
 
@@ -605,24 +600,15 @@ namespace SimpleWeb {
               if(!ec)
                 post_process();
               else
-                this->close(session, ec);
+                session->callback(session->connection, ec);
             });
           }
           else
             post_process();
         }
         else
-          this->close(session, ec);
+          session->callback(session->connection, ec);
       });
-    }
-
-    void close(const std::shared_ptr<Session> &session, const error_code &ec) {
-      session->connection->close();
-      {
-        std::lock_guard<std::mutex> lock(connections_mutex);
-        connections.erase(session->connection);
-      }
-      session->callback(ec);
     }
   };
 
@@ -664,11 +650,11 @@ namespace SimpleWeb {
                 this->write(session);
               }
               else
-                this->close(session, ec);
+                session->callback(session->connection, ec);
             });
           }
           else
-            this->close(session, ec);
+            session->callback(session->connection, ec);
         });
       }
       else
