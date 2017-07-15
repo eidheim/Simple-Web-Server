@@ -418,7 +418,8 @@ namespace SimpleWeb {
     /// Stop accepting new requests, and close current connections.
     void stop() {
       if(acceptor) {
-        acceptor->close();
+        error_code ec;
+        acceptor->close(ec);
 
         {
           std::unique_lock<std::mutex> lock(*connections_mutex);
