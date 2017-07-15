@@ -85,38 +85,28 @@ namespace SimpleWeb {
                           return;
                         if(!ec) {
                           response->parse_header();
-                          if(response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0) {
-                            session->connection->close();
-                            session->callback(make_error_code::make_error_code(errc::permission_denied));
-                          }
+                          if(response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0)
+                            this->close(session, make_error_code::make_error_code(errc::permission_denied));
                           else
                             this->handshake(session);
                         }
-                        else {
-                          session->connection->close();
-                          session->callback(ec);
-                        }
+                        else
+                          this->close(session, ec);
                       });
                     }
-                    else {
-                      session->connection->close();
-                      session->callback(ec);
-                    }
+                    else
+                      this->close(session, ec);
                   });
                 }
                 else
                   this->handshake(session);
               }
-              else {
-                session->connection->close();
-                session->callback(ec);
-              }
+              else
+                this->close(session, ec);
             });
           }
-          else {
-            session->connection->close();
-            session->callback(ec);
-          }
+          else
+            this->close(session, ec);
         });
       }
       else
@@ -132,10 +122,8 @@ namespace SimpleWeb {
           return;
         if(!ec)
           this->write(session);
-        else {
-          session->connection->close();
-          session->callback(ec);
-        }
+        else
+          this->close(session, ec);
       });
     }
   };

@@ -206,7 +206,7 @@ int main() {
       output << r->content.rdbuf();
       assert(output.str() == "A string");
       assert(client.connections.size() == 1);
-      connection = client.connections.front().get();
+      connection = client.connections.begin()->get();
     }
 
     {
@@ -215,7 +215,7 @@ int main() {
       output << r->content.rdbuf();
       assert(output.str() == "A string");
       assert(client.connections.size() == 1);
-      assert(connection == client.connections.front().get());
+      assert(connection == client.connections.begin()->get());
     }
 
     {
@@ -224,7 +224,7 @@ int main() {
       output << r->content.rdbuf();
       assert(output.str() == "testing");
       assert(client.connections.size() == 1);
-      assert(connection == client.connections.front().get());
+      assert(connection == client.connections.begin()->get());
     }
 
     {
@@ -232,7 +232,7 @@ int main() {
       auto r = client.request("GET", "/query_string?testing");
       assert(r->content.string() == "testing");
       assert(client.connections.size() == 1);
-      assert(connection == client.connections.front().get());
+      assert(connection == client.connections.begin()->get());
     }
   }
 

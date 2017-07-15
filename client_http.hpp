@@ -2,9 +2,9 @@
 #define CLIENT_HTTP_HPP
 
 #include "utility.hpp"
-#include <condition_variable>
 #include <mutex>
 #include <random>
+#include <unordered_set>
 #include <vector>
 
 #ifdef USE_STANDALONE_ASIO
@@ -384,7 +384,7 @@ namespace SimpleWeb {
 
     std::unique_ptr<asio::ip::tcp::resolver::query> query;
 
-    std::vector<std::shared_ptr<Connection>> connections;
+    std::unordered_set<std::shared_ptr<Connection>> connections;
     std::mutex connections_mutex;
 
     std::shared_ptr<bool> cancel_handlers;
@@ -418,7 +418,7 @@ namespace SimpleWeb {
       }
       if(!connection) {
         connection = create_connection();
-        connections.emplace_back(connection);
+        connections.emplace(connection);
       }
       connection->attempt_reconnect = true;
       connection->in_use = true;
@@ -477,10 +477,8 @@ namespace SimpleWeb {
           return;
         if(!ec)
           this->read(session);
-        else {
-          session->connection->close();
-          session->callback(ec);
-        }
+        else
+          this->close(session, ec);
       });
     }
 
@@ -510,10 +508,8 @@ namespace SimpleWeb {
                   return;
                 if(!ec)
                   session->callback(ec);
-                else {
-                  session->connection->close();
-                  session->callback(ec);
-                }
+                else
+                  this->close(session, ec);
               });
             }
             else
@@ -532,15 +528,8 @@ namespace SimpleWeb {
                 return;
               if(!ec)
                 session->callback(ec);
-              else {
-                session->connection->close();
-                if(ec == asio::error::eof) {
-                  error_code ec;
-                  session->callback(ec);
-                }
-                else
-                  session->callback(ec);
-              }
+              else
+                close(session, ec == asio::error::eof ? error_code() : ec);
             });
           }
           else
@@ -548,14 +537,22 @@ namespace SimpleWeb {
         }
         else {
           if(session->connection->attempt_reconnect) {
-            session->connection->attempt_reconnect = false;
-            session->connection->close();
-            this->connect(session);
+            std::unique_lock<std::mutex> lock(connections_mutex);
+            auto it = connections.find(session->connection);
+            if(it != connections.end()) {
+              connections.erase(it);
+              session->connection->close();
+              session->connection = create_connection();
+              session->connection->attempt_reconnect = false;
+              session->connection->in_use = true;
+              connections.emplace(session->connection);
+              this->connect(session);
+            }
+            else
+              this->close(session, ec);
           }
-          else {
-            session->connection->close();
-            session->callback(ec);
-          }
+          else
+            this->close(session, ec);
         }
       });
     }
@@ -607,20 +604,25 @@ namespace SimpleWeb {
                 return;
               if(!ec)
                 post_process();
-              else {
-                session->connection->close();
-                session->callback(ec);
-              }
+              else
+                this->close(session, ec);
             });
           }
           else
             post_process();
         }
-        else {
-          session->connection->close();
-          session->callback(ec);
-        }
+        else
+          this->close(session, ec);
       });
+    }
+
+    void close(const std::shared_ptr<Session> &session, const error_code &ec) {
+      session->connection->close();
+      {
+        std::lock_guard<std::mutex> lock(connections_mutex);
+        connections.erase(session->connection);
+      }
+      session->callback(ec);
     }
   };
 
@@ -661,16 +663,12 @@ namespace SimpleWeb {
                 session->connection->socket->set_option(option, ec);
                 this->write(session);
               }
-              else {
-                session->connection->close();
-                session->callback(ec);
-              }
+              else
+                this->close(session, ec);
             });
           }
-          else {
-            session->connection->close();
-            session->callback(ec);
-          }
+          else
+            this->close(session, ec);
         });
       }
       else
