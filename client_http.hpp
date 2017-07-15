@@ -541,10 +541,13 @@ namespace SimpleWeb {
               session->connection->attempt_reconnect = false;
               session->connection->in_use = true;
               connections.emplace(session->connection);
+              lock.unlock();
               this->connect(session);
             }
-            else
+            else {
+              lock.unlock();
               session->callback(session->connection, ec);
+            }
           }
           else
             session->callback(session->connection, ec);
