@@ -538,6 +538,14 @@ namespace SimpleWeb {
       if(on_upgrade) {
         auto it = session->request->header.find("Upgrade");
         if(it != session->request->header.end()) {
+          // remove connection from connections
+          {
+            std::unique_lock<std::mutex> lock(*connections_mutex);
+            auto it = connections->find(session->connection.get());
+            if(it != connections->end())
+              connections->erase(it);
+          }
+
           on_upgrade(session->connection->socket, session->request);
           return;
         }
