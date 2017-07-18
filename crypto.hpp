@@ -8,16 +8,15 @@
 #include <string>
 #include <vector>
 
-//Moving these to a seperate namespace for minimal global namespace cluttering does not work with clang++
 #include <openssl/buffer.h>
 #include <openssl/evp.h>
 #include <openssl/md5.h>
 #include <openssl/sha.h>
 
 namespace SimpleWeb {
-//TODO 2017: remove workaround for MSVS 2012
-#if _MSC_VER == 1700              //MSVS 2012 has no definition for round()
-  inline double round(double x) { //custom definition of round() for positive numbers
+// TODO 2017: remove workaround for MSVS 2012
+#if _MSC_VER == 1700 // MSVS 2012 has no definition for round()
+  inline double round(double x) { // Custom definition of round() for positive numbers
     return floor(x + 0.5);
   }
 #endif
@@ -40,7 +39,7 @@ namespace SimpleWeb {
         BIO_push(b64, bio);
         BIO_set_mem_buf(b64, bptr, BIO_CLOSE);
 
-        //Write directly to base64-buffer to avoid copy
+        // Write directly to base64-buffer to avoid copy
         int base64_length = static_cast<int>(round(4 * ceil(static_cast<double>(ascii.size()) / 3.0)));
         base64.resize(base64_length);
         bptr->length = 0;
@@ -50,7 +49,7 @@ namespace SimpleWeb {
         if(BIO_write(b64, &ascii[0], static_cast<int>(ascii.size())) <= 0 || BIO_flush(b64) <= 0)
           base64.clear();
 
-        //To keep &base64[0] through BIO_free_all(b64)
+        // To keep &base64[0] through BIO_free_all(b64)
         bptr->length = 0;
         bptr->max = 0;
         bptr->data = nullptr;
@@ -63,7 +62,7 @@ namespace SimpleWeb {
       static std::string decode(const std::string &base64) {
         std::string ascii;
 
-        //Resize ascii, however, the size is a up to two bytes too large.
+        // Resize ascii, however, the size is a up to two bytes too large.
         ascii.resize((6 * base64.size()) / 8);
         BIO *b64, *bio;
 
