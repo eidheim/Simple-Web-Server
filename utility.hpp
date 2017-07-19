@@ -2,6 +2,7 @@
 #define SIMPLE_WEB_UTILITY_HPP
 
 #include "status_code.hpp"
+#include <atomic>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -234,130 +235,65 @@ namespace SimpleWeb {
   };
 } // namespace SimpleWeb
 
-#ifdef PTHREAD_RWLOCK_INITIALIZER
+#ifdef __SSE2__
+#include <emmintrin.h>
 namespace SimpleWeb {
-  /// Read-preferring R/W lock.
-  /// Uses pthread_rwlock.
-  class SharedMutex {
-    pthread_rwlock_t rwlock;
-
-  public:
-    class SharedLock {
-      friend class SharedMutex;
-      pthread_rwlock_t &rwlock;
-
-      SharedLock(pthread_rwlock_t &rwlock) : rwlock(rwlock) {
-        pthread_rwlock_rdlock(&rwlock);
-      }
-
-    public:
-      ~SharedLock() {
-        pthread_rwlock_unlock(&rwlock);
-      }
-    };
-
-    class UniqueLock {
-      friend class SharedMutex;
-      pthread_rwlock_t &rwlock;
-
-      UniqueLock(pthread_rwlock_t &rwlock) : rwlock(rwlock) {
-        pthread_rwlock_wrlock(&rwlock);
-      }
-
-    public:
-      ~UniqueLock() {
-        pthread_rwlock_unlock(&rwlock);
-      }
-    };
-
-  public:
-    SharedMutex() {
-
-      pthread_rwlock_init(&rwlock, nullptr);
-    }
-
-    ~SharedMutex() {
-      pthread_rwlock_destroy(&rwlock);
-    }
-
-    std::unique_ptr<SharedLock> shared_lock() {
-      return std::unique_ptr<SharedLock>(new SharedLock(rwlock));
-    }
-
-    std::unique_ptr<UniqueLock> unique_lock() {
-      return std::unique_ptr<UniqueLock>(new UniqueLock(rwlock));
-    }
-  };
+  inline void spin_loop_pause() { _mm_pause(); }
+} // namespace SimpleWeb
+// TODO: need verification that the following checks are correct:
+#elif defined(_MSC_VER) && _MSC_VER >= 1800 && (defined(_M_X64) || defined(_M_IX86))
+#include <intrin.h>
+namespace SimpleWeb {
+  inline void spin_loop_pause() { _mm_pause(); }
 } // namespace SimpleWeb
 #else
-#include <condition_variable>
-#include <mutex>
 namespace SimpleWeb {
-  /// Read-preferring R/W lock.
-  /// Based on https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock#Using_a_condition_variable_and_a_mutex pseudocode.
-  /// TODO: Someone that uses Windows should implement Windows specific R/W locks here.
-  class SharedMutex {
-    std::mutex m;
-    std::condition_variable c;
-    int r = 0;
-    bool w = false;
+  inline void spin_loop_pause() {}
+} // namespace SimpleWeb
+#endif
+
+namespace SimpleWeb {
+  /// Makes it possible to for instance cancel Asio handlers without stopping asio::io_service
+  class ContinueScopes {
+    /// Scope count that is set to -1 if scopes are to be canceled
+    std::atomic<long> count;
 
   public:
     class SharedLock {
-      friend class SharedMutex;
-      std::condition_variable &c;
-      int &r;
-      std::unique_lock<std::mutex> lock;
-
-      SharedLock(std::mutex &m, std::condition_variable &c, int &r, bool &w) : c(c), r(r), lock(m) {
-        while(w)
-          c.wait(lock);
-        ++r;
-        lock.unlock();
-      }
+      std::atomic<long> &count;
+      SharedLock &operator=(const SharedLock &) = delete;
+      SharedLock(const SharedLock &) = delete;
 
     public:
+      SharedLock(std::atomic<long> &count) : count(count) {}
       ~SharedLock() {
-        lock.lock();
-        --r;
-        if(r == 0)
-          c.notify_all();
-        lock.unlock();
+        count.fetch_sub(1);
       }
     };
 
-    class UniqueLock {
-      friend class SharedMutex;
-      std::condition_variable &c;
-      bool &w;
-      std::unique_lock<std::mutex> lock;
+    ContinueScopes() : count(0) {}
 
-      UniqueLock(std::mutex &m, std::condition_variable &c, int &r, bool &w) : c(c), w(w), lock(m) {
-        while(w || r > 0)
-          c.wait(lock);
-        w = true;
-        lock.unlock();
-      }
-
-    public:
-      ~UniqueLock() {
-        lock.lock();
-        w = false;
-        c.notify_all();
-        lock.unlock();
-      }
-    };
-
-  public:
+    /// Returns nullptr if scope is to be cancelled, or a shared lock otherwise
     std::unique_ptr<SharedLock> shared_lock() {
-      return std::unique_ptr<SharedLock>(new SharedLock(m, c, r, w));
+      long expected = count;
+      while(expected >= 0 && !count.compare_exchange_weak(expected, expected + 1))
+        spin_loop_pause();
+
+      if(expected < 0)
+        return nullptr;
+      else
+        return std::unique_ptr<SharedLock>(new SharedLock(count));
     }
 
-    std::unique_ptr<UniqueLock> unique_lock() {
-      return std::unique_ptr<UniqueLock>(new UniqueLock(m, c, r, w));
+    //// Blocks until all shared locks are released, then prevents future shared locks
+    void stop() {
+      long expected = 0;
+      while(!count.compare_exchange_weak(expected, -1)) {
+        expected = 0;
+        spin_loop_pause();
+      }
     }
   };
 } // namespace SimpleWeb
-#endif
 
 #endif // SIMPLE_WEB_UTILITY_HPP

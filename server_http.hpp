@@ -90,8 +90,8 @@ namespace SimpleWeb {
         auto self = this->shared_from_this(); // Keep Response instance alive through the following async_write
         asio::async_write(*session->connection->socket, streambuf, [self, callback](const error_code &ec, size_t /*bytes_transferred*/) {
           self->session->connection->cancel_timeout();
-          auto cancel_pair = self->session->connection->cancel_handlers_bool_and_lock();
-          if(cancel_pair.first)
+          auto lock = self->session->connection->continue_handlers->shared_lock();
+          if(!lock)
             return;
           if(callback)
             callback(ec);
@@ -202,11 +202,9 @@ namespace SimpleWeb {
     class Connection : public std::enable_shared_from_this<Connection> {
     public:
       template <typename... Args>
-      Connection(std::shared_ptr<bool> cancel_handlers, std::shared_ptr<SharedMutex> cancel_handlers_mutex, Args &&... args)
-          : cancel_handlers(std::move(cancel_handlers)), cancel_handlers_mutex(std::move(cancel_handlers_mutex)), socket(new socket_type(std::forward<Args>(args)...)) {}
+      Connection(std::shared_ptr<ContinueScopes> continue_handlers, Args &&... args) : continue_handlers(std::move(continue_handlers)), socket(new socket_type(std::forward<Args>(args)...)) {}
 
-      std::shared_ptr<bool> cancel_handlers;
-      std::shared_ptr<SharedMutex> cancel_handlers_mutex;
+      std::shared_ptr<ContinueScopes> continue_handlers;
 
       std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
       std::mutex socket_close_mutex;
@@ -238,13 +236,6 @@ namespace SimpleWeb {
       void cancel_timeout() {
         if(timer)
           timer->cancel();
-      }
-
-      std::pair<bool, std::unique_ptr<SharedMutex::SharedLock>> cancel_handlers_bool_and_lock() {
-        if(!cancel_handlers)
-          return {false, nullptr};
-        auto lock = cancel_handlers_mutex->shared_lock();
-        return {*cancel_handlers, std::move(lock)};
       }
     };
 
@@ -318,8 +309,6 @@ namespace SimpleWeb {
       if(!io_service) {
         io_service = std::make_shared<asio::io_service>();
         internal_io_service = true;
-        cancel_handlers = nullptr;
-        cancel_handlers_mutex = nullptr;
       }
 
       if(io_service->stopped())
@@ -378,12 +367,7 @@ namespace SimpleWeb {
     }
 
     virtual ~ServerBase() {
-      {
-        if(!internal_io_service) {
-          auto lock = cancel_handlers_mutex->unique_lock();
-          *cancel_handlers = true;
-        }
-      }
+      continue_handlers->stop();
       stop();
     }
 
@@ -396,11 +380,9 @@ namespace SimpleWeb {
     std::shared_ptr<std::unordered_set<Connection *>> connections;
     std::shared_ptr<std::mutex> connections_mutex;
 
-    std::shared_ptr<bool> cancel_handlers;
-    std::shared_ptr<SharedMutex> cancel_handlers_mutex;
+    std::shared_ptr<ContinueScopes> continue_handlers;
 
-    ServerBase(unsigned short port) : config(port), connections(new std::unordered_set<Connection *>()), connections_mutex(new std::mutex()),
-                                      cancel_handlers(new bool(false)), cancel_handlers_mutex(new SharedMutex()) {}
+    ServerBase(unsigned short port) : config(port), connections(new std::unordered_set<Connection *>()), connections_mutex(new std::mutex()), continue_handlers(new ContinueScopes()) {}
 
     virtual void accept() = 0;
 
@@ -408,7 +390,7 @@ namespace SimpleWeb {
     std::shared_ptr<Connection> create_connection(Args &&... args) {
       auto connections = this->connections;
       auto connections_mutex = this->connections_mutex;
-      auto connection = std::shared_ptr<Connection>(new Connection(cancel_handlers, cancel_handlers_mutex, std::forward<Args>(args)...), [connections, connections_mutex](Connection *connection) {
+      auto connection = std::shared_ptr<Connection>(new Connection(continue_handlers, std::forward<Args>(args)...), [connections, connections_mutex](Connection *connection) {
         {
           std::unique_lock<std::mutex> lock(*connections_mutex);
           auto it = connections->find(connection);
@@ -428,8 +410,8 @@ namespace SimpleWeb {
       session->connection->set_timeout(config.timeout_request);
       asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
-        auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
-        if(cancel_pair.first)
+        auto lock = session->connection->continue_handlers->shared_lock();
+        if(!lock)
           return;
         if(!ec) {
           // request->streambuf.size() is not necessarily the same as bytes_transferred, from Boost-docs:
@@ -461,8 +443,8 @@ namespace SimpleWeb {
               session->connection->set_timeout(config.timeout_content);
               asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, size_t /*bytes_transferred*/) {
                 session->connection->cancel_timeout();
-                auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
-                if(cancel_pair.first)
+                auto lock = session->connection->continue_handlers->shared_lock();
+                if(!lock)
                   return;
                 if(!ec)
                   this->find_resource(session);
@@ -572,8 +554,8 @@ namespace SimpleWeb {
       auto session = std::make_shared<Session>(create_connection(*io_service));
 
       acceptor->async_accept(*session->connection->socket, [this, session](const error_code &ec) {
-        auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
-        if(cancel_pair.first)
+        auto lock = session->connection->continue_handlers->shared_lock();
+        if(!lock)
           return;
 
         // Immediately start accepting a new connection (unless io_service has been stopped)

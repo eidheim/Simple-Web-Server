@@ -13,36 +13,42 @@ typedef SimpleWeb::Server<SimpleWeb::HTTP> HttpServer;
 typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
 int main() {
+  // Test ContinueScopes
   {
-    // Test SharedMutex
-    SimpleWeb::SharedMutex mutex;
-    int count = 0;
+    SimpleWeb::ContinueScopes continue_scopes;
+    std::thread cancel_thread;
     {
-      thread t([&] {
-        auto lock = mutex.shared_lock();
-        {
-          auto lock = mutex.shared_lock();
-          ++count;
-        }
+      assert(continue_scopes.count == 0);
+      auto lock = continue_scopes.shared_lock();
+      assert(continue_scopes.count == 1);
+      {
+        auto lock = continue_scopes.shared_lock();
+        assert(continue_scopes.count == 2);
+      }
+      assert(continue_scopes.count == 1);
+      cancel_thread = thread([&continue_scopes] {
+        continue_scopes.stop();
+        assert(continue_scopes.count == -1);
       });
-      this_thread::sleep_for(chrono::milliseconds(100));
-      t.detach();
-      assert(count == 1);
+      this_thread::sleep_for(chrono::milliseconds(500));
+      assert(continue_scopes.count == 1);
     }
-    thread t;
-    {
-      auto lock = mutex.unique_lock();
-      t = thread([&] {
-        auto lock = mutex.unique_lock();
-        ++count;
-      });
-      this_thread::sleep_for(chrono::milliseconds(100));
-      assert(count == 1);
-    }
-    t.join();
-    assert(count == 2);
-  }
+    cancel_thread.join();
+    assert(continue_scopes.count == -1);
 
+    continue_scopes.count = 0;
+
+    vector<thread> threads;
+    for(size_t c = 0; c < 100; ++c) {
+      threads.emplace_back([&continue_scopes] {
+        auto lock = continue_scopes.shared_lock();
+        assert(continue_scopes.count > 0);
+      });
+    }
+    for(auto &thread : threads)
+      thread.join();
+    assert(continue_scopes.count == 0);
+  }
 
   HttpServer server;
   server.config.port = 8080;

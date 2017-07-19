@@ -51,8 +51,8 @@ namespace SimpleWeb {
       auto session = std::make_shared<Session>(create_connection(*io_service, context));
 
       acceptor->async_accept(session->connection->socket->lowest_layer(), [this, session](const error_code &ec) {
-        auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
-        if(cancel_pair.first)
+        auto lock = session->connection->continue_handlers->shared_lock();
+        if(!lock)
           return;
 
         if(ec != asio::error::operation_aborted)
@@ -66,8 +66,8 @@ namespace SimpleWeb {
           session->connection->set_timeout(config.timeout_request);
           session->connection->socket->async_handshake(asio::ssl::stream_base::server, [this, session](const error_code &ec) {
             session->connection->cancel_timeout();
-            auto cancel_pair = session->connection->cancel_handlers_bool_and_lock();
-            if(cancel_pair.first)
+            auto lock = session->connection->continue_handlers->shared_lock();
+            if(!lock)
               return;
             if(!ec)
               this->read_request_and_content(session);
