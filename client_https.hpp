@@ -84,11 +84,14 @@ namespace SimpleWeb {
                         if(cancel_pair.first)
                           return;
                         if(!ec) {
-                          response->parse_header();
-                          if(response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0)
-                            session->callback(session->connection, make_error_code::make_error_code(errc::permission_denied));
-                          else
-                            this->handshake(session);
+                          if(!ResponseMessage::parse(response->content, response->http_version, response->status_code, response->header))
+                            session->callback(session->connection, make_error_code::make_error_code(errc::protocol_error));
+                          else {
+                            if(response->status_code.empty() || response->status_code.compare(0, 3, "200") != 0)
+                              session->callback(session->connection, make_error_code::make_error_code(errc::permission_denied));
+                            else
+                              this->handshake(session);
+                          }
                         }
                         else
                           session->callback(session->connection, ec);

@@ -70,32 +70,6 @@ namespace SimpleWeb {
       asio::streambuf content_buffer;
 
       Response() : content(content_buffer) {}
-
-      void parse_header() {
-        std::string line;
-        getline(content, line);
-        size_t version_end = line.find(' ');
-        if(version_end != std::string::npos) {
-          if(5 < line.size())
-            http_version = line.substr(5, version_end - 5);
-          if((version_end + 1) < line.size())
-            status_code = line.substr(version_end + 1, line.size() - (version_end + 1) - 1);
-
-          getline(content, line);
-          size_t param_end;
-          while((param_end = line.find(':')) != std::string::npos) {
-            size_t value_start = param_end + 1;
-            if((value_start) < line.size()) {
-              if(line[value_start] == ' ')
-                value_start++;
-              if(value_start < line.size())
-                header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1)));
-            }
-
-            getline(content, line);
-          }
-        }
-      }
     };
 
     class Config {
@@ -490,7 +464,10 @@ namespace SimpleWeb {
 
           size_t num_additional_bytes = session->response->content_buffer.size() - bytes_transferred;
 
-          session->response->parse_header();
+          if(!ResponseMessage::parse(session->response->content, session->response->http_version, session->response->status_code, session->response->header)) {
+            session->callback(session->connection, make_error_code::make_error_code(errc::protocol_error));
+            return;
+          }
 
           auto header_it = session->response->header.find("Content-Length");
           if(header_it != session->response->header.end()) {

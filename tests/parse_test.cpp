@@ -23,7 +23,8 @@ public:
     stream << "TestHeader3:test3b\r\n";
     stream << "\r\n";
 
-    assert(session->request->parse());
+    assert(RequestMessage::parse(session->request->content, session->request->method, session->request->path,
+                                 session->request->query_string, session->request->http_version, session->request->header));
 
     assert(session->request->method == "GET");
     assert(session->request->path == "/test/");
@@ -81,7 +82,7 @@ public:
     stream << "TestHeader3:test3b\r\n";
     stream << "\r\n";
 
-    response->parse_header();
+    assert(ResponseMessage::parse(response->content, response->http_version, response->status_code, response->header));
 
     assert(response->http_version == "1.1");
     assert(response->status_code == "200 OK");

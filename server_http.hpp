@@ -196,62 +196,6 @@ namespace SimpleWeb {
 
       Request(const std::string &remote_endpoint_address = std::string(), unsigned short remote_endpoint_port = 0)
           : content(streambuf), remote_endpoint_address(remote_endpoint_address), remote_endpoint_port(remote_endpoint_port) {}
-
-      bool parse() {
-        std::string line;
-        getline(content, line);
-        size_t method_end;
-        if((method_end = line.find(' ')) != std::string::npos) {
-          method = line.substr(0, method_end);
-
-          size_t query_start = std::string::npos;
-          size_t path_and_query_string_end = std::string::npos;
-          for(size_t i = method_end + 1; i < line.size(); ++i) {
-            if(line[i] == '?' && (i + 1) < line.size())
-              query_start = i + 1;
-            else if(line[i] == ' ') {
-              path_and_query_string_end = i;
-              break;
-            }
-          }
-          if(path_and_query_string_end != std::string::npos) {
-            if(query_start != std::string::npos) {
-              path = line.substr(method_end + 1, query_start - method_end - 2);
-              query_string = line.substr(query_start, path_and_query_string_end - query_start);
-            }
-            else
-              path = line.substr(method_end + 1, path_and_query_string_end - method_end - 1);
-
-            size_t protocol_end;
-            if((protocol_end = line.find('/', path_and_query_string_end + 1)) != std::string::npos) {
-              if(line.compare(path_and_query_string_end + 1, protocol_end - path_and_query_string_end - 1, "HTTP") != 0)
-                return false;
-              http_version = line.substr(protocol_end + 1, line.size() - protocol_end - 2);
-            }
-            else
-              return false;
-
-            getline(content, line);
-            size_t param_end;
-            while((param_end = line.find(':')) != std::string::npos) {
-              size_t value_start = param_end + 1;
-              if(value_start < line.size()) {
-                if(line[value_start] == ' ')
-                  value_start++;
-                if(value_start < line.size())
-                  header.emplace(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1));
-              }
-
-              getline(content, line);
-            }
-          }
-          else
-            return false;
-        }
-        else
-          return false;
-        return true;
-      }
     };
 
   protected:
@@ -494,8 +438,12 @@ namespace SimpleWeb {
           // streambuf (maybe some bytes of the content) is appended to in the async_read-function below (for retrieving content).
           size_t num_additional_bytes = session->request->streambuf.size() - bytes_transferred;
 
-          if(!session->request->parse())
+          if(!RequestMessage::parse(session->request->content, session->request->method, session->request->path,
+                                    session->request->query_string, session->request->http_version, session->request->header)) {
+            if(this->on_error)
+              this->on_error(session->request, make_error_code::make_error_code(errc::protocol_error));
             return;
+          }
 
           // If content, read that as well
           auto it = session->request->header.find("Content-Length");
