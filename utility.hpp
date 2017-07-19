@@ -1,5 +1,5 @@
-#ifndef SIMPLE_WEB_SERVER_UTILITY_HPP
-#define SIMPLE_WEB_SERVER_UTILITY_HPP
+#ifndef SIMPLE_WEB_UTILITY_HPP
+#define SIMPLE_WEB_UTILITY_HPP
 
 #include "status_code.hpp"
 #include <iostream>
@@ -8,8 +8,6 @@
 #include <unordered_map>
 
 namespace SimpleWeb {
-#ifndef CASE_INSENSITIVE_EQUAL_AND_HASH
-#define CASE_INSENSITIVE_EQUAL_AND_HASH
   inline bool case_insensitive_equal(const std::string &str1, const std::string &str2) {
     return str1.size() == str2.size() &&
            std::equal(str1.begin(), str1.end(), str2.begin(), [](char a, char b) {
@@ -33,7 +31,6 @@ namespace SimpleWeb {
       return h;
     }
   };
-#endif
 
   typedef std::unordered_multimap<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveEqual> CaseInsensitiveMultimap;
 
@@ -235,7 +232,7 @@ namespace SimpleWeb {
       return true;
     }
   };
-}
+} // namespace SimpleWeb
 
 #ifdef PTHREAD_RWLOCK_INITIALIZER
 namespace SimpleWeb {
@@ -363,4 +360,4 @@ namespace SimpleWeb {
 } // namespace SimpleWeb
 #endif
 
-#endif // SIMPLE_WEB_SERVER_UTILITY_HPP
+#endif // SIMPLE_WEB_UTILITY_HPP
