@@ -35,6 +35,8 @@ int main() {
     }
     cancel_thread.join();
     assert(scopes_continue.count == -1);
+    auto lock = scopes_continue.shared_lock();
+    assert(!lock);
 
     scopes_continue.count = 0;
 
