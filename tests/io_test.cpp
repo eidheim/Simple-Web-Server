@@ -15,41 +15,43 @@ typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 int main() {
   // Test ScopesContinue
   {
-    SimpleWeb::ScopesContinue scopes_continue;
+    SimpleWeb::ScopeRunner scope_runner;
     std::thread cancel_thread;
     {
-      assert(scopes_continue.count == 0);
-      auto lock = scopes_continue.shared_lock();
-      assert(scopes_continue.count == 1);
+      assert(scope_runner.count == 0);
+      auto lock = scope_runner.continue_lock();
+      assert(lock);
+      assert(scope_runner.count == 1);
       {
-        auto lock = scopes_continue.shared_lock();
-        assert(scopes_continue.count == 2);
+        auto lock = scope_runner.continue_lock();
+        assert(lock);
+        assert(scope_runner.count == 2);
       }
-      assert(scopes_continue.count == 1);
-      cancel_thread = thread([&scopes_continue] {
-        scopes_continue.stop();
-        assert(scopes_continue.count == -1);
+      assert(scope_runner.count == 1);
+      cancel_thread = thread([&scope_runner] {
+        scope_runner.stop();
+        assert(scope_runner.count == -1);
       });
       this_thread::sleep_for(chrono::milliseconds(500));
-      assert(scopes_continue.count == 1);
+      assert(scope_runner.count == 1);
     }
     cancel_thread.join();
-    assert(scopes_continue.count == -1);
-    auto lock = scopes_continue.shared_lock();
+    assert(scope_runner.count == -1);
+    auto lock = scope_runner.continue_lock();
     assert(!lock);
 
-    scopes_continue.count = 0;
+    scope_runner.count = 0;
 
     vector<thread> threads;
     for(size_t c = 0; c < 100; ++c) {
-      threads.emplace_back([&scopes_continue] {
-        auto lock = scopes_continue.shared_lock();
-        assert(scopes_continue.count > 0);
+      threads.emplace_back([&scope_runner] {
+        auto lock = scope_runner.continue_lock();
+        assert(scope_runner.count > 0);
       });
     }
     for(auto &thread : threads)
       thread.join();
-    assert(scopes_continue.count == 0);
+    assert(scope_runner.count == 0);
   }
 
   HttpServer server;

@@ -90,7 +90,7 @@ namespace SimpleWeb {
         auto self = this->shared_from_this(); // Keep Response instance alive through the following async_write
         asio::async_write(*session->connection->socket, streambuf, [self, callback](const error_code &ec, size_t /*bytes_transferred*/) {
           self->session->connection->cancel_timeout();
-          auto lock = self->session->connection->handlers_continue->shared_lock();
+          auto lock = self->session->connection->handler_runner->continue_lock();
           if(!lock)
             return;
           if(callback)
@@ -202,9 +202,9 @@ namespace SimpleWeb {
     class Connection : public std::enable_shared_from_this<Connection> {
     public:
       template <typename... Args>
-      Connection(std::shared_ptr<ScopesContinue> handlers_continue, Args &&... args) : handlers_continue(std::move(handlers_continue)), socket(new socket_type(std::forward<Args>(args)...)) {}
+      Connection(std::shared_ptr<ScopeRunner> handler_runner, Args &&... args) : handler_runner(std::move(handler_runner)), socket(new socket_type(std::forward<Args>(args)...)) {}
 
-      std::shared_ptr<ScopesContinue> handlers_continue;
+      std::shared_ptr<ScopeRunner> handler_runner;
 
       std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
       std::mutex socket_close_mutex;
@@ -367,7 +367,7 @@ namespace SimpleWeb {
     }
 
     virtual ~ServerBase() {
-      handlers_continue->stop();
+      handler_runner->stop();
       stop();
     }
 
@@ -380,9 +380,9 @@ namespace SimpleWeb {
     std::shared_ptr<std::unordered_set<Connection *>> connections;
     std::shared_ptr<std::mutex> connections_mutex;
 
-    std::shared_ptr<ScopesContinue> handlers_continue;
+    std::shared_ptr<ScopeRunner> handler_runner;
 
-    ServerBase(unsigned short port) : config(port), connections(new std::unordered_set<Connection *>()), connections_mutex(new std::mutex()), handlers_continue(new ScopesContinue()) {}
+    ServerBase(unsigned short port) : config(port), connections(new std::unordered_set<Connection *>()), connections_mutex(new std::mutex()), handler_runner(new ScopeRunner()) {}
 
     virtual void accept() = 0;
 
@@ -390,7 +390,7 @@ namespace SimpleWeb {
     std::shared_ptr<Connection> create_connection(Args &&... args) {
       auto connections = this->connections;
       auto connections_mutex = this->connections_mutex;
-      auto connection = std::shared_ptr<Connection>(new Connection(handlers_continue, std::forward<Args>(args)...), [connections, connections_mutex](Connection *connection) {
+      auto connection = std::shared_ptr<Connection>(new Connection(handler_runner, std::forward<Args>(args)...), [connections, connections_mutex](Connection *connection) {
         {
           std::unique_lock<std::mutex> lock(*connections_mutex);
           auto it = connections->find(connection);
@@ -410,7 +410,7 @@ namespace SimpleWeb {
       session->connection->set_timeout(config.timeout_request);
       asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
-        auto lock = session->connection->handlers_continue->shared_lock();
+        auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
         if(!ec) {
@@ -443,7 +443,7 @@ namespace SimpleWeb {
               session->connection->set_timeout(config.timeout_content);
               asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, size_t /*bytes_transferred*/) {
                 session->connection->cancel_timeout();
-                auto lock = session->connection->handlers_continue->shared_lock();
+                auto lock = session->connection->handler_runner->continue_lock();
                 if(!lock)
                   return;
                 if(!ec)
@@ -554,7 +554,7 @@ namespace SimpleWeb {
       auto session = std::make_shared<Session>(create_connection(*io_service));
 
       acceptor->async_accept(*session->connection->socket, [this, session](const error_code &ec) {
-        auto lock = session->connection->handlers_continue->shared_lock();
+        auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
 
