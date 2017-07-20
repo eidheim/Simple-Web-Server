@@ -134,7 +134,6 @@ namespace SimpleWeb {
     }
   };
 
-
   class RequestMessage {
   public:
     /// Parse request line and header fields
@@ -260,12 +259,13 @@ namespace SimpleWeb {
 
   public:
     class SharedLock {
+      friend class ContinueScopes;
       std::atomic<long> &count;
+      SharedLock(std::atomic<long> &count) : count(count) {}
       SharedLock &operator=(const SharedLock &) = delete;
       SharedLock(const SharedLock &) = delete;
 
     public:
-      SharedLock(std::atomic<long> &count) : count(count) {}
       ~SharedLock() {
         count.fetch_sub(1);
       }
