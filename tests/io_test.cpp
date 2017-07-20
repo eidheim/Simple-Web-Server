@@ -13,41 +13,41 @@ typedef SimpleWeb::Server<SimpleWeb::HTTP> HttpServer;
 typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
 int main() {
-  // Test ContinueScopes
+  // Test ScopesContinue
   {
-    SimpleWeb::ContinueScopes continue_scopes;
+    SimpleWeb::ScopesContinue scopes_continue;
     std::thread cancel_thread;
     {
-      assert(continue_scopes.count == 0);
-      auto lock = continue_scopes.shared_lock();
-      assert(continue_scopes.count == 1);
+      assert(scopes_continue.count == 0);
+      auto lock = scopes_continue.shared_lock();
+      assert(scopes_continue.count == 1);
       {
-        auto lock = continue_scopes.shared_lock();
-        assert(continue_scopes.count == 2);
+        auto lock = scopes_continue.shared_lock();
+        assert(scopes_continue.count == 2);
       }
-      assert(continue_scopes.count == 1);
-      cancel_thread = thread([&continue_scopes] {
-        continue_scopes.stop();
-        assert(continue_scopes.count == -1);
+      assert(scopes_continue.count == 1);
+      cancel_thread = thread([&scopes_continue] {
+        scopes_continue.stop();
+        assert(scopes_continue.count == -1);
       });
       this_thread::sleep_for(chrono::milliseconds(500));
-      assert(continue_scopes.count == 1);
+      assert(scopes_continue.count == 1);
     }
     cancel_thread.join();
-    assert(continue_scopes.count == -1);
+    assert(scopes_continue.count == -1);
 
-    continue_scopes.count = 0;
+    scopes_continue.count = 0;
 
     vector<thread> threads;
     for(size_t c = 0; c < 100; ++c) {
-      threads.emplace_back([&continue_scopes] {
-        auto lock = continue_scopes.shared_lock();
-        assert(continue_scopes.count > 0);
+      threads.emplace_back([&scopes_continue] {
+        auto lock = scopes_continue.shared_lock();
+        assert(scopes_continue.count > 0);
       });
     }
     for(auto &thread : threads)
       thread.join();
-    assert(continue_scopes.count == 0);
+    assert(scopes_continue.count == 0);
   }
 
   HttpServer server;

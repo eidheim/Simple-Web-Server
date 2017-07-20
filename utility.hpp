@@ -253,13 +253,13 @@ namespace SimpleWeb {
 
 namespace SimpleWeb {
   /// Makes it possible to for instance cancel Asio handlers without stopping asio::io_service
-  class ContinueScopes {
+  class ScopesContinue {
     /// Scope count that is set to -1 if scopes are to be canceled
     std::atomic<long> count;
 
   public:
     class SharedLock {
-      friend class ContinueScopes;
+      friend class ScopesContinue;
       std::atomic<long> &count;
       SharedLock(std::atomic<long> &count) : count(count) {}
       SharedLock &operator=(const SharedLock &) = delete;
@@ -271,7 +271,7 @@ namespace SimpleWeb {
       }
     };
 
-    ContinueScopes() : count(0) {}
+    ScopesContinue() : count(0) {}
 
     /// Returns nullptr if scope is to be cancelled, or a shared lock otherwise
     std::unique_ptr<SharedLock> shared_lock() {

@@ -91,10 +91,10 @@ namespace SimpleWeb {
     class Connection : public std::enable_shared_from_this<Connection> {
     public:
       template <typename... Args>
-      Connection(std::shared_ptr<ContinueScopes> continue_handlers, long timeout, Args &&... args)
-          : continue_handlers(std::move(continue_handlers)), timeout(timeout), socket(new socket_type(std::forward<Args>(args)...)) {}
+      Connection(std::shared_ptr<ScopesContinue> handlers_continue, long timeout, Args &&... args)
+          : handlers_continue(std::move(handlers_continue)), timeout(timeout), socket(new socket_type(std::forward<Args>(args)...)) {}
 
-      std::shared_ptr<ContinueScopes> continue_handlers;
+      std::shared_ptr<ScopesContinue> handlers_continue;
       long timeout;
 
       std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
@@ -328,7 +328,7 @@ namespace SimpleWeb {
     }
 
     virtual ~ClientBase() {
-      continue_handlers->stop();
+      handlers_continue->stop();
       stop();
     }
 
@@ -343,12 +343,12 @@ namespace SimpleWeb {
     std::unordered_set<std::shared_ptr<Connection>> connections;
     std::mutex connections_mutex;
 
-    std::shared_ptr<ContinueScopes> continue_handlers;
+    std::shared_ptr<ScopesContinue> handlers_continue;
 
     size_t concurrent_synchronous_requests = 0;
     std::mutex concurrent_synchronous_requests_mutex;
 
-    ClientBase(const std::string &host_port, unsigned short default_port) : continue_handlers(new ContinueScopes()) {
+    ClientBase(const std::string &host_port, unsigned short default_port) : handlers_continue(new ScopesContinue()) {
       auto parsed_host_port = parse_host_port(host_port, default_port);
       host = parsed_host_port.first;
       port = parsed_host_port.second;
@@ -425,7 +425,7 @@ namespace SimpleWeb {
       session->connection->set_timeout();
       asio::async_write(*session->connection->socket, session->request_buffer->data(), [this, session](const error_code &ec, size_t /*bytes_transferred*/) {
         session->connection->cancel_timeout();
-        auto lock = session->connection->continue_handlers->shared_lock();
+        auto lock = session->connection->handlers_continue->shared_lock();
         if(!lock)
           return;
         if(!ec)
@@ -439,7 +439,7 @@ namespace SimpleWeb {
       session->connection->set_timeout();
       asio::async_read_until(*session->connection->socket, session->response->content_buffer, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
-        auto lock = session->connection->continue_handlers->shared_lock();
+        auto lock = session->connection->handlers_continue->shared_lock();
         if(!lock)
           return;
         if(!ec) {
@@ -459,7 +459,7 @@ namespace SimpleWeb {
               session->connection->set_timeout();
               asio::async_read(*session->connection->socket, session->response->content_buffer, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, size_t /*bytes_transferred*/) {
                 session->connection->cancel_timeout();
-                auto lock = session->connection->continue_handlers->shared_lock();
+                auto lock = session->connection->handlers_continue->shared_lock();
                 if(!lock)
                   return;
                 if(!ec)
@@ -479,7 +479,7 @@ namespace SimpleWeb {
             session->connection->set_timeout();
             asio::async_read(*session->connection->socket, session->response->content_buffer, [this, session](const error_code &ec, size_t /*bytes_transferred*/) {
               session->connection->cancel_timeout();
-              auto lock = session->connection->continue_handlers->shared_lock();
+              auto lock = session->connection->handlers_continue->shared_lock();
               if(!lock)
                 return;
               if(!ec)
@@ -519,7 +519,7 @@ namespace SimpleWeb {
       session->connection->set_timeout();
       asio::async_read_until(*session->connection->socket, session->response->content_buffer, "\r\n", [this, session, tmp_streambuf](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
-        auto lock = session->connection->continue_handlers->shared_lock();
+        auto lock = session->connection->handlers_continue->shared_lock();
         if(!lock)
           return;
         if(!ec) {
@@ -557,7 +557,7 @@ namespace SimpleWeb {
             session->connection->set_timeout();
             asio::async_read(*session->connection->socket, session->response->content_buffer, asio::transfer_exactly(2 + length - num_additional_bytes), [this, session, post_process](const error_code &ec, size_t /*bytes_transferred*/) {
               session->connection->cancel_timeout();
-              auto lock = session->connection->continue_handlers->shared_lock();
+              auto lock = session->connection->handlers_continue->shared_lock();
               if(!lock)
                 return;
               if(!ec)
@@ -587,7 +587,7 @@ namespace SimpleWeb {
 
   protected:
     std::shared_ptr<Connection> create_connection() override {
-      return std::make_shared<Connection>(continue_handlers, config.timeout, *io_service);
+      return std::make_shared<Connection>(handlers_continue, config.timeout, *io_service);
     }
 
     void connect(const std::shared_ptr<Session> &session) override {
@@ -596,14 +596,14 @@ namespace SimpleWeb {
         session->connection->set_timeout(config.timeout_connect);
         resolver->async_resolve(*query, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator it) {
           session->connection->cancel_timeout();
-          auto lock = session->connection->continue_handlers->shared_lock();
+          auto lock = session->connection->handlers_continue->shared_lock();
           if(!lock)
             return;
           if(!ec) {
             session->connection->set_timeout(config.timeout_connect);
             asio::async_connect(*session->connection->socket, it, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator /*it*/) {
               session->connection->cancel_timeout();
-              auto lock = session->connection->continue_handlers->shared_lock();
+              auto lock = session->connection->handlers_continue->shared_lock();
               if(!lock)
                 return;
               if(!ec) {
