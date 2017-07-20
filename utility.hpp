@@ -289,6 +289,8 @@ namespace SimpleWeb {
     void stop() {
       long expected = 0;
       while(!count.compare_exchange_weak(expected, -1)) {
+        if(expected < 0)
+          return;
         expected = 0;
         spin_loop_pause();
       }

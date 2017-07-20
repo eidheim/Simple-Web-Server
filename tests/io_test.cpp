@@ -39,6 +39,8 @@ int main() {
     assert(scope_runner.count == -1);
     auto lock = scope_runner.continue_lock();
     assert(!lock);
+    scope_runner.stop();
+    assert(scope_runner.count == -1);
 
     scope_runner.count = 0;
 
