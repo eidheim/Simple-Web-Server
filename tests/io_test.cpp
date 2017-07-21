@@ -13,7 +13,7 @@ typedef SimpleWeb::Server<SimpleWeb::HTTP> HttpServer;
 typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
 
 int main() {
-  // Test ScopesContinue
+  // Test ScopeRunner
   {
     SimpleWeb::ScopeRunner scope_runner;
     std::thread cancel_thread;
