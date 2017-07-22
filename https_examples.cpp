@@ -225,13 +225,19 @@ int main() {
   // Second create() parameter set to false: no certificate verification
   HttpsClient client("localhost:8080", false);
 
-  // Synchronous request examples
-  auto r1 = client.request("GET", "/match/123");
-  cout << r1->content.rdbuf() << endl; // Alternatively, use the convenience function r1->content.string()
-
   string json_string = "{\"firstName\": \"John\",\"lastName\": \"Smith\",\"age\": 25}";
-  auto r2 = client.request("POST", "/string", json_string);
-  cout << r2->content.rdbuf() << endl;
+
+  // Synchronous request examples
+  try {
+    auto r1 = client.request("GET", "/match/123");
+    cout << r1->content.rdbuf() << endl; // Alternatively, use the convenience function r1->content.string()
+
+    auto r2 = client.request("POST", "/string", json_string);
+    cout << r2->content.rdbuf() << endl;
+  }
+  catch(const SimpleWeb::system_error &e) {
+    cerr << "Client request error: " << e.what() << endl;
+  }
 
   // Asynchronous request example
   client.request("POST", "/json", json_string, [](shared_ptr<HttpsClient::Response> response, const SimpleWeb::error_code &ec) {
