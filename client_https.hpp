@@ -16,7 +16,7 @@ namespace SimpleWeb {
   class Client<HTTPS> : public ClientBase<HTTPS> {
   public:
     Client(const std::string &server_port_path, bool verify_certificate = true, const std::string &cert_file = std::string(),
-           const std::string &private_key_file = std::string(), const std::string &verify_file = std::string()) noexcept
+           const std::string &private_key_file = std::string(), const std::string &verify_file = std::string())
         : ClientBase<HTTPS>::ClientBase(server_port_path, 443), context(asio::ssl::context::tlsv12) {
       if(cert_file.size() > 0 && private_key_file.size() > 0) {
         context.use_certificate_chain_file(cert_file);
@@ -44,7 +44,7 @@ namespace SimpleWeb {
       return std::make_shared<Connection>(handler_runner, config.timeout, *io_service, context);
     }
 
-    void connect(const std::shared_ptr<Session> &session) noexcept override {
+    void connect(const std::shared_ptr<Session> &session) override {
       if(!session->connection->socket->lowest_layer().is_open()) {
         auto resolver = std::make_shared<asio::ip::tcp::resolver>(*io_service);
         resolver->async_resolve(*query, [this, session, resolver](const error_code &ec, asio::ip::tcp::resolver::iterator it) {
@@ -116,7 +116,7 @@ namespace SimpleWeb {
         write(session);
     }
 
-    void handshake(const std::shared_ptr<Session> &session) noexcept {
+    void handshake(const std::shared_ptr<Session> &session) {
       session->connection->set_timeout(this->config.timeout_connect);
       session->connection->socket->async_handshake(asio::ssl::stream_base::client, [this, session](const error_code &ec) {
         session->connection->cancel_timeout();

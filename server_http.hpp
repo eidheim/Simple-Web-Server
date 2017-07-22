@@ -62,7 +62,7 @@ namespace SimpleWeb {
       Response(std::shared_ptr<Session> session, long timeout_content) noexcept : std::ostream(&streambuf), session(std::move(session)), timeout_content(timeout_content) {}
 
       template <typename size_type>
-      void write_header(const CaseInsensitiveMultimap &header, size_type size) noexcept {
+      void write_header(const CaseInsensitiveMultimap &header, size_type size) {
         bool content_length_written = false;
         bool chunked_transfer_encoding = false;
         for(auto &field : header) {
@@ -99,18 +99,18 @@ namespace SimpleWeb {
       }
 
       /// Write directly to stream buffer using std::ostream::write
-      void write(const char_type *ptr, std::streamsize n) noexcept {
+      void write(const char_type *ptr, std::streamsize n) {
         std::ostream::write(ptr, n);
       }
 
       /// Convenience function for writing status line, potential header fields, and empty content
-      void write(StatusCode status_code = StatusCode::success_ok, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) noexcept {
+      void write(StatusCode status_code = StatusCode::success_ok, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
         write_header(header, 0);
       }
 
       /// Convenience function for writing status line, header fields, and content
-      void write(StatusCode status_code, const std::string &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) noexcept {
+      void write(StatusCode status_code, const std::string &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
         write_header(header, content.size());
         if(!content.empty())
@@ -118,7 +118,7 @@ namespace SimpleWeb {
       }
 
       /// Convenience function for writing status line, header fields, and content
-      void write(StatusCode status_code, std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) noexcept {
+      void write(StatusCode status_code, std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
         content.seekg(0, std::ios::end);
         auto size = content.tellg();
@@ -129,17 +129,17 @@ namespace SimpleWeb {
       }
 
       /// Convenience function for writing success status line, header fields, and content
-      void write(const std::string &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) noexcept {
+      void write(const std::string &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         write(StatusCode::success_ok, content, header);
       }
 
       /// Convenience function for writing success status line, header fields, and content
-      void write(std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) noexcept {
+      void write(std::istream &content, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         write(StatusCode::success_ok, content, header);
       }
 
       /// Convenience function for writing success status line, and header fields
-      void write(const CaseInsensitiveMultimap &header) noexcept {
+      void write(const CaseInsensitiveMultimap &header) {
         write(StatusCode::success_ok, std::string(), header);
       }
 
@@ -239,8 +239,10 @@ namespace SimpleWeb {
       }
 
       void cancel_timeout() noexcept {
-        if(timer)
-          timer->cancel();
+        if(timer) {
+          error_code ec;
+          timer->cancel(ec);
+        }
       }
     };
 
@@ -310,7 +312,7 @@ namespace SimpleWeb {
     /// If you have your own asio::io_service, store its pointer here before running start().
     std::shared_ptr<asio::io_service> io_service;
 
-    virtual void start() noexcept {
+    virtual void start() {
       if(!io_service) {
         io_service = std::make_shared<asio::io_service>();
         internal_io_service = true;
@@ -389,7 +391,7 @@ namespace SimpleWeb {
 
     ServerBase(unsigned short port) noexcept : config(port), connections(new std::unordered_set<Connection *>()), connections_mutex(new std::mutex()), handler_runner(new ScopeRunner()) {}
 
-    virtual void accept() noexcept = 0;
+    virtual void accept() = 0;
 
     template <typename... Args>
     std::shared_ptr<Connection> create_connection(Args &&... args) noexcept {
@@ -411,7 +413,7 @@ namespace SimpleWeb {
       return connection;
     }
 
-    void read_request_and_content(const std::shared_ptr<Session> &session) noexcept {
+    void read_request_and_content(const std::shared_ptr<Session> &session) {
       session->connection->set_timeout(config.timeout_request);
       asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
@@ -468,7 +470,7 @@ namespace SimpleWeb {
       });
     }
 
-    void find_resource(const std::shared_ptr<Session> &session) noexcept {
+    void find_resource(const std::shared_ptr<Session> &session) {
       // Upgrade connection
       if(on_upgrade) {
         auto it = session->request->header.find("Upgrade");
@@ -503,7 +505,7 @@ namespace SimpleWeb {
     }
 
     void write_response(const std::shared_ptr<Session> &session,
-                        std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> &resource_function) noexcept {
+                        std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> &resource_function) {
       session->connection->set_timeout(config.timeout_content);
       auto response = std::shared_ptr<Response>(new Response(session, config.timeout_content), [this](Response *response_ptr) {
         auto response = std::shared_ptr<Response>(response_ptr);
@@ -555,7 +557,7 @@ namespace SimpleWeb {
     Server() noexcept : ServerBase<HTTP>::ServerBase(80) {}
 
   protected:
-    void accept() noexcept override {
+    void accept() override {
       auto session = std::make_shared<Session>(create_connection(*io_service));
 
       acceptor->async_accept(*session->connection->socket, [this, session](const error_code &ec) {

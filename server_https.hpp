@@ -21,7 +21,7 @@ namespace SimpleWeb {
     bool set_session_id_context = false;
 
   public:
-    Server(const std::string &cert_file, const std::string &private_key_file, const std::string &verify_file = std::string()) noexcept
+    Server(const std::string &cert_file, const std::string &private_key_file, const std::string &verify_file = std::string())
         : ServerBase<HTTPS>::ServerBase(443), context(asio::ssl::context::tlsv12) {
       context.use_certificate_chain_file(cert_file);
       context.use_private_key_file(private_key_file, asio::ssl::context::pem);
@@ -33,7 +33,7 @@ namespace SimpleWeb {
       }
     }
 
-    void start() noexcept override {
+    void start() override {
       if(set_session_id_context) {
         // Creating session_id_context from address:port but reversed due to small SSL_MAX_SSL_SESSION_ID_LENGTH
         session_id_context = std::to_string(config.port) + ':';
@@ -47,7 +47,7 @@ namespace SimpleWeb {
   protected:
     asio::ssl::context context;
 
-    void accept() noexcept override {
+    void accept() override {
       auto session = std::make_shared<Session>(create_connection(*io_service, context));
 
       acceptor->async_accept(session->connection->socket->lowest_layer(), [this, session](const error_code &ec) {

@@ -127,8 +127,10 @@ namespace SimpleWeb {
       }
 
       void cancel_timeout() noexcept {
-        if(timer)
-          timer->cancel();
+        if(timer) {
+          error_code ec;
+          timer->cancel(ec);
+        }
       }
     };
 
@@ -214,7 +216,7 @@ namespace SimpleWeb {
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
     void request(const std::string &method, const std::string &path, string_view content, const CaseInsensitiveMultimap &header,
-                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) noexcept {
+                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       auto session = std::make_shared<Session>(get_connection(), create_request_header(method, path, header));
       auto response = session->response;
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
@@ -256,24 +258,24 @@ namespace SimpleWeb {
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
     void request(const std::string &method, const std::string &path, string_view content,
-                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) noexcept {
+                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback));
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     void request(const std::string &method, const std::string &path,
-                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) noexcept {
+                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) {
       request(method, path, std::string(), CaseInsensitiveMultimap(), std::move(request_callback));
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
-    void request(const std::string &method, std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) noexcept {
+    void request(const std::string &method, std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) {
       request(method, std::string("/"), std::string(), CaseInsensitiveMultimap(), std::move(request_callback));
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     void request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header,
-                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) noexcept {
+                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
       auto session = std::make_shared<Session>(get_connection(), create_request_header(method, path, header));
       auto response = session->response;
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
@@ -318,7 +320,7 @@ namespace SimpleWeb {
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     void request(const std::string &method, const std::string &path, std::istream &content,
-                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) noexcept {
+                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback));
     }
 
@@ -394,9 +396,9 @@ namespace SimpleWeb {
     }
 
     virtual std::shared_ptr<Connection> create_connection() noexcept = 0;
-    virtual void connect(const std::shared_ptr<Session> &) noexcept = 0;
+    virtual void connect(const std::shared_ptr<Session> &) = 0;
 
-    std::unique_ptr<asio::streambuf> create_request_header(const std::string &method, const std::string &path, const CaseInsensitiveMultimap &header) const noexcept {
+    std::unique_ptr<asio::streambuf> create_request_header(const std::string &method, const std::string &path, const CaseInsensitiveMultimap &header) const {
       auto corrected_path = path;
       if(corrected_path == "")
         corrected_path = "/";
@@ -426,7 +428,7 @@ namespace SimpleWeb {
       return parsed_host_port;
     }
 
-    void write(const std::shared_ptr<Session> &session) noexcept {
+    void write(const std::shared_ptr<Session> &session) {
       session->connection->set_timeout();
       asio::async_write(*session->connection->socket, session->request_buffer->data(), [this, session](const error_code &ec, size_t /*bytes_transferred*/) {
         session->connection->cancel_timeout();
@@ -440,7 +442,7 @@ namespace SimpleWeb {
       });
     }
 
-    void read(const std::shared_ptr<Session> &session) noexcept {
+    void read(const std::shared_ptr<Session> &session) {
       session->connection->set_timeout();
       asio::async_read_until(*session->connection->socket, session->response->content_buffer, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
@@ -520,7 +522,7 @@ namespace SimpleWeb {
       });
     }
 
-    void read_chunked(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &tmp_streambuf) noexcept {
+    void read_chunked(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &tmp_streambuf) {
       session->connection->set_timeout();
       asio::async_read_until(*session->connection->socket, session->response->content_buffer, "\r\n", [this, session, tmp_streambuf](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
@@ -595,7 +597,7 @@ namespace SimpleWeb {
       return std::make_shared<Connection>(handler_runner, config.timeout, *io_service);
     }
 
-    void connect(const std::shared_ptr<Session> &session) noexcept override {
+    void connect(const std::shared_ptr<Session> &session) override {
       if(!session->connection->socket->lowest_layer().is_open()) {
         auto resolver = std::make_shared<asio::ip::tcp::resolver>(*io_service);
         session->connection->set_timeout(config.timeout_connect);
