@@ -16,7 +16,7 @@
 namespace SimpleWeb {
 // TODO 2017: remove workaround for MSVS 2012
 #if _MSC_VER == 1700 // MSVS 2012 has no definition for round()
-  inline double round(double x) { // Custom definition of round() for positive numbers
+  inline double round(double x) noexcept { // Custom definition of round() for positive numbers
     return floor(x + 0.5);
   }
 #endif
@@ -27,7 +27,7 @@ namespace SimpleWeb {
   public:
     class Base64 {
     public:
-      static std::string encode(const std::string &ascii) {
+      static std::string encode(const std::string &ascii) noexcept {
         std::string base64;
 
         BIO *bio, *b64;
@@ -59,7 +59,7 @@ namespace SimpleWeb {
         return base64;
       }
 
-      static std::string decode(const std::string &base64) {
+      static std::string decode(const std::string &base64) noexcept {
         std::string ascii;
 
         // Resize ascii, however, the size is a up to two bytes too large.
@@ -84,7 +84,7 @@ namespace SimpleWeb {
     };
 
     /// Return hex string from bytes in input string.
-    static std::string to_hex_string(const std::string &input) {
+    static std::string to_hex_string(const std::string &input) noexcept {
       std::stringstream hex_stream;
       hex_stream << std::hex << std::internal << std::setfill('0');
       for(auto &byte : input)
@@ -92,7 +92,7 @@ namespace SimpleWeb {
       return hex_stream.str();
     }
 
-    static std::string md5(const std::string &input, size_t iterations = 1) {
+    static std::string md5(const std::string &input, size_t iterations = 1) noexcept {
       std::string hash;
 
       hash.resize(128 / 8);
@@ -104,7 +104,7 @@ namespace SimpleWeb {
       return hash;
     }
 
-    static std::string md5(std::istream &stream, size_t iterations = 1) {
+    static std::string md5(std::istream &stream, size_t iterations = 1) noexcept {
       MD5_CTX context;
       MD5_Init(&context);
       std::streamsize read_length;
@@ -121,7 +121,7 @@ namespace SimpleWeb {
       return hash;
     }
 
-    static std::string sha1(const std::string &input, size_t iterations = 1) {
+    static std::string sha1(const std::string &input, size_t iterations = 1) noexcept {
       std::string hash;
 
       hash.resize(160 / 8);
@@ -133,7 +133,7 @@ namespace SimpleWeb {
       return hash;
     }
 
-    static std::string sha1(std::istream &stream, size_t iterations = 1) {
+    static std::string sha1(std::istream &stream, size_t iterations = 1) noexcept {
       SHA_CTX context;
       SHA1_Init(&context);
       std::streamsize read_length;
@@ -150,7 +150,7 @@ namespace SimpleWeb {
       return hash;
     }
 
-    static std::string sha256(const std::string &input, size_t iterations = 1) {
+    static std::string sha256(const std::string &input, size_t iterations = 1) noexcept {
       std::string hash;
 
       hash.resize(256 / 8);
@@ -162,7 +162,7 @@ namespace SimpleWeb {
       return hash;
     }
 
-    static std::string sha256(std::istream &stream, size_t iterations = 1) {
+    static std::string sha256(std::istream &stream, size_t iterations = 1) noexcept {
       SHA256_CTX context;
       SHA256_Init(&context);
       std::streamsize read_length;
@@ -179,7 +179,7 @@ namespace SimpleWeb {
       return hash;
     }
 
-    static std::string sha512(const std::string &input, size_t iterations = 1) {
+    static std::string sha512(const std::string &input, size_t iterations = 1) noexcept {
       std::string hash;
 
       hash.resize(512 / 8);
@@ -191,7 +191,7 @@ namespace SimpleWeb {
       return hash;
     }
 
-    static std::string sha512(std::istream &stream, size_t iterations = 1) {
+    static std::string sha512(std::istream &stream, size_t iterations = 1) noexcept {
       SHA512_CTX context;
       SHA512_Init(&context);
       std::streamsize read_length;
@@ -209,7 +209,7 @@ namespace SimpleWeb {
     }
 
     /// key_size is number of bytes of the returned key.
-    static std::string pbkdf2(const std::string &password, const std::string &salt, int iterations, int key_size) {
+    static std::string pbkdf2(const std::string &password, const std::string &salt, int iterations, int key_size) noexcept {
       std::string key;
       key.resize(key_size);
       PKCS5_PBKDF2_HMAC_SHA1(password.c_str(), password.size(),

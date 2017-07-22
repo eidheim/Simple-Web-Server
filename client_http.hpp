@@ -40,19 +40,24 @@ namespace SimpleWeb {
       friend class ClientBase<socket_type>;
 
     public:
-      size_t size() {
+      size_t size() noexcept {
         return streambuf.size();
       }
       /// Convenience function to return std::string. Note that the stream buffer is emptied when this functions is used.
-      std::string string() {
-        std::stringstream ss;
-        ss << rdbuf();
-        return ss.str();
+      std::string string() noexcept {
+        try {
+          std::stringstream ss;
+          ss << rdbuf();
+          return ss.str();
+        }
+        catch(...) {
+          return std::string();
+        }
       }
 
     private:
       asio::streambuf &streambuf;
-      Content(asio::streambuf &streambuf) : std::istream(&streambuf), streambuf(streambuf) {}
+      Content(asio::streambuf &streambuf) noexcept : std::istream(&streambuf), streambuf(streambuf) {}
     };
 
     class Response {
@@ -69,14 +74,14 @@ namespace SimpleWeb {
     private:
       asio::streambuf content_buffer;
 
-      Response() : content(content_buffer) {}
+      Response() noexcept : content(content_buffer) {}
     };
 
     class Config {
       friend class ClientBase<socket_type>;
 
     private:
-      Config() {}
+      Config() noexcept {}
 
     public:
       /// Set timeout on requests in seconds. Default value: 0 (no timeout).
@@ -91,7 +96,7 @@ namespace SimpleWeb {
     class Connection : public std::enable_shared_from_this<Connection> {
     public:
       template <typename... Args>
-      Connection(std::shared_ptr<ScopeRunner> handler_runner, long timeout, Args &&... args)
+      Connection(std::shared_ptr<ScopeRunner> handler_runner, long timeout, Args &&... args) noexcept
           : handler_runner(std::move(handler_runner)), timeout(timeout), socket(new socket_type(std::forward<Args>(args)...)) {}
 
       std::shared_ptr<ScopeRunner> handler_runner;
@@ -103,7 +108,7 @@ namespace SimpleWeb {
 
       std::unique_ptr<asio::deadline_timer> timer;
 
-      void set_timeout(long seconds = 0) {
+      void set_timeout(long seconds = 0) noexcept {
         if(seconds == 0)
           seconds = timeout;
         if(seconds == 0) {
@@ -121,7 +126,7 @@ namespace SimpleWeb {
         });
       }
 
-      void cancel_timeout() {
+      void cancel_timeout() noexcept {
         if(timer)
           timer->cancel();
       }
@@ -129,7 +134,7 @@ namespace SimpleWeb {
 
     class Session {
     public:
-      Session(std::shared_ptr<Connection> connection, std::unique_ptr<asio::streambuf> request_buffer)
+      Session(std::shared_ptr<Connection> connection, std::unique_ptr<asio::streambuf> request_buffer) noexcept
           : connection(std::move(connection)), request_buffer(std::move(request_buffer)), response(new Response()) {}
 
       std::shared_ptr<Connection> connection;
@@ -209,7 +214,7 @@ namespace SimpleWeb {
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
     void request(const std::string &method, const std::string &path, string_view content, const CaseInsensitiveMultimap &header,
-                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
+                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) noexcept {
       auto session = std::make_shared<Session>(get_connection(), create_request_header(method, path, header));
       auto response = session->response;
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
@@ -251,24 +256,24 @@ namespace SimpleWeb {
     /// Asynchronous request where setting and/or running Client's io_service is required.
     /// Do not use concurrently with the synchronous request functions.
     void request(const std::string &method, const std::string &path, string_view content,
-                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) {
+                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) noexcept {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback));
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     void request(const std::string &method, const std::string &path,
-                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) {
+                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) noexcept {
       request(method, path, std::string(), CaseInsensitiveMultimap(), std::move(request_callback));
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
-    void request(const std::string &method, std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) {
+    void request(const std::string &method, std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) noexcept {
       request(method, std::string("/"), std::string(), CaseInsensitiveMultimap(), std::move(request_callback));
     }
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     void request(const std::string &method, const std::string &path, std::istream &content, const CaseInsensitiveMultimap &header,
-                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) {
+                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback_) noexcept {
       auto session = std::make_shared<Session>(get_connection(), create_request_header(method, path, header));
       auto response = session->response;
       auto request_callback = std::make_shared<std::function<void(std::shared_ptr<Response>, const error_code &)>>(std::move(request_callback_));
@@ -313,12 +318,12 @@ namespace SimpleWeb {
 
     /// Asynchronous request where setting and/or running Client's io_service is required.
     void request(const std::string &method, const std::string &path, std::istream &content,
-                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) {
+                 std::function<void(std::shared_ptr<Response>, const error_code &)> &&request_callback) noexcept {
       request(method, path, content, CaseInsensitiveMultimap(), std::move(request_callback));
     }
 
     /// Close connections
-    void stop() {
+    void stop() noexcept {
       std::unique_lock<std::mutex> lock(connections_mutex);
       for(auto it = connections.begin(); it != connections.end();) {
         error_code ec;
@@ -327,7 +332,7 @@ namespace SimpleWeb {
       }
     }
 
-    virtual ~ClientBase() {
+    virtual ~ClientBase() noexcept {
       handler_runner->stop();
       stop();
     }
@@ -348,13 +353,13 @@ namespace SimpleWeb {
     size_t concurrent_synchronous_requests = 0;
     std::mutex concurrent_synchronous_requests_mutex;
 
-    ClientBase(const std::string &host_port, unsigned short default_port) : handler_runner(new ScopeRunner()) {
+    ClientBase(const std::string &host_port, unsigned short default_port) noexcept : handler_runner(new ScopeRunner()) {
       auto parsed_host_port = parse_host_port(host_port, default_port);
       host = parsed_host_port.first;
       port = parsed_host_port.second;
     }
 
-    std::shared_ptr<Connection> get_connection() {
+    std::shared_ptr<Connection> get_connection() noexcept {
       std::shared_ptr<Connection> connection;
       std::unique_lock<std::mutex> lock(connections_mutex);
 
@@ -388,10 +393,10 @@ namespace SimpleWeb {
       return connection;
     }
 
-    virtual std::shared_ptr<Connection> create_connection() = 0;
-    virtual void connect(const std::shared_ptr<Session> &) = 0;
+    virtual std::shared_ptr<Connection> create_connection() noexcept = 0;
+    virtual void connect(const std::shared_ptr<Session> &) noexcept = 0;
 
-    std::unique_ptr<asio::streambuf> create_request_header(const std::string &method, const std::string &path, const CaseInsensitiveMultimap &header) const {
+    std::unique_ptr<asio::streambuf> create_request_header(const std::string &method, const std::string &path, const CaseInsensitiveMultimap &header) const noexcept {
       auto corrected_path = path;
       if(corrected_path == "")
         corrected_path = "/";
@@ -407,7 +412,7 @@ namespace SimpleWeb {
       return request_buffer;
     }
 
-    std::pair<std::string, unsigned short> parse_host_port(const std::string &host_port, unsigned short default_port) const {
+    std::pair<std::string, unsigned short> parse_host_port(const std::string &host_port, unsigned short default_port) const noexcept {
       std::pair<std::string, unsigned short> parsed_host_port;
       size_t host_end = host_port.find(':');
       if(host_end == std::string::npos) {
@@ -421,7 +426,7 @@ namespace SimpleWeb {
       return parsed_host_port;
     }
 
-    void write(const std::shared_ptr<Session> &session) {
+    void write(const std::shared_ptr<Session> &session) noexcept {
       session->connection->set_timeout();
       asio::async_write(*session->connection->socket, session->request_buffer->data(), [this, session](const error_code &ec, size_t /*bytes_transferred*/) {
         session->connection->cancel_timeout();
@@ -435,7 +440,7 @@ namespace SimpleWeb {
       });
     }
 
-    void read(const std::shared_ptr<Session> &session) {
+    void read(const std::shared_ptr<Session> &session) noexcept {
       session->connection->set_timeout();
       asio::async_read_until(*session->connection->socket, session->response->content_buffer, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
@@ -515,7 +520,7 @@ namespace SimpleWeb {
       });
     }
 
-    void read_chunked(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &tmp_streambuf) {
+    void read_chunked(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &tmp_streambuf) noexcept {
       session->connection->set_timeout();
       asio::async_read_until(*session->connection->socket, session->response->content_buffer, "\r\n", [this, session, tmp_streambuf](const error_code &ec, size_t bytes_transferred) {
         session->connection->cancel_timeout();
@@ -583,14 +588,14 @@ namespace SimpleWeb {
   template <>
   class Client<HTTP> : public ClientBase<HTTP> {
   public:
-    Client(const std::string &server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
+    Client(const std::string &server_port_path) noexcept : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
 
   protected:
-    std::shared_ptr<Connection> create_connection() override {
+    std::shared_ptr<Connection> create_connection() noexcept override {
       return std::make_shared<Connection>(handler_runner, config.timeout, *io_service);
     }
 
-    void connect(const std::shared_ptr<Session> &session) override {
+    void connect(const std::shared_ptr<Session> &session) noexcept override {
       if(!session->connection->socket->lowest_layer().is_open()) {
         auto resolver = std::make_shared<asio::ip::tcp::resolver>(*io_service);
         session->connection->set_timeout(config.timeout_connect);

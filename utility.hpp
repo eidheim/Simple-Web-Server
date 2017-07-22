@@ -9,7 +9,7 @@
 #include <unordered_map>
 
 namespace SimpleWeb {
-  inline bool case_insensitive_equal(const std::string &str1, const std::string &str2) {
+  inline bool case_insensitive_equal(const std::string &str1, const std::string &str2) noexcept {
     return str1.size() == str2.size() &&
            std::equal(str1.begin(), str1.end(), str2.begin(), [](char a, char b) {
              return tolower(a) == tolower(b);
@@ -17,14 +17,14 @@ namespace SimpleWeb {
   }
   class CaseInsensitiveEqual {
   public:
-    bool operator()(const std::string &str1, const std::string &str2) const {
+    bool operator()(const std::string &str1, const std::string &str2) const noexcept {
       return case_insensitive_equal(str1, str2);
     }
   };
   // Based on https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x/2595226#2595226
   class CaseInsensitiveHash {
   public:
-    size_t operator()(const std::string &str) const {
+    size_t operator()(const std::string &str) const noexcept {
       size_t h = 0;
       std::hash<int> hash;
       for(auto c : str)
@@ -39,7 +39,7 @@ namespace SimpleWeb {
   class Percent {
   public:
     /// Returns percent-encoded string
-    static std::string encode(const std::string &value) {
+    static std::string encode(const std::string &value) noexcept {
       static auto hex_chars = "0123456789ABCDEF";
 
       std::string result;
@@ -58,7 +58,7 @@ namespace SimpleWeb {
     }
 
     /// Returns percent-decoded string
-    static std::string decode(const std::string &value) {
+    static std::string decode(const std::string &value) noexcept {
       std::string result;
       result.reserve(value.size() / 3 + (value.size() % 3)); // Minimum size of result
 
@@ -84,7 +84,7 @@ namespace SimpleWeb {
   class QueryString {
   public:
     /// Returns query string created from given field names and values
-    static std::string create(const CaseInsensitiveMultimap &fields) {
+    static std::string create(const CaseInsensitiveMultimap &fields) noexcept {
       std::string result;
 
       bool first = true;
@@ -97,7 +97,7 @@ namespace SimpleWeb {
     }
 
     /// Returns query keys with percent-decoded values.
-    static CaseInsensitiveMultimap parse(const std::string &query_string) {
+    static CaseInsensitiveMultimap parse(const std::string &query_string) noexcept {
       CaseInsensitiveMultimap result;
 
       if(query_string.empty())
@@ -137,7 +137,7 @@ namespace SimpleWeb {
   class RequestMessage {
   public:
     /// Parse request line and header fields
-    static bool parse(std::istream &stream, std::string &method, std::string &path, std::string &query_string, std::string &version, CaseInsensitiveMultimap &header) {
+    static bool parse(std::istream &stream, std::string &method, std::string &path, std::string &query_string, std::string &version, CaseInsensitiveMultimap &header) noexcept {
       header.clear();
       std::string line;
       getline(stream, line);
@@ -198,7 +198,7 @@ namespace SimpleWeb {
   class ResponseMessage {
   public:
     /// Parse status line and header fields
-    static bool parse(std::istream &stream, std::string &version, std::string &status_code, CaseInsensitiveMultimap &header) {
+    static bool parse(std::istream &stream, std::string &version, std::string &status_code, CaseInsensitiveMultimap &header) noexcept {
       header.clear();
       std::string line;
       getline(stream, line);
@@ -237,17 +237,17 @@ namespace SimpleWeb {
 #ifdef __SSE2__
 #include <emmintrin.h>
 namespace SimpleWeb {
-  inline void spin_loop_pause() { _mm_pause(); }
+  inline void spin_loop_pause() noexcept { _mm_pause(); }
 } // namespace SimpleWeb
 // TODO: need verification that the following checks are correct:
 #elif defined(_MSC_VER) && _MSC_VER >= 1800 && (defined(_M_X64) || defined(_M_IX86))
 #include <intrin.h>
 namespace SimpleWeb {
-  inline void spin_loop_pause() { _mm_pause(); }
+  inline void spin_loop_pause() noexcept { _mm_pause(); }
 } // namespace SimpleWeb
 #else
 namespace SimpleWeb {
-  inline void spin_loop_pause() {}
+  inline void spin_loop_pause() noexcept {}
 } // namespace SimpleWeb
 #endif
 
@@ -261,20 +261,20 @@ namespace SimpleWeb {
     class SharedLock {
       friend class ScopeRunner;
       std::atomic<long> &count;
-      SharedLock(std::atomic<long> &count) : count(count) {}
+      SharedLock(std::atomic<long> &count) noexcept : count(count) {}
       SharedLock &operator=(const SharedLock &) = delete;
       SharedLock(const SharedLock &) = delete;
 
     public:
-      ~SharedLock() {
+      ~SharedLock() noexcept {
         count.fetch_sub(1);
       }
     };
 
-    ScopeRunner() : count(0) {}
+    ScopeRunner() noexcept : count(0) {}
 
     /// Returns nullptr if scope should be exited, or a shared lock otherwise
-    std::unique_ptr<SharedLock> continue_lock() {
+    std::unique_ptr<SharedLock> continue_lock() noexcept {
       long expected = count;
       while(expected >= 0 && !count.compare_exchange_weak(expected, expected + 1))
         spin_loop_pause();
@@ -286,7 +286,7 @@ namespace SimpleWeb {
     }
 
     //// Blocks until all shared locks are released, then prevents future shared locks
-    void stop() {
+    void stop() noexcept {
       long expected = 0;
       while(!count.compare_exchange_weak(expected, -1)) {
         if(expected < 0)

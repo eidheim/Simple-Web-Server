@@ -10,7 +10,7 @@ class ServerTest : public ServerBase<HTTP> {
 public:
   ServerTest() : ServerBase<HTTP>::ServerBase(8080) {}
 
-  void accept() override {}
+  void accept() noexcept override {}
 
   void parse_request_test() {
     auto session = std::make_shared<Session>(create_connection(*io_service));
@@ -55,11 +55,11 @@ class ClientTest : public ClientBase<HTTP> {
 public:
   ClientTest(const std::string &server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
 
-  std::shared_ptr<Connection> create_connection() override {
+  std::shared_ptr<Connection> create_connection() noexcept override {
     return nullptr;
   }
 
-  void connect(const std::shared_ptr<Session> &) override {}
+  void connect(const std::shared_ptr<Session> &) noexcept override {}
 
   void constructor_parse_test1() {
     assert(host == "test.org");
