@@ -6,7 +6,7 @@ include_directories(.)
 
 find_package(Threads REQUIRED)
 
-set(BOOST_COMPONENTS system filesystem)
+set(BOOST_COMPONENTS system filesystem thread)
 # Late 2017 TODO: remove the following checks and always use std::regex
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9)
