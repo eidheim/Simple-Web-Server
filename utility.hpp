@@ -285,7 +285,7 @@ namespace SimpleWeb {
         return std::unique_ptr<SharedLock>(new SharedLock(count));
     }
 
-    //// Blocks until all shared locks are released, then prevents future shared locks
+    /// Blocks until all shared locks are released, then prevents future shared locks
     void stop() noexcept {
       long expected = 0;
       while(!count.compare_exchange_weak(expected, -1)) {

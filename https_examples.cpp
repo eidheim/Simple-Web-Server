@@ -179,7 +179,7 @@ int main() {
         header.emplace("Content-Length", to_string(length));
         response->write(header);
 
-        // Trick to define a recursive function within this scope (for your convenience)
+        // Trick to define a recursive function within this scope (for example purposes)
         class FileServer {
         public:
           static void read_and_send(const shared_ptr<HttpsServer::Response> &response, const shared_ptr<ifstream> &ifs) {
