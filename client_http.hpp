@@ -43,7 +43,7 @@ namespace SimpleWeb {
       size_t size() noexcept {
         return streambuf.size();
       }
-      /// Convenience function to return std::string. Note that the stream buffer is emptied when this functions is used.
+      /// Convenience function to return std::string. The stream buffer is consumed.
       std::string string() noexcept {
         try {
           std::stringstream ss;
