@@ -534,7 +534,14 @@ namespace SimpleWeb {
           getline(session->response->content, line);
           bytes_transferred -= line.size() + 1;
           line.pop_back();
-          auto length = stoul(line, 0, 16);
+          unsigned long length;
+          try {
+            length = stoul(line, 0, 16);
+          }
+          catch(...) {
+            session->callback(session->connection, make_error_code::make_error_code(errc::protocol_error));
+            return;
+          }
 
           auto num_additional_bytes = session->response->content_buffer.size() - bytes_transferred;
 
