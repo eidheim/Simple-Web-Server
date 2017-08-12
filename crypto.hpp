@@ -40,7 +40,7 @@ namespace SimpleWeb {
         BIO_set_mem_buf(b64, bptr, BIO_CLOSE);
 
         // Write directly to base64-buffer to avoid copy
-        int base64_length = static_cast<int>(round(4 * ceil(static_cast<double>(ascii.size()) / 3.0)));
+        auto base64_length = static_cast<size_t>(round(4 * ceil(static_cast<double>(ascii.size()) / 3.0)));
         base64.resize(base64_length);
         bptr->length = 0;
         bptr->max = base64_length + 1;
@@ -71,9 +71,9 @@ namespace SimpleWeb {
         bio = BIO_new_mem_buf(&base64[0], static_cast<int>(base64.size()));
         bio = BIO_push(b64, bio);
 
-        int decoded_length = BIO_read(bio, &ascii[0], static_cast<int>(ascii.size()));
+        auto decoded_length = BIO_read(bio, &ascii[0], static_cast<int>(ascii.size()));
         if(decoded_length > 0)
-          ascii.resize(decoded_length);
+          ascii.resize(static_cast<size_t>(decoded_length));
         else
           ascii.clear();
 
@@ -110,7 +110,7 @@ namespace SimpleWeb {
       std::streamsize read_length;
       std::vector<char> buffer(buffer_size);
       while((read_length = stream.read(&buffer[0], buffer_size).gcount()) > 0)
-        MD5_Update(&context, buffer.data(), read_length);
+        MD5_Update(&context, buffer.data(), static_cast<size_t>(read_length));
       std::string hash;
       hash.resize(128 / 8);
       MD5_Final(reinterpret_cast<unsigned char *>(&hash[0]), &context);
@@ -139,7 +139,7 @@ namespace SimpleWeb {
       std::streamsize read_length;
       std::vector<char> buffer(buffer_size);
       while((read_length = stream.read(&buffer[0], buffer_size).gcount()) > 0)
-        SHA1_Update(&context, buffer.data(), read_length);
+        SHA1_Update(&context, buffer.data(), static_cast<size_t>(read_length));
       std::string hash;
       hash.resize(160 / 8);
       SHA1_Final(reinterpret_cast<unsigned char *>(&hash[0]), &context);
@@ -168,7 +168,7 @@ namespace SimpleWeb {
       std::streamsize read_length;
       std::vector<char> buffer(buffer_size);
       while((read_length = stream.read(&buffer[0], buffer_size).gcount()) > 0)
-        SHA256_Update(&context, buffer.data(), read_length);
+        SHA256_Update(&context, buffer.data(), static_cast<size_t>(read_length));
       std::string hash;
       hash.resize(256 / 8);
       SHA256_Final(reinterpret_cast<unsigned char *>(&hash[0]), &context);
@@ -197,7 +197,7 @@ namespace SimpleWeb {
       std::streamsize read_length;
       std::vector<char> buffer(buffer_size);
       while((read_length = stream.read(&buffer[0], buffer_size).gcount()) > 0)
-        SHA512_Update(&context, buffer.data(), read_length);
+        SHA512_Update(&context, buffer.data(), static_cast<size_t>(read_length));
       std::string hash;
       hash.resize(512 / 8);
       SHA512_Final(reinterpret_cast<unsigned char *>(&hash[0]), &context);
@@ -211,7 +211,7 @@ namespace SimpleWeb {
     /// key_size is number of bytes of the returned key.
     static std::string pbkdf2(const std::string &password, const std::string &salt, int iterations, int key_size) noexcept {
       std::string key;
-      key.resize(key_size);
+      key.resize(static_cast<size_t>(key_size));
       PKCS5_PBKDF2_HMAC_SHA1(password.c_str(), password.size(),
                              reinterpret_cast<const unsigned char *>(salt.c_str()), salt.size(), iterations,
                              key_size, reinterpret_cast<unsigned char *>(&key[0]));

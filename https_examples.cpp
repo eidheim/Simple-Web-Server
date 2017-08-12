@@ -186,7 +186,7 @@ int main() {
             // Read and send 128 KB at a time
             static vector<char> buffer(131072); // Safe when server is running on one thread
             streamsize read_length;
-            if((read_length = ifs->read(&buffer[0], buffer.size()).gcount()) > 0) {
+            if((read_length = ifs->read(&buffer[0], static_cast<streamsize>(buffer.size())).gcount()) > 0) {
               response->write(&buffer[0], read_length);
               if(read_length == static_cast<streamsize>(buffer.size())) {
                 response->send([response, ifs](const SimpleWeb::error_code &ec) {

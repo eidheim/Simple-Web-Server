@@ -104,8 +104,8 @@ namespace SimpleWeb {
         return result;
 
       size_t name_pos = 0;
-      size_t name_end_pos = -1;
-      size_t value_pos = -1;
+      size_t name_end_pos = static_cast<size_t>(-1);
+      size_t value_pos = static_cast<size_t>(-1);
       for(size_t c = 0; c < query_string.size(); ++c) {
         if(query_string[c] == '&') {
           auto name = query_string.substr(name_pos, (name_end_pos == std::string::npos ? c : name_end_pos) - name_pos);
@@ -114,8 +114,8 @@ namespace SimpleWeb {
             result.emplace(std::move(name), Percent::decode(value));
           }
           name_pos = c + 1;
-          name_end_pos = -1;
-          value_pos = -1;
+          name_end_pos = static_cast<size_t>(-1);
+          value_pos = static_cast<size_t>(-1);
         }
         else if(query_string[c] == '=') {
           name_end_pos = c;

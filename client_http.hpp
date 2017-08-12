@@ -534,16 +534,16 @@ namespace SimpleWeb {
           getline(session->response->content, line);
           bytes_transferred -= line.size() + 1;
           line.pop_back();
-          std::streamsize length = stol(line, 0, 16);
+          auto length = stoul(line, 0, 16);
 
-          auto num_additional_bytes = static_cast<std::streamsize>(session->response->content_buffer.size() - bytes_transferred);
+          auto num_additional_bytes = session->response->content_buffer.size() - bytes_transferred;
 
           auto post_process = [this, session, tmp_streambuf, length]() {
             std::ostream tmp_stream(tmp_streambuf.get());
             if(length > 0) {
               std::vector<char> buffer(static_cast<size_t>(length));
-              session->response->content.read(&buffer[0], length);
-              tmp_stream.write(&buffer[0], length);
+              session->response->content.read(&buffer[0], static_cast<std::streamsize>(length));
+              tmp_stream.write(&buffer[0], static_cast<std::streamsize>(length));
             }
 
             // Remove "\r\n"
