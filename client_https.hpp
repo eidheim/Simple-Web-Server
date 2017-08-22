@@ -117,6 +117,8 @@ namespace SimpleWeb {
     }
 
     void handshake(const std::shared_ptr<Session> &session) {
+      SSL_set_tlsext_host_name(session->connection->socket->native_handle(), this->host.c_str());
+
       session->connection->set_timeout(this->config.timeout_connect);
       session->connection->socket->async_handshake(asio::ssl::stream_base::client, [this, session](const error_code &ec) {
         session->connection->cancel_timeout();
