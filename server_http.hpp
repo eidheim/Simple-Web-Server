@@ -12,7 +12,7 @@
 
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>
-#include <asio/basic_waitable_timer.hpp>
+#include <asio/steady_timer.hpp>
 namespace SimpleWeb {
   using error_code = std::error_code;
   using errc = std::errc;
