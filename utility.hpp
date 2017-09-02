@@ -137,7 +137,7 @@ namespace SimpleWeb {
   class HttpHeader {
   public:
     /// Parse header fields
-    static void parse(std::istream &stream, CaseInsensitiveMultimap &header) {
+    static void parse(std::istream &stream, CaseInsensitiveMultimap &header) noexcept {
       std::string line;
       getline(stream, line);
       size_t param_end;
