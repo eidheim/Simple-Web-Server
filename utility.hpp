@@ -134,6 +134,27 @@ namespace SimpleWeb {
     }
   };
 
+  class HttpHeader {
+  public:
+    /// Parse header fields
+    static void parse(std::istream &stream, CaseInsensitiveMultimap &header) {
+      std::string line;
+      getline(stream, line);
+      size_t param_end;
+      while((param_end = line.find(':')) != std::string::npos) {
+        size_t value_start = param_end + 1;
+        if(value_start < line.size()) {
+          if(line[value_start] == ' ')
+            value_start++;
+          if(value_start < line.size())
+            header.emplace(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1));
+        }
+
+        getline(stream, line);
+      }
+    }
+  };
+
   class RequestMessage {
   public:
     /// Parse request line and header fields
@@ -172,19 +193,7 @@ namespace SimpleWeb {
           else
             return false;
 
-          getline(stream, line);
-          size_t param_end;
-          while((param_end = line.find(':')) != std::string::npos) {
-            size_t value_start = param_end + 1;
-            if(value_start < line.size()) {
-              if(line[value_start] == ' ')
-                value_start++;
-              if(value_start < line.size())
-                header.emplace(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1));
-            }
-
-            getline(stream, line);
-          }
+          HttpHeader::parse(stream, header);
         }
         else
           return false;
@@ -213,19 +222,7 @@ namespace SimpleWeb {
         else
           return false;
 
-        getline(stream, line);
-        size_t param_end;
-        while((param_end = line.find(':')) != std::string::npos) {
-          size_t value_start = param_end + 1;
-          if((value_start) < line.size()) {
-            if(line[value_start] == ' ')
-              value_start++;
-            if(value_start < line.size())
-              header.insert(std::make_pair(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1)));
-          }
-
-          getline(stream, line);
-        }
+        HttpHeader::parse(stream, header);
       }
       else
         return false;
