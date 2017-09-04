@@ -594,7 +594,7 @@ namespace SimpleWeb {
   template <class socket_type>
   class Client : public ClientBase<socket_type> {};
 
-  typedef asio::ip::tcp::socket HTTP;
+  using HTTP = asio::ip::tcp::socket;
 
   template <>
   class Client<HTTP> : public ClientBase<HTTP> {

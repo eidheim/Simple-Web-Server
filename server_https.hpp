@@ -13,7 +13,7 @@
 #include <openssl/ssl.h>
 
 namespace SimpleWeb {
-  typedef asio::ssl::stream<asio::ip::tcp::socket> HTTPS;
+  using HTTPS = asio::ssl::stream<asio::ip::tcp::socket>;
 
   template <>
   class Server<HTTPS> : public ServerBase<HTTPS> {

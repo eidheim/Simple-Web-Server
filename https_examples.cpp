@@ -17,8 +17,8 @@ using namespace std;
 // Added for the json-example:
 using namespace boost::property_tree;
 
-typedef SimpleWeb::Server<SimpleWeb::HTTPS> HttpsServer;
-typedef SimpleWeb::Client<SimpleWeb::HTTPS> HttpsClient;
+using HttpsServer = SimpleWeb::Server<SimpleWeb::HTTPS>;
+using HttpsClient = SimpleWeb::Client<SimpleWeb::HTTPS>;
 
 int main() {
   // HTTPS-server at port 8080 using 1 thread

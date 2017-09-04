@@ -9,8 +9,8 @@ using namespace std;
 namespace asio = boost::asio;
 #endif
 
-typedef SimpleWeb::Server<SimpleWeb::HTTP> HttpServer;
-typedef SimpleWeb::Client<SimpleWeb::HTTP> HttpClient;
+using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
+using HttpClient = SimpleWeb::Client<SimpleWeb::HTTP>;
 
 int main() {
   // Test ScopeRunner
