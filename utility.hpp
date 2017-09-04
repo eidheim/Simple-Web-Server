@@ -137,7 +137,8 @@ namespace SimpleWeb {
   class HttpHeader {
   public:
     /// Parse header fields
-    static void parse(std::istream &stream, CaseInsensitiveMultimap &header) noexcept {
+    static CaseInsensitiveMultimap parse(std::istream &stream) noexcept {
+      CaseInsensitiveMultimap result;
       std::string line;
       getline(stream, line);
       size_t param_end;
@@ -147,11 +148,12 @@ namespace SimpleWeb {
           if(line[value_start] == ' ')
             value_start++;
           if(value_start < line.size())
-            header.emplace(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1));
+            result.emplace(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1));
         }
 
         getline(stream, line);
       }
+      return result;
     }
   };
 
@@ -193,7 +195,7 @@ namespace SimpleWeb {
           else
             return false;
 
-          HttpHeader::parse(stream, header);
+          header = HttpHeader::parse(stream);
         }
         else
           return false;
@@ -222,11 +224,54 @@ namespace SimpleWeb {
         else
           return false;
 
-        HttpHeader::parse(stream, header);
+        header = HttpHeader::parse(stream);
       }
       else
         return false;
       return true;
+    }
+  };
+
+  class ContentDisposition {
+  public:
+    /// Can be used to parse the Content-Disposition header field value when
+    /// clients are posting requests with enctype="multipart/form-data"
+    static CaseInsensitiveMultimap parse(const std::string &line) {
+      CaseInsensitiveMultimap result;
+
+      size_t para_start_pos = 0;
+      size_t para_end_pos = std::string::npos;
+      size_t value_start_pos = std::string::npos;
+      for(size_t c = 0; c < line.size(); ++c) {
+        if(para_start_pos != std::string::npos) {
+          if(para_end_pos == std::string::npos) {
+            if(line[c] == ';') {
+              result.emplace(line.substr(para_start_pos, c - para_start_pos), std::string());
+              para_start_pos = std::string::npos;
+            }
+            else if(line[c] == '=')
+              para_end_pos = c;
+          }
+          else {
+            if(value_start_pos == std::string::npos) {
+              if(line[c] == '"' && c + 1 < line.size())
+                value_start_pos = c + 1;
+            }
+            else if(line[c] == '"') {
+              result.emplace(line.substr(para_start_pos, para_end_pos - para_start_pos), line.substr(value_start_pos, c - value_start_pos));
+              para_start_pos = std::string::npos;
+              para_end_pos = std::string::npos;
+              value_start_pos = std::string::npos;
+            }
+          }
+        }
+        else if(line[c] != ' ' && line[c] != ';')
+          para_start_pos = c;
+      }
+      if(para_start_pos != std::string::npos && para_end_pos == std::string::npos)
+        result.emplace(line.substr(para_start_pos), std::string());
+
+      return result;
     }
   };
 } // namespace SimpleWeb

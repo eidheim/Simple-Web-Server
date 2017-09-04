@@ -192,4 +192,22 @@ int main() {
       assert(range.first->second == "æ%ø&å?");
     }
   }
+
+  {
+    {
+      SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}};
+      auto parsed = SimpleWeb::ContentDisposition::parse("form-data");
+      assert(parsed == solution);
+    }
+    {
+      SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}, {"name", "file"}};
+      auto parsed = SimpleWeb::ContentDisposition::parse("form-data; name=\"file\"");
+      assert(parsed == solution);
+    }
+    {
+      SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}, {"name", "file"}, {"filename", "filename.png"}};
+      auto parsed = SimpleWeb::ContentDisposition::parse("form-data; name=\"file\"; filename=\"filename.png\"");
+      assert(parsed == solution);
+    }
+  }
 }
