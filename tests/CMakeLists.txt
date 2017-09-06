@@ -21,3 +21,6 @@ if(OPENSSL_FOUND)
     target_link_libraries(crypto_test ${OPENSSL_CRYPTO_LIBRARY})
     add_test(crypto_test crypto_test)
 endif()
+
+add_executable(status_code_test status_code_test.cpp)
+add_test(status_code_test status_code_test)
