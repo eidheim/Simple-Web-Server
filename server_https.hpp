@@ -48,7 +48,7 @@ namespace SimpleWeb {
     asio::ssl::context context;
 
     void accept() override {
-      auto session = std::make_shared<Session>(create_connection(*io_service, context));
+      auto session = std::make_shared<Session>(config.max_request_streambuf_size, create_connection(*io_service, context));
 
       acceptor->async_accept(session->connection->socket->lowest_layer(), [this, session](const error_code &ec) {
         auto lock = session->connection->handler_runner->continue_lock();

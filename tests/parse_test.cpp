@@ -13,7 +13,7 @@ public:
   void accept() noexcept override {}
 
   void parse_request_test() {
-    auto session = std::make_shared<Session>(create_connection(*io_service));
+    auto session = std::make_shared<Session>(static_cast<size_t>(-1), create_connection(*io_service));
 
     std::ostream stream(&session->request->content.streambuf);
     stream << "GET /test/ HTTP/1.1\r\n";
@@ -72,9 +72,9 @@ public:
   }
 
   void parse_response_header_test() {
-    std::shared_ptr<Response> response(new Response());
+    std::shared_ptr<Response> response(new Response(static_cast<size_t>(-1)));
 
-    ostream stream(&response->content_buffer);
+    ostream stream(&response->streambuf);
     stream << "HTTP/1.1 200 OK\r\n";
     stream << "TestHeader: test\r\n";
     stream << "TestHeader2:test2\r\n";
@@ -152,7 +152,7 @@ int main() {
 
   asio::io_service io_service;
   asio::ip::tcp::socket socket(io_service);
-  SimpleWeb::Server<HTTP>::Request request;
+  SimpleWeb::Server<HTTP>::Request request(static_cast<size_t>(-1));
   {
     request.query_string = "";
     auto queries = request.parse_query_string();
