@@ -20,3 +20,4 @@ https_examples
 io_test
 parse_test
 crypto_test
+status_code_test
