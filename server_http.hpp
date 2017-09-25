@@ -558,7 +558,7 @@ namespace SimpleWeb {
       try {
         resource_function(response, session->request);
       }
-      catch(const std::exception &e) {
+      catch(const std::exception &) {
         if(on_error)
           on_error(session->request, make_error_code::make_error_code(errc::operation_canceled));
         return;
