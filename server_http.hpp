@@ -9,6 +9,8 @@
 #include <sstream>
 #include <thread>
 #include <unordered_set>
+#include <limits>
+#include <cstddef>
 
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>
@@ -82,7 +84,7 @@ namespace SimpleWeb {
       }
 
     public:
-      size_t size() noexcept {
+      std::size_t size() noexcept {
         return streambuf.size();
       }
 
@@ -90,7 +92,7 @@ namespace SimpleWeb {
       void send(const std::function<void(const error_code &)> &callback = nullptr) noexcept {
         session->connection->set_timeout(timeout_content);
         auto self = this->shared_from_this(); // Keep Response instance alive through the following async_write
-        asio::async_write(*session->connection->socket, streambuf, [self, callback](const error_code &ec, size_t /*bytes_transferred*/) {
+        asio::async_write(*session->connection->socket, streambuf, [self, callback](const error_code &ec, std::size_t /*bytes_transferred*/) {
           self->session->connection->cancel_timeout();
           auto lock = self->session->connection->handler_runner->continue_lock();
           if(!lock)
@@ -156,7 +158,7 @@ namespace SimpleWeb {
       friend class ServerBase<socket_type>;
 
     public:
-      size_t size() noexcept {
+      std::size_t size() noexcept {
         return streambuf.size();
       }
       /// Convenience function to return std::string. The stream buffer is consumed.
@@ -182,7 +184,7 @@ namespace SimpleWeb {
       friend class Session;
 
       asio::streambuf streambuf;
-      Request(size_t max_request_streambuf_size, const std::string &remote_endpoint_address = std::string(), unsigned short remote_endpoint_port = 0) noexcept
+      Request(std::size_t max_request_streambuf_size, const std::string &remote_endpoint_address = std::string(), unsigned short remote_endpoint_port = 0) noexcept
           : streambuf(max_request_streambuf_size), content(streambuf), remote_endpoint_address(remote_endpoint_address), remote_endpoint_port(remote_endpoint_port) {}
 
     public:
@@ -248,7 +250,7 @@ namespace SimpleWeb {
 
     class Session {
     public:
-      Session(size_t max_request_streambuf_size, std::shared_ptr<Connection> connection) noexcept : connection(std::move(connection)) {
+      Session(std::size_t max_request_streambuf_size, std::shared_ptr<Connection> connection) noexcept : connection(std::move(connection)) {
         try {
           auto remote_endpoint = this->connection->socket->lowest_layer().remote_endpoint();
           request = std::shared_ptr<Request>(new Request(max_request_streambuf_size, remote_endpoint.address().to_string(), remote_endpoint.port()));
@@ -273,14 +275,14 @@ namespace SimpleWeb {
       unsigned short port;
       /// If io_service is not set, number of threads that the server will use when start() is called.
       /// Defaults to 1 thread.
-      size_t thread_pool_size = 1;
+      std::size_t thread_pool_size = 1;
       /// Timeout on request handling. Defaults to 5 seconds.
       long timeout_request = 5;
       /// Timeout on content handling. Defaults to 300 seconds.
       long timeout_content = 300;
       /// Maximum size of request stream buffer. Defaults to architecture maximum.
       /// Reaching this limit will result in a message_size error code.
-      size_t max_request_streambuf_size = static_cast<size_t>(-1);
+      std::size_t max_request_streambuf_size = std::numeric_limits<std::size_t>::max();
       /// IPv4 address in dotted decimal form or IPv6 address in hexadecimal notation.
       /// If empty, the address will be any address.
       std::string address;
@@ -342,7 +344,7 @@ namespace SimpleWeb {
       if(internal_io_service) {
         // If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
         threads.clear();
-        for(size_t c = 1; c < config.thread_pool_size; c++) {
+        for(std::size_t c = 1; c < config.thread_pool_size; c++) {
           threads.emplace_back([this]() {
             this->io_service->run();
           });
@@ -418,7 +420,7 @@ namespace SimpleWeb {
 
     void read_request_and_content(const std::shared_ptr<Session> &session) {
       session->connection->set_timeout(config.timeout_request);
-      asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, size_t bytes_transferred) {
+      asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, std::size_t bytes_transferred) {
         session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
@@ -436,7 +438,7 @@ namespace SimpleWeb {
           // "After a successful async_read_until operation, the streambuf may contain additional data beyond the delimiter"
           // The chosen solution is to extract lines from the stream directly when parsing the header. What is left of the
           // streambuf (maybe some bytes of the content) is appended to in the async_read-function below (for retrieving content).
-          size_t num_additional_bytes = session->request->streambuf.size() - bytes_transferred;
+          std::size_t num_additional_bytes = session->request->streambuf.size() - bytes_transferred;
 
           if(!RequestMessage::parse(session->request->content, session->request->method, session->request->path,
                                     session->request->query_string, session->request->http_version, session->request->header)) {
@@ -459,7 +461,7 @@ namespace SimpleWeb {
             }
             if(content_length > num_additional_bytes) {
               session->connection->set_timeout(config.timeout_content);
-              asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, size_t /*bytes_transferred*/) {
+              asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, std::size_t /*bytes_transferred*/) {
                 session->connection->cancel_timeout();
                 auto lock = session->connection->handler_runner->continue_lock();
                 if(!lock)
