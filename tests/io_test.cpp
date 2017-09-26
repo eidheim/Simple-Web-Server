@@ -437,6 +437,4 @@ int main() {
     assert(client_catch);
     io_service->stop();
   }
-
-  return 0;
 }
