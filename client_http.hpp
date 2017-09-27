@@ -594,8 +594,10 @@ namespace SimpleWeb {
             if(length > 0)
               this->read_chunked(session, tmp_streambuf);
             else {
-              std::ostream response_stream(&session->response->streambuf);
-              response_stream << tmp_streambuf.get();
+              if(tmp_streambuf->size() > 0) {
+                std::ostream response_stream(&session->response->streambuf);
+                response_stream << tmp_streambuf.get();
+              }
               error_code ec;
               session->callback(session->connection, ec);
             }
