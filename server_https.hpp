@@ -10,6 +10,7 @@
 #endif
 
 #include <algorithm>
+#include <cstddef>
 #include <openssl/ssl.h>
 
 namespace SimpleWeb {
@@ -39,7 +40,7 @@ namespace SimpleWeb {
         session_id_context = std::to_string(config.port) + ':';
         session_id_context.append(config.address.rbegin(), config.address.rend());
         SSL_CTX_set_session_id_context(context.native_handle(), reinterpret_cast<const unsigned char *>(session_id_context.data()),
-                                       std::min<size_t>(session_id_context.size(), SSL_MAX_SSL_SESSION_ID_LENGTH));
+                                       std::min<std::size_t>(session_id_context.size(), SSL_MAX_SSL_SESSION_ID_LENGTH));
       }
       ServerBase::start();
     }

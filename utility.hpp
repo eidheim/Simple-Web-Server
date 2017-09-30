@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <cstddef>
 
 namespace SimpleWeb {
   inline bool case_insensitive_equal(const std::string &str1, const std::string &str2) noexcept {
@@ -24,8 +25,8 @@ namespace SimpleWeb {
   // Based on https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x/2595226#2595226
   class CaseInsensitiveHash {
   public:
-    size_t operator()(const std::string &str) const noexcept {
-      size_t h = 0;
+    std::size_t operator()(const std::string &str) const noexcept {
+      std::size_t h = 0;
       std::hash<int> hash;
       for(auto c : str)
         h ^= hash(tolower(c)) + 0x9e3779b9 + (h << 6) + (h >> 2);
@@ -62,7 +63,7 @@ namespace SimpleWeb {
       std::string result;
       result.reserve(value.size() / 3 + (value.size() % 3)); // Minimum size of result
 
-      for(size_t i = 0; i < value.size(); ++i) {
+      for(std::size_t i = 0; i < value.size(); ++i) {
         auto &chr = value[i];
         if(chr == '%' && i + 2 < value.size()) {
           auto hex = value.substr(i + 1, 2);
@@ -103,10 +104,10 @@ namespace SimpleWeb {
       if(query_string.empty())
         return result;
 
-      size_t name_pos = 0;
+      std::size_t name_pos = 0;
       auto name_end_pos = std::string::npos;
       auto value_pos = std::string::npos;
-      for(size_t c = 0; c < query_string.size(); ++c) {
+      for(std::size_t c = 0; c < query_string.size(); ++c) {
         if(query_string[c] == '&') {
           auto name = query_string.substr(name_pos, (name_end_pos == std::string::npos ? c : name_end_pos) - name_pos);
           if(!name.empty()) {
@@ -141,9 +142,9 @@ namespace SimpleWeb {
       CaseInsensitiveMultimap result;
       std::string line;
       getline(stream, line);
-      size_t param_end;
+      std::size_t param_end;
       while((param_end = line.find(':')) != std::string::npos) {
-        size_t value_start = param_end + 1;
+        std::size_t value_start = param_end + 1;
         if(value_start < line.size()) {
           if(line[value_start] == ' ')
             value_start++;
@@ -164,13 +165,13 @@ namespace SimpleWeb {
       header.clear();
       std::string line;
       getline(stream, line);
-      size_t method_end;
+      std::size_t method_end;
       if((method_end = line.find(' ')) != std::string::npos) {
         method = line.substr(0, method_end);
 
-        size_t query_start = std::string::npos;
-        size_t path_and_query_string_end = std::string::npos;
-        for(size_t i = method_end + 1; i < line.size(); ++i) {
+        std::size_t query_start = std::string::npos;
+        std::size_t path_and_query_string_end = std::string::npos;
+        for(std::size_t i = method_end + 1; i < line.size(); ++i) {
           if(line[i] == '?' && (i + 1) < line.size())
             query_start = i + 1;
           else if(line[i] == ' ') {
@@ -186,7 +187,7 @@ namespace SimpleWeb {
           else
             path = line.substr(method_end + 1, path_and_query_string_end - method_end - 1);
 
-          size_t protocol_end;
+          std::size_t protocol_end;
           if((protocol_end = line.find('/', path_and_query_string_end + 1)) != std::string::npos) {
             if(line.compare(path_and_query_string_end + 1, protocol_end - path_and_query_string_end - 1, "HTTP") != 0)
               return false;
@@ -213,7 +214,7 @@ namespace SimpleWeb {
       header.clear();
       std::string line;
       getline(stream, line);
-      size_t version_end = line.find(' ');
+      std::size_t version_end = line.find(' ');
       if(version_end != std::string::npos) {
         if(5 < line.size())
           version = line.substr(5, version_end - 5);
@@ -239,10 +240,10 @@ namespace SimpleWeb {
     static CaseInsensitiveMultimap parse(const std::string &line) {
       CaseInsensitiveMultimap result;
 
-      size_t para_start_pos = 0;
-      size_t para_end_pos = std::string::npos;
-      size_t value_start_pos = std::string::npos;
-      for(size_t c = 0; c < line.size(); ++c) {
+      std::size_t para_start_pos = 0;
+      std::size_t para_end_pos = std::string::npos;
+      std::size_t value_start_pos = std::string::npos;
+      for(std::size_t c = 0; c < line.size(); ++c) {
         if(para_start_pos != std::string::npos) {
           if(para_end_pos == std::string::npos) {
             if(line[c] == ';') {
