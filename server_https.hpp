@@ -10,7 +10,6 @@
 #endif
 
 #include <algorithm>
-#include <cstddef>
 #include <openssl/ssl.h>
 
 namespace SimpleWeb {

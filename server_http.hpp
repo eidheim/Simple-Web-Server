@@ -4,13 +4,12 @@
 #include "utility.hpp"
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <mutex>
 #include <sstream>
 #include <thread>
 #include <unordered_set>
-#include <limits>
-#include <cstddef>
 
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>

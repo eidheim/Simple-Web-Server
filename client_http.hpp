@@ -2,12 +2,11 @@
 #define CLIENT_HTTP_HPP
 
 #include "utility.hpp"
+#include <limits>
 #include <mutex>
 #include <random>
 #include <unordered_set>
 #include <vector>
-#include <limits>
-#include <cstddef>
 
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>

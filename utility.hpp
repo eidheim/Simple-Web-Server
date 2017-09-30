@@ -7,7 +7,6 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <cstddef>
 
 namespace SimpleWeb {
   inline bool case_insensitive_equal(const std::string &str1, const std::string &str2) noexcept {

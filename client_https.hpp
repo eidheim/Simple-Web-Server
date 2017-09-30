@@ -2,7 +2,6 @@
 #define CLIENT_HTTPS_HPP
 
 #include "client_http.hpp"
-#include <cstddef>
 
 #ifdef USE_STANDALONE_ASIO
 #include <asio/ssl.hpp>
