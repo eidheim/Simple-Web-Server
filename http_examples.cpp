@@ -89,40 +89,29 @@ int main() {
   // Responds with request-information
   server.resource["^/info$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     stringstream stream;
-    stream << "<h1>Request from " << request->remote_endpoint_address << " (" << request->remote_endpoint_port << ")</h1>";
-    stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
-    for(auto &header : request->header)
-      stream << header.first << ": " << header.second << "<br>";
+    stream << "<h1>Request from " << request->remote_endpoint_address << ":" << request->remote_endpoint_port << "</h1>";
 
-    // Find length of content_stream (length received using content_stream.tellp())
-    stream.seekp(0, ios::end);
+    stream << request->method << " " << request->path << " HTTP/" << request->http_version;
 
-    *response << "HTTP/1.1 200 OK\r\nContent-Length: " << stream.tellp() << "\r\n\r\n"
-              << stream.rdbuf();
+    stream << "<h2>Query Fields</h2>";
+    auto query_fields = request->parse_query_string();
+    for(auto &field : query_fields)
+      stream << field.first << ": " << field.second << "<br>";
 
+    stream << "<h2>Header Fields</h2>";
+    for(auto &field : request->header)
+      stream << field.first << ": " << field.second << "<br>";
 
-    // Alternatively, using a convenience function:
-    // stringstream stream;
-    // stream << "<h1>Request from " << request->remote_endpoint_address << " (" << request->remote_endpoint_port << ")</h1>";
-    // stream << request->method << " " << request->path << " HTTP/" << request->http_version << "<br>";
-    // for(auto &header: request->header)
-    //     stream << header.first << ": " << header.second << "<br>";
-    // response->write(stream);
+    response->write(stream);
   };
 
   // GET-example for the path /match/[number], responds with the matched string in path (number)
   // For instance a request GET /match/123 will receive: 123
   server.resource["^/match/([0-9]+)$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
-    string number = request->path_match[1];
-    *response << "HTTP/1.1 200 OK\r\nContent-Length: " << number.length() << "\r\n\r\n"
-              << number;
-
-
-    // Alternatively, using a convenience function:
-    // response->write(request->path_match[1]);
+    response->write(request->path_match[1]);
   };
 
-  // Get example simulating heavy work in a separate thread
+  // GET-example simulating heavy work in a separate thread
   server.resource["^/work$"]["GET"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> /*request*/) {
     thread work_thread([response] {
       this_thread::sleep_for(chrono::seconds(5));
