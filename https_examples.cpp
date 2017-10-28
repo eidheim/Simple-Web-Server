@@ -120,13 +120,35 @@ int main() {
     // response->write(request->path_match[1]);
   };
 
-  // Get example simulating heavy work in a separate thread
+  // GET-example simulating heavy work in a separate thread
   server.resource["^/work$"]["GET"] = [](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> /*request*/) {
     thread work_thread([response] {
       this_thread::sleep_for(chrono::seconds(5));
       response->write("Work done");
     });
     work_thread.detach();
+  };
+
+  // GET-example for the path /parse. Shows how to parse the parameters in the GET request. Responds firstName+" "+lastName
+  // For instance GET /parse?name=Mary&lastName=Smith will receive: Mary Smith
+  server.resource["^/parse$"]["GET"] = [](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> request) {
+    try {
+      SimpleWeb::CaseInsensitiveMultimap query = request->parse_query_string();
+
+      if(query.find("name") == query.end() || query.find("lastName") == query.end()) {
+        throw std::invalid_argument("Invalid or missing parameters in request");
+      }
+
+      auto name = query.find("name")->second +" "+ query.find("lastName")->second;
+
+      *response << "HTTP/1.1 200 OK\r\n"
+                << "Content-Length: " << name.length() << "\r\n\r\n"
+                << name;
+    }
+    catch(const exception &e) {
+      *response << "http/1.1 400 bad request\r\ncontent-length: " << strlen(e.what()) << "\r\n\r\n"
+                << e.what();
+    }
   };
 
   // Default GET-example. If no other matches, this anonymous function will be called.
@@ -140,7 +162,7 @@ int main() {
       // Check if path is within web_root_path
       if(distance(web_root_path.begin(), web_root_path.end()) > distance(path.begin(), path.end()) ||
          !equal(web_root_path.begin(), web_root_path.end(), path.begin()))
-        throw invalid_argument("path must be within root path");
+        throw invalid_argument("Path must be within root path");
       if(boost::filesystem::is_directory(path))
         path /= "index.html";
 
@@ -165,7 +187,7 @@ int main() {
 //        }
 //      }
 //      else
-//        throw invalid_argument("could not read file");
+//        throw invalid_argument("Could not read file");
 //    }
 #endif
 
@@ -202,7 +224,7 @@ int main() {
         FileServer::read_and_send(response, ifs);
       }
       else
-        throw invalid_argument("could not read file");
+        throw invalid_argument("Could not read file");
     }
     catch(const exception &e) {
       response->write(SimpleWeb::StatusCode::client_error_bad_request, "Could not open path " + request->path + ": " + e.what());
@@ -234,6 +256,9 @@ int main() {
 
     auto r2 = client.request("POST", "/string", json_string);
     cout << r2->content.rdbuf() << endl;
+  
+    auto r3 = client.request("GET", "/parse?name=Mary&lastName=Smith");
+    cout << r3->content.rdbuf() << endl;
   }
   catch(const SimpleWeb::system_error &e) {
     cerr << "Client request error: " << e.what() << endl;
