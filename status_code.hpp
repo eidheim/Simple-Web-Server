@@ -70,7 +70,7 @@ namespace SimpleWeb {
     server_error_network_authentication_required
   };
 
-  const static std::vector<std::pair<StatusCode, std::string>> &status_codes() noexcept {
+  const inline std::vector<std::pair<StatusCode, std::string>> &status_codes() noexcept {
     const static std::vector<std::pair<StatusCode, std::string>> status_codes = {
         {StatusCode::unknown, ""},
         {StatusCode::information_continue, "100 Continue"},
@@ -145,7 +145,7 @@ namespace SimpleWeb {
     return StatusCode::unknown;
   }
 
-  inline const std::string &status_code(StatusCode status_code_enum) noexcept {
+  const inline std::string &status_code(StatusCode status_code_enum) noexcept {
     for(auto &status_code : status_codes()) {
       if(status_code.first == status_code_enum)
         return status_code.second;
