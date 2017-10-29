@@ -22,7 +22,7 @@ namespace SimpleWeb {
 #endif
 
   class Crypto {
-    const static size_t buffer_size = 131072;
+    const static std::size_t buffer_size = 131072;
 
   public:
     class Base64 {
@@ -40,7 +40,7 @@ namespace SimpleWeb {
         BIO_set_mem_buf(b64, bptr, BIO_CLOSE);
 
         // Write directly to base64-buffer to avoid copy
-        auto base64_length = static_cast<size_t>(round(4 * ceil(static_cast<double>(ascii.size()) / 3.0)));
+        auto base64_length = static_cast<std::size_t>(round(4 * ceil(static_cast<double>(ascii.size()) / 3.0)));
         base64.resize(base64_length);
         bptr->length = 0;
         bptr->max = base64_length + 1;
@@ -73,7 +73,7 @@ namespace SimpleWeb {
 
         auto decoded_length = BIO_read(bio, &ascii[0], static_cast<int>(ascii.size()));
         if(decoded_length > 0)
-          ascii.resize(static_cast<size_t>(decoded_length));
+          ascii.resize(static_cast<std::size_t>(decoded_length));
         else
           ascii.clear();
 
@@ -92,117 +92,117 @@ namespace SimpleWeb {
       return hex_stream.str();
     }
 
-    static std::string md5(const std::string &input, size_t iterations = 1) noexcept {
+    static std::string md5(const std::string &input, std::size_t iterations = 1) noexcept {
       std::string hash;
 
       hash.resize(128 / 8);
       MD5(reinterpret_cast<const unsigned char *>(&input[0]), input.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
-      for(size_t c = 1; c < iterations; ++c)
+      for(std::size_t c = 1; c < iterations; ++c)
         MD5(reinterpret_cast<const unsigned char *>(&hash[0]), hash.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
       return hash;
     }
 
-    static std::string md5(std::istream &stream, size_t iterations = 1) noexcept {
+    static std::string md5(std::istream &stream, std::size_t iterations = 1) noexcept {
       MD5_CTX context;
       MD5_Init(&context);
       std::streamsize read_length;
       std::vector<char> buffer(buffer_size);
       while((read_length = stream.read(&buffer[0], buffer_size).gcount()) > 0)
-        MD5_Update(&context, buffer.data(), static_cast<size_t>(read_length));
+        MD5_Update(&context, buffer.data(), static_cast<std::size_t>(read_length));
       std::string hash;
       hash.resize(128 / 8);
       MD5_Final(reinterpret_cast<unsigned char *>(&hash[0]), &context);
 
-      for(size_t c = 1; c < iterations; ++c)
+      for(std::size_t c = 1; c < iterations; ++c)
         MD5(reinterpret_cast<const unsigned char *>(&hash[0]), hash.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
       return hash;
     }
 
-    static std::string sha1(const std::string &input, size_t iterations = 1) noexcept {
+    static std::string sha1(const std::string &input, std::size_t iterations = 1) noexcept {
       std::string hash;
 
       hash.resize(160 / 8);
       SHA1(reinterpret_cast<const unsigned char *>(&input[0]), input.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
-      for(size_t c = 1; c < iterations; ++c)
+      for(std::size_t c = 1; c < iterations; ++c)
         SHA1(reinterpret_cast<const unsigned char *>(&hash[0]), hash.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
       return hash;
     }
 
-    static std::string sha1(std::istream &stream, size_t iterations = 1) noexcept {
+    static std::string sha1(std::istream &stream, std::size_t iterations = 1) noexcept {
       SHA_CTX context;
       SHA1_Init(&context);
       std::streamsize read_length;
       std::vector<char> buffer(buffer_size);
       while((read_length = stream.read(&buffer[0], buffer_size).gcount()) > 0)
-        SHA1_Update(&context, buffer.data(), static_cast<size_t>(read_length));
+        SHA1_Update(&context, buffer.data(), static_cast<std::size_t>(read_length));
       std::string hash;
       hash.resize(160 / 8);
       SHA1_Final(reinterpret_cast<unsigned char *>(&hash[0]), &context);
 
-      for(size_t c = 1; c < iterations; ++c)
+      for(std::size_t c = 1; c < iterations; ++c)
         SHA1(reinterpret_cast<const unsigned char *>(&hash[0]), hash.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
       return hash;
     }
 
-    static std::string sha256(const std::string &input, size_t iterations = 1) noexcept {
+    static std::string sha256(const std::string &input, std::size_t iterations = 1) noexcept {
       std::string hash;
 
       hash.resize(256 / 8);
       SHA256(reinterpret_cast<const unsigned char *>(&input[0]), input.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
-      for(size_t c = 1; c < iterations; ++c)
+      for(std::size_t c = 1; c < iterations; ++c)
         SHA256(reinterpret_cast<const unsigned char *>(&hash[0]), hash.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
       return hash;
     }
 
-    static std::string sha256(std::istream &stream, size_t iterations = 1) noexcept {
+    static std::string sha256(std::istream &stream, std::size_t iterations = 1) noexcept {
       SHA256_CTX context;
       SHA256_Init(&context);
       std::streamsize read_length;
       std::vector<char> buffer(buffer_size);
       while((read_length = stream.read(&buffer[0], buffer_size).gcount()) > 0)
-        SHA256_Update(&context, buffer.data(), static_cast<size_t>(read_length));
+        SHA256_Update(&context, buffer.data(), static_cast<std::size_t>(read_length));
       std::string hash;
       hash.resize(256 / 8);
       SHA256_Final(reinterpret_cast<unsigned char *>(&hash[0]), &context);
 
-      for(size_t c = 1; c < iterations; ++c)
+      for(std::size_t c = 1; c < iterations; ++c)
         SHA256(reinterpret_cast<const unsigned char *>(&hash[0]), hash.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
       return hash;
     }
 
-    static std::string sha512(const std::string &input, size_t iterations = 1) noexcept {
+    static std::string sha512(const std::string &input, std::size_t iterations = 1) noexcept {
       std::string hash;
 
       hash.resize(512 / 8);
       SHA512(reinterpret_cast<const unsigned char *>(&input[0]), input.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
-      for(size_t c = 1; c < iterations; ++c)
+      for(std::size_t c = 1; c < iterations; ++c)
         SHA512(reinterpret_cast<const unsigned char *>(&hash[0]), hash.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
       return hash;
     }
 
-    static std::string sha512(std::istream &stream, size_t iterations = 1) noexcept {
+    static std::string sha512(std::istream &stream, std::size_t iterations = 1) noexcept {
       SHA512_CTX context;
       SHA512_Init(&context);
       std::streamsize read_length;
       std::vector<char> buffer(buffer_size);
       while((read_length = stream.read(&buffer[0], buffer_size).gcount()) > 0)
-        SHA512_Update(&context, buffer.data(), static_cast<size_t>(read_length));
+        SHA512_Update(&context, buffer.data(), static_cast<std::size_t>(read_length));
       std::string hash;
       hash.resize(512 / 8);
       SHA512_Final(reinterpret_cast<unsigned char *>(&hash[0]), &context);
 
-      for(size_t c = 1; c < iterations; ++c)
+      for(std::size_t c = 1; c < iterations; ++c)
         SHA512(reinterpret_cast<const unsigned char *>(&hash[0]), hash.size(), reinterpret_cast<unsigned char *>(&hash[0]));
 
       return hash;
@@ -211,7 +211,7 @@ namespace SimpleWeb {
     /// key_size is number of bytes of the returned key.
     static std::string pbkdf2(const std::string &password, const std::string &salt, int iterations, int key_size) noexcept {
       std::string key;
-      key.resize(static_cast<size_t>(key_size));
+      key.resize(static_cast<std::size_t>(key_size));
       PKCS5_PBKDF2_HMAC_SHA1(password.c_str(), password.size(),
                              reinterpret_cast<const unsigned char *>(salt.c_str()), salt.size(), iterations,
                              key_size, reinterpret_cast<unsigned char *>(&key[0]));
