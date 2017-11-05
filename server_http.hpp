@@ -183,8 +183,10 @@ namespace SimpleWeb {
       friend class Session;
 
       asio::streambuf streambuf;
-      Request(std::size_t max_request_streambuf_size, const std::string &remote_endpoint_address = std::string(), unsigned short remote_endpoint_port = 0) noexcept
-          : streambuf(max_request_streambuf_size), content(streambuf), remote_endpoint_address(remote_endpoint_address), remote_endpoint_port(remote_endpoint_port) {}
+      std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
+
+      Request(std::size_t max_request_streambuf_size, std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint) noexcept
+          : streambuf(max_request_streambuf_size), remote_endpoint(std::move(remote_endpoint)), content(streambuf) {}
 
     public:
       std::string method, path, query_string, http_version;
@@ -195,8 +197,18 @@ namespace SimpleWeb {
 
       regex::smatch path_match;
 
-      std::string remote_endpoint_address;
-      unsigned short remote_endpoint_port;
+      std::string remote_endpoint_address() noexcept {
+        try {
+          return remote_endpoint->address().to_string();
+        }
+        catch(...) {
+          return std::string();
+        }
+      }
+
+      unsigned short remote_endpoint_port() noexcept {
+        return remote_endpoint->port();
+      }
 
       /// Returns query keys with percent-decoded values.
       CaseInsensitiveMultimap parse_query_string() noexcept {
@@ -216,6 +228,8 @@ namespace SimpleWeb {
       std::mutex socket_close_mutex;
 
       std::unique_ptr<asio::steady_timer> timer;
+
+      std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
 
       void close() noexcept {
         error_code ec;
@@ -250,13 +264,11 @@ namespace SimpleWeb {
     class Session {
     public:
       Session(std::size_t max_request_streambuf_size, std::shared_ptr<Connection> connection) noexcept : connection(std::move(connection)) {
-        try {
-          auto remote_endpoint = this->connection->socket->lowest_layer().remote_endpoint();
-          request = std::shared_ptr<Request>(new Request(max_request_streambuf_size, remote_endpoint.address().to_string(), remote_endpoint.port()));
+        if(!this->connection->remote_endpoint) {
+          error_code ec;
+          this->connection->remote_endpoint = std::make_shared<asio::ip::tcp::endpoint>(this->connection->socket->lowest_layer().remote_endpoint(ec));
         }
-        catch(...) {
-          request = std::shared_ptr<Request>(new Request(max_request_streambuf_size));
-        }
+        request = std::shared_ptr<Request>(new Request(max_request_streambuf_size, this->connection->remote_endpoint));
       }
 
       std::shared_ptr<Connection> connection;
@@ -579,16 +591,18 @@ namespace SimpleWeb {
 
   protected:
     void accept() override {
-      auto session = std::make_shared<Session>(config.max_request_streambuf_size, create_connection(*io_service));
+      auto connection = create_connection(*io_service);
 
-      acceptor->async_accept(*session->connection->socket, [this, session](const error_code &ec) {
-        auto lock = session->connection->handler_runner->continue_lock();
+      acceptor->async_accept(*connection->socket, [this, connection](const error_code &ec) {
+        auto lock = connection->handler_runner->continue_lock();
         if(!lock)
           return;
 
         // Immediately start accepting a new connection (unless io_service has been stopped)
         if(ec != asio::error::operation_aborted)
           this->accept();
+
+        auto session = std::make_shared<Session>(config.max_request_streambuf_size, connection);
 
         if(!ec) {
           asio::ip::tcp::no_delay option(true);

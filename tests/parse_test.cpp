@@ -152,7 +152,7 @@ int main() {
 
   asio::io_service io_service;
   asio::ip::tcp::socket socket(io_service);
-  SimpleWeb::Server<HTTP>::Request request(static_cast<size_t>(-1));
+  SimpleWeb::Server<HTTP>::Request request(static_cast<size_t>(-1), nullptr);
   {
     request.query_string = "";
     auto queries = request.parse_query_string();
