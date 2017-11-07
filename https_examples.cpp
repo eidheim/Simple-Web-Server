@@ -24,6 +24,13 @@ int main() {
   // HTTPS-server at port 8080 using 1 thread
   // Unless you do more heavy non-threaded processing in the resources,
   // 1 thread is usually faster than several threads
+  //
+  // You can use:
+  //  openssl genrsa -out server.key
+  //  oopenssl req -new -key server.key -out server.csr
+  //  oopenssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
+  // to generate server.crt and server.key files.
+  // For the above openssl should be in your path and execute within servers (this programs) working directory.
   HttpsServer server("server.crt", "server.key");
   server.config.port = 8080;
 
@@ -194,7 +201,55 @@ int main() {
         throw invalid_argument("could not read file");
     }
     catch(const exception &e) {
+      std::cout << "Error within GET: " << e.what() << std::endl;
       response->write(SimpleWeb::StatusCode::client_error_bad_request, "Could not open path " + request->path + ": " + e.what());
+    }
+  };
+
+  server.default_resource["POST"] = [](shared_ptr<HttpsServer::Response> response, shared_ptr<HttpsServer::Request> request)
+  {
+    try
+    {
+      char contentbuf[128];
+      stringstream ss;
+      ss << "Post repost q: " << request->query_string << " p: " << request->path << " cont: ";
+      while (request->content.getline(contentbuf, 128))
+        ss << contentbuf;
+
+      SimpleWeb::CaseInsensitiveMultimap header;
+
+      //    Uncomment the following line to enable Cache-Control
+      //    header.emplace("Cache-Control", "max-age=86400");
+
+#ifdef HAVE_OPENSSL
+      //    Uncomment the following lines to enable ETag
+      //    {
+      //      ifstream ifs(path.string(), ifstream::in | ios::binary);
+      //      if(ifs) {
+      //        auto hash = SimpleWeb::Crypto::to_hex_string(SimpleWeb::Crypto::md5(ifs));
+      //        header.emplace("ETag", "\"" + hash + "\"");
+      //        auto it = request->header.find("If-None-Match");
+      //        if(it != request->header.end()) {
+      //          if(!it->second.empty() && it->second.compare(1, hash.size(), hash) == 0) {
+      //            response->write(SimpleWeb::StatusCode::redirection_not_modified, header);
+      //            return;
+      //          }
+      //        }
+      //      }
+      //      else
+      //        throw invalid_argument("could not read file");
+      //    }
+#endif
+
+      header.emplace("Content-Length", to_string(ss.str().size()));
+      response->write(header);
+      response->write(ss.str().c_str(), (std::streamsize)ss.str().size());
+      response->send();
+    }
+    catch (const exception &e)
+    {
+      std::cout << "Error within POST: " << e.what() << std::endl;
+      response->write(SimpleWeb::StatusCode::client_error_bad_request, string("Error: ") + e.what());
     }
   };
 

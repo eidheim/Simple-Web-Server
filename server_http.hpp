@@ -173,7 +173,9 @@ namespace SimpleWeb {
       }
 
     private:
+    TEST_ONLY(public:)
       asio::streambuf &streambuf;
+    private:
       Content(asio::streambuf &streambuf) noexcept : std::istream(&streambuf), streambuf(streambuf) {}
     };
 
@@ -182,6 +184,7 @@ namespace SimpleWeb {
       friend class Server<socket_type>;
       friend class Session;
 
+    TEST_ONLY(public:)
       asio::streambuf streambuf;
       std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
 

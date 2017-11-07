@@ -1,3 +1,4 @@
+#define SIMPLE_WEB_TEST
 #include "client_http.hpp"
 #include "server_http.hpp"
 

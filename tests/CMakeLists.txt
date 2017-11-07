@@ -1,10 +1,10 @@
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-access-control")
 
-add_executable(io_test io_test.cpp)
+add_executable(io_test io_test.cpp ../client_http.hpp ../client_https.hpp ../server_http.hpp ../server_https.hpp ../status_code.hpp ../utility.hpp)
 target_link_libraries(io_test ${Boost_LIBRARIES})
 target_link_libraries(io_test ${CMAKE_THREAD_LIBS_INIT})
 
-add_executable(parse_test parse_test.cpp)
+add_executable(parse_test parse_test.cpp ../client_http.hpp ../client_https.hpp ../server_http.hpp ../server_https.hpp ../status_code.hpp ../utility.hpp)
 target_link_libraries(parse_test ${Boost_LIBRARIES})
 target_link_libraries(parse_test ${CMAKE_THREAD_LIBS_INIT})
 
@@ -22,5 +22,5 @@ if(OPENSSL_FOUND)
     add_test(crypto_test crypto_test)
 endif()
 
-add_executable(status_code_test status_code_test.cpp)
+add_executable(status_code_test status_code_test.cpp ../status_code.hpp)
 add_test(status_code_test status_code_test)

@@ -8,6 +8,12 @@
 #include <string>
 #include <unordered_map>
 
+#ifdef SIMPLE_WEB_TEST
+# define TEST_ONLY(x) x
+#else
+# define TEST_ONLY(x)
+#endif
+
 namespace SimpleWeb {
   inline bool case_insensitive_equal(const std::string &str1, const std::string &str2) noexcept {
     return str1.size() == str2.size() &&
@@ -296,6 +302,7 @@ namespace SimpleWeb {
 namespace SimpleWeb {
   /// Makes it possible to for instance cancel Asio handlers without stopping asio::io_service
   class ScopeRunner {
+  TEST_ONLY(public:)
     /// Scope count that is set to -1 if scopes are to be canceled
     std::atomic<long> count;
 

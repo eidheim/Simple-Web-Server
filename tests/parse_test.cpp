@@ -1,12 +1,21 @@
+#define SIMPLE_WEB_TEST
 #include "client_http.hpp"
 #include "server_http.hpp"
 #include <cassert>
 #include <iostream>
 
-using namespace std;
-using namespace SimpleWeb;
+#ifndef USE_STANDALONE_ASIO
+namespace asio = boost::asio;
+#endif
 
-class ServerTest : public ServerBase<HTTP> {
+using HTTP = SimpleWeb::HTTP;
+using ServerBase = SimpleWeb::ServerBase<HTTP>;
+using ClientBase = SimpleWeb::ClientBase<HTTP>;
+using RequestMessage = SimpleWeb::RequestMessage;
+using ResponseMessage = SimpleWeb::ResponseMessage;
+// using case_insensitive_equal = SimpleWeb::case_insensitive_equal;  // does not work reliably everyehere
+
+class ServerTest : public SimpleWeb::ServerBase<HTTP> {
 public:
   ServerTest() : ServerBase<HTTP>::ServerBase(8080) {}
 
@@ -51,7 +60,7 @@ public:
   }
 };
 
-class ClientTest : public ClientBase<HTTP> {
+class ClientTest : public SimpleWeb::ClientBase<HTTP> {
 public:
   ClientTest(const std::string &server_port_path) : ClientBase<HTTP>::ClientBase(server_port_path, 80) {}
 
@@ -74,7 +83,7 @@ public:
   void parse_response_header_test() {
     std::shared_ptr<Response> response(new Response(static_cast<size_t>(-1)));
 
-    ostream stream(&response->streambuf);
+    std::ostream stream(&response->streambuf);
     stream << "HTTP/1.1 200 OK\r\n";
     stream << "TestHeader: test\r\n";
     stream << "TestHeader2:test2\r\n";
@@ -109,42 +118,42 @@ public:
 };
 
 int main() {
-  assert(case_insensitive_equal("Test", "tesT"));
-  assert(case_insensitive_equal("tesT", "test"));
-  assert(!case_insensitive_equal("test", "tseT"));
-  CaseInsensitiveEqual equal;
+  assert(SimpleWeb::case_insensitive_equal("Test", "tesT"));
+  assert(SimpleWeb::case_insensitive_equal("tesT", "test"));
+  assert(!SimpleWeb::case_insensitive_equal("test", "tseT"));
+  SimpleWeb::CaseInsensitiveEqual equal;
   assert(equal("Test", "tesT"));
   assert(equal("tesT", "test"));
   assert(!equal("test", "tset"));
-  CaseInsensitiveHash hash;
+  SimpleWeb::CaseInsensitiveHash hash;
   assert(hash("Test") == hash("tesT"));
   assert(hash("tesT") == hash("test"));
   assert(hash("test") != hash("tset"));
 
   auto percent_decoded = "testing æøå !#$&'()*+,/:;=?@[]";
   auto percent_encoded = "testing+æøå+%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D";
-  assert(Percent::encode(percent_decoded) == percent_encoded);
-  assert(Percent::decode(percent_encoded) == percent_decoded);
-  assert(Percent::decode(Percent::encode(percent_decoded)) == percent_decoded);
+  assert(SimpleWeb::Percent::encode(percent_decoded) == percent_encoded);
+  assert(SimpleWeb::Percent::decode(percent_encoded) == percent_decoded);
+  assert(SimpleWeb::Percent::decode(SimpleWeb::Percent::encode(percent_decoded)) == percent_decoded);
 
   SimpleWeb::CaseInsensitiveMultimap fields = {{"test1", "æøå"}, {"test2", "!#$&'()*+,/:;=?@[]"}};
   auto query_string1 = "test1=æøå&test2=%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D";
   auto query_string2 = "test2=%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D&test1=æøå";
-  auto query_string_result = QueryString::create(fields);
+  auto query_string_result = SimpleWeb::QueryString::create(fields);
   assert(query_string_result == query_string1 || query_string_result == query_string2);
-  auto fields_result1 = QueryString::parse(query_string1);
-  auto fields_result2 = QueryString::parse(query_string2);
+  auto fields_result1 = SimpleWeb::QueryString::parse(query_string1);
+  auto fields_result2 = SimpleWeb::QueryString::parse(query_string2);
   assert(fields_result1 == fields_result2 && fields_result1 == fields);
 
-  auto serverTest = make_shared<ServerTest>();
+  auto serverTest = std::make_shared<ServerTest>();
   serverTest->io_service = std::make_shared<asio::io_service>();
 
   serverTest->parse_request_test();
 
-  auto clientTest = make_shared<ClientTest>("test.org:8080");
+  auto clientTest = std::make_shared<ClientTest>("test.org:8080");
   clientTest->constructor_parse_test1();
 
-  auto clientTest2 = make_shared<ClientTest>("test.org");
+  auto clientTest2 = std::make_shared<ClientTest>("test.org");
   clientTest2->constructor_parse_test2();
 
   clientTest2->parse_response_header_test();

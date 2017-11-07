@@ -30,6 +30,8 @@ See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[nu
 
 ### Compile and run
 
+#### On Unix like systems
+
 Compile with a C++11 compliant compiler:
 ```sh
 mkdir build
@@ -38,6 +40,18 @@ cmake ..
 make
 cd ..
 ```
+
+#### On Windows with Visual C++
+Open Visual developer prompt
+```cmd
+set BOOST_ROOT=C:/libs/boost
+set OPENSSL_ROOT_DIR=C:/Program Files (x86)/OpenSSL
+mkdir build
+cd build
+cmake-gui ..
+```
+Press Configure, then Generate
+Open the Simple-Web-Server.sln
 
 #### HTTP
 

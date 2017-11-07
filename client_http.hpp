@@ -15,7 +15,7 @@ namespace SimpleWeb {
   using error_code = std::error_code;
   using errc = std::errc;
   using system_error = std::system_error;
-  namespace make_error_code = std;
+  namespace merrc = std;
   using string_view = const std::string &; // TODO c++17: use std::string_view
 } // namespace SimpleWeb
 #else
@@ -27,7 +27,7 @@ namespace SimpleWeb {
   using error_code = boost::system::error_code;
   namespace errc = boost::system::errc;
   using system_error = boost::system::system_error;
-  namespace make_error_code = boost::system::errc;
+  namespace merrc = boost::system::errc;
   using string_view = boost::string_ref;
 } // namespace SimpleWeb
 #endif
@@ -67,8 +67,8 @@ namespace SimpleWeb {
       friend class ClientBase<socket_type>;
       friend class Client<socket_type>;
 
+    TEST_ONLY(public:)
       asio::streambuf streambuf;
-
       Response(std::size_t max_response_streambuf_size) noexcept : streambuf(max_response_streambuf_size), content(streambuf) {}
 
     public:
@@ -97,7 +97,9 @@ namespace SimpleWeb {
       std::string proxy_server;
     };
 
+
   protected:
+  TEST_ONLY(public:)
     class Connection : public std::enable_shared_from_this<Connection> {
     public:
       template <typename... Args>
@@ -345,6 +347,7 @@ namespace SimpleWeb {
     }
 
   protected:
+  TEST_ONLY(public:)
     bool internal_io_service = false;
 
     std::string host;
@@ -455,7 +458,7 @@ namespace SimpleWeb {
         if(!lock)
           return;
         if((!ec || ec == asio::error::not_found) && session->response->streambuf.size() == session->response->streambuf.max_size()) {
-          session->callback(session->connection, make_error_code::make_error_code(errc::message_size));
+          session->callback(session->connection, merrc::make_error_code(errc::message_size));
           return;
         }
         if(!ec) {
@@ -463,7 +466,7 @@ namespace SimpleWeb {
           std::size_t num_additional_bytes = session->response->streambuf.size() - bytes_transferred;
 
           if(!ResponseMessage::parse(session->response->content, session->response->http_version, session->response->status_code, session->response->header)) {
-            session->callback(session->connection, make_error_code::make_error_code(errc::protocol_error));
+            session->callback(session->connection, merrc::make_error_code(errc::protocol_error));
             return;
           }
 
@@ -479,7 +482,7 @@ namespace SimpleWeb {
                   return;
                 if(!ec) {
                   if(session->response->streambuf.size() == session->response->streambuf.max_size()) {
-                    session->callback(session->connection, make_error_code::make_error_code(errc::message_size));
+                    session->callback(session->connection, merrc::make_error_code(errc::message_size));
                     return;
                   }
                   session->callback(session->connection, ec);
@@ -504,7 +507,7 @@ namespace SimpleWeb {
                 return;
               if(!ec) {
                 if(session->response->streambuf.size() == session->response->streambuf.max_size()) {
-                  session->callback(session->connection, make_error_code::make_error_code(errc::message_size));
+                  session->callback(session->connection, merrc::make_error_code(errc::message_size));
                   return;
                 }
                 session->callback(session->connection, ec);
@@ -542,7 +545,7 @@ namespace SimpleWeb {
 
     void read_chunked(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &tmp_streambuf) {
       if(tmp_streambuf->size() >= config.max_response_streambuf_size) {
-        session->callback(session->connection, make_error_code::make_error_code(errc::message_size));
+        session->callback(session->connection, merrc::make_error_code(errc::message_size));
         return;
       }
       // chunked_streambuf is needed as new read buffer with its size adjusted depending on the size of tmp_streambuf
@@ -559,7 +562,7 @@ namespace SimpleWeb {
         if(!lock)
           return;
         if((!ec || ec == asio::error::not_found) && chunked_streambuf->size() == chunked_streambuf->max_size()) {
-          session->callback(session->connection, make_error_code::make_error_code(errc::message_size));
+          session->callback(session->connection, merrc::make_error_code(errc::message_size));
           return;
         }
         if(!ec) {
@@ -573,7 +576,7 @@ namespace SimpleWeb {
             length = stoul(line, 0, 16);
           }
           catch(...) {
-            session->callback(session->connection, make_error_code::make_error_code(errc::protocol_error));
+            session->callback(session->connection, merrc::make_error_code(errc::protocol_error));
             return;
           }
 
@@ -613,7 +616,7 @@ namespace SimpleWeb {
                 return;
               if(!ec) {
                 if(chunked_streambuf->size() == chunked_streambuf->max_size()) {
-                  session->callback(session->connection, make_error_code::make_error_code(errc::message_size));
+                  session->callback(session->connection, merrc::make_error_code(errc::message_size));
                   return;
                 }
                 post_process();

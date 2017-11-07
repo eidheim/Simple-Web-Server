@@ -1,3 +1,4 @@
+#define SIMPLE_WEB_TEST
 #include "status_code.hpp"
 #include <cassert>
 
