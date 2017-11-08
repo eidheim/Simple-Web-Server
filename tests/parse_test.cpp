@@ -196,86 +196,94 @@ int main() {
   {
     {
       SimpleWeb::CaseInsensitiveMultimap solution;
-      auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("");
+      auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("");
       assert(parsed == solution);
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"a", ""}};
-      auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("a");
+      auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("a");
       assert(parsed == solution);
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"a", ""}, {"b", ""}};
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("a; b");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("a; b");
         assert(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("a;b");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("a;b");
         assert(parsed == solution);
       }
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"a", ""}, {"b", "c"}};
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("a; b=c");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("a; b=c");
         assert(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("a;b=c");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("a;b=c");
         assert(parsed == solution);
       }
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}};
-      auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("form-data");
+      auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data");
       assert(parsed == solution);
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}, {"test", ""}};
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("form-data; test");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; test");
         assert(parsed == solution);
       }
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}, {"name", "file"}};
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("form-data; name=\"file\"");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=\"file\"");
         assert(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("form-data; name=file");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=file");
         assert(parsed == solution);
       }
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}, {"name", "file"}, {"filename", "filename.png"}};
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("form-data; name=\"file\"; filename=\"filename.png\"");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=\"file\"; filename=\"filename.png\"");
         assert(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("form-data;name=\"file\";filename=\"filename.png\"");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data;name=\"file\";filename=\"filename.png\"");
         assert(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("form-data; name=file; filename=filename.png");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=file; filename=filename.png");
         assert(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("form-data;name=file;filename=filename.png");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data;name=file;filename=filename.png");
         assert(parsed == solution);
       }
     }
     {
       SimpleWeb::CaseInsensitiveMultimap solution = {{"form-data", ""}, {"name", "fi le"}, {"filename", "file name.png"}};
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("form-data; name=\"fi le\"; filename=\"file name.png\"");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=\"fi le\"; filename=\"file name.png\"");
         assert(parsed == solution);
       }
       {
-        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparated::parse("form-data; name=fi le; filename=file name.png");
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=\"fi%20le\"; filename=\"file%20name.png\"");
+        assert(parsed == solution);
+      }
+      {
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=fi le; filename=file name.png");
+        assert(parsed == solution);
+      }
+      {
+        auto parsed = SimpleWeb::HttpHeader::FieldValue::SemicolonSeparatedAttributes::parse("form-data; name=fi%20le; filename=file%20name.png");
         assert(parsed == solution);
       }
     }
