@@ -68,7 +68,7 @@ namespace SimpleWeb {
 
         b64 = BIO_new(BIO_f_base64());
         BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-// TODO: Cannot find the exact version this change happended
+// TODO: Cannot find the exact version this change happended. Remove in 2020
 #if OPENSSL_VERSION_NUMBER <= 0x1000114fL
         bio = BIO_new_mem_buf((char *)&base64[0], static_cast<int>(base64.size()));
 #else
