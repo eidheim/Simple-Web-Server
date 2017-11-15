@@ -64,6 +64,9 @@ int main() {
 
     *response << "HTTP/1.1 200 OK\r\nContent-Length: " << content.length() << "\r\n\r\n"
               << content;
+
+    assert(!request->remote_endpoint_address().empty());
+    assert(request->remote_endpoint_port() != 0);
   };
 
   server.resource["^/string2$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
