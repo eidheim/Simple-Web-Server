@@ -592,9 +592,13 @@ namespace SimpleWeb {
             chunked_stream.get();
             chunked_stream.get();
 
-            if(length > 0)
-              this->read_chunked(session, tmp_streambuf);
-            else {
+			if (length > 0) {
+				if (chunked_streambuf->size() > 0) {
+					std::ostream response_stream(&session->response->streambuf);
+					response_stream << chunked_streambuf.get();
+				}
+				this->read_chunked(session, tmp_streambuf);
+			}else {
               if(tmp_streambuf->size() > 0) {
                 std::ostream response_stream(&session->response->streambuf);
                 response_stream << tmp_streambuf.get();
