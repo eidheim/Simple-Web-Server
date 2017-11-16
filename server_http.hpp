@@ -183,10 +183,9 @@ namespace SimpleWeb {
       friend class Session;
 
       asio::streambuf streambuf;
-      std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
 
       Request(std::size_t max_request_streambuf_size, std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint) noexcept
-          : streambuf(max_request_streambuf_size), remote_endpoint(std::move(remote_endpoint)), content(streambuf) {}
+          : streambuf(max_request_streambuf_size), content(streambuf), remote_endpoint(std::move(remote_endpoint)) {}
 
     public:
       std::string method, path, query_string, http_version;
@@ -196,6 +195,8 @@ namespace SimpleWeb {
       CaseInsensitiveMultimap header;
 
       regex::smatch path_match;
+
+      std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
 
       std::string remote_endpoint_address() noexcept {
         try {

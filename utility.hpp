@@ -155,7 +155,64 @@ namespace SimpleWeb {
       }
       return result;
     }
-  };
+
+    class FieldValue {
+    public:
+      class SemicolonSeparatedAttributes {
+      public:
+        /// Parse Set-Cookie or Content-Disposition header field value. Attribute values are percent-decoded.
+        static CaseInsensitiveMultimap parse(const std::string &str) {
+          CaseInsensitiveMultimap result;
+
+          std::size_t name_start_pos = std::string::npos;
+          std::size_t name_end_pos = std::string::npos;
+          std::size_t value_start_pos = std::string::npos;
+          for(std::size_t c = 0; c < str.size(); ++c) {
+            if(name_start_pos == std::string::npos) {
+              if(str[c] != ' ' && str[c] != ';')
+                name_start_pos = c;
+            }
+            else {
+              if(name_end_pos == std::string::npos) {
+                if(str[c] == ';') {
+                  result.emplace(str.substr(name_start_pos, c - name_start_pos), std::string());
+                  name_start_pos = std::string::npos;
+                }
+                else if(str[c] == '=')
+                  name_end_pos = c;
+              }
+              else {
+                if(value_start_pos == std::string::npos) {
+                  if(str[c] == '"' && c + 1 < str.size())
+                    value_start_pos = c + 1;
+                  else
+                    value_start_pos = c;
+                }
+                else if(str[c] == '"' || str[c] == ';') {
+                  result.emplace(str.substr(name_start_pos, name_end_pos - name_start_pos), Percent::decode(str.substr(value_start_pos, c - value_start_pos)));
+                  name_start_pos = std::string::npos;
+                  name_end_pos = std::string::npos;
+                  value_start_pos = std::string::npos;
+                }
+              }
+            }
+          }
+          if(name_start_pos != std::string::npos) {
+            if(name_end_pos == std::string::npos)
+              result.emplace(str.substr(name_start_pos), std::string());
+            else if(value_start_pos != std::string::npos) {
+              if(str.back() == '"')
+                result.emplace(str.substr(name_start_pos, name_end_pos - name_start_pos), Percent::decode(str.substr(value_start_pos, str.size() - 1)));
+              else
+                result.emplace(str.substr(name_start_pos, name_end_pos - name_start_pos), Percent::decode(str.substr(value_start_pos)));
+            }
+          }
+
+          return result;
+        }
+      };
+    };
+  }; // namespace SimpleWeb
 
   class RequestMessage {
   public:
@@ -229,49 +286,6 @@ namespace SimpleWeb {
       else
         return false;
       return true;
-    }
-  };
-
-  class ContentDisposition {
-  public:
-    /// Can be used to parse the Content-Disposition header field value when
-    /// clients are posting requests with enctype="multipart/form-data"
-    static CaseInsensitiveMultimap parse(const std::string &line) {
-      CaseInsensitiveMultimap result;
-
-      std::size_t para_start_pos = 0;
-      std::size_t para_end_pos = std::string::npos;
-      std::size_t value_start_pos = std::string::npos;
-      for(std::size_t c = 0; c < line.size(); ++c) {
-        if(para_start_pos != std::string::npos) {
-          if(para_end_pos == std::string::npos) {
-            if(line[c] == ';') {
-              result.emplace(line.substr(para_start_pos, c - para_start_pos), std::string());
-              para_start_pos = std::string::npos;
-            }
-            else if(line[c] == '=')
-              para_end_pos = c;
-          }
-          else {
-            if(value_start_pos == std::string::npos) {
-              if(line[c] == '"' && c + 1 < line.size())
-                value_start_pos = c + 1;
-            }
-            else if(line[c] == '"') {
-              result.emplace(line.substr(para_start_pos, para_end_pos - para_start_pos), line.substr(value_start_pos, c - value_start_pos));
-              para_start_pos = std::string::npos;
-              para_end_pos = std::string::npos;
-              value_start_pos = std::string::npos;
-            }
-          }
-        }
-        else if(line[c] != ' ' && line[c] != ';')
-          para_start_pos = c;
-      }
-      if(para_start_pos != std::string::npos && para_end_pos == std::string::npos)
-        result.emplace(line.substr(para_start_pos), std::string());
-
-      return result;
     }
   };
 } // namespace SimpleWeb

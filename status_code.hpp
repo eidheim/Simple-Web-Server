@@ -1,7 +1,9 @@
 #ifndef SIMPLE_WEB_STATUS_CODE_HPP
 #define SIMPLE_WEB_STATUS_CODE_HPP
 
+#include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace SimpleWeb {
@@ -138,19 +140,33 @@ namespace SimpleWeb {
   }
 
   inline StatusCode status_code(const std::string &status_code_str) noexcept {
-    for(auto &status_code : status_codes()) {
-      if(status_code.second == status_code_str)
-        return status_code.first;
-    }
-    return StatusCode::unknown;
+    class StringToStatusCode : public std::unordered_map<std::string, SimpleWeb::StatusCode> {
+    public:
+      StringToStatusCode() {
+        for(auto &status_code : SimpleWeb::status_codes())
+          emplace(status_code.second, status_code.first);
+      }
+    };
+    static StringToStatusCode string_to_status_code;
+    auto pos = string_to_status_code.find(status_code_str);
+    if(pos == string_to_status_code.end())
+      return StatusCode::unknown;
+    return pos->second;
   }
 
   const inline std::string &status_code(StatusCode status_code_enum) noexcept {
-    for(auto &status_code : status_codes()) {
-      if(status_code.first == status_code_enum)
-        return status_code.second;
-    }
-    return status_codes()[0].second;
+    class StatusCodeToString : public std::map<SimpleWeb::StatusCode, std::string> {
+    public:
+      StatusCodeToString() {
+        for(auto &status_code : SimpleWeb::status_codes())
+          emplace(status_code.first, status_code.second);
+      }
+    };
+    static StatusCodeToString status_code_to_string;
+    auto pos = status_code_to_string.find(status_code_enum);
+    if(pos == status_code_to_string.end())
+      return status_codes()[0].second;
+    return pos->second;
   }
 } // namespace SimpleWeb
 
