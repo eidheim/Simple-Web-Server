@@ -72,7 +72,7 @@ namespace SimpleWeb {
             if(!lock)
               return;
             if(!ec)
-              this->read_request_and_content(session);
+              this->read(session);
             else if(this->on_error)
               this->on_error(session->request, ec);
           });

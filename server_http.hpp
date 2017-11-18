@@ -430,7 +430,7 @@ namespace SimpleWeb {
       return connection;
     }
 
-    void read_request_and_content(const std::shared_ptr<Session> &session) {
+    void read(const std::shared_ptr<Session> &session) {
       session->connection->set_timeout(config.timeout_request);
       asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, std::size_t bytes_transferred) {
         session->connection->cancel_timeout();
@@ -618,25 +618,25 @@ namespace SimpleWeb {
           return;
         }
       }
-      // Find path- and method-match, and call write_response
+      // Find path- and method-match, and call write
       for(auto &regex_method : resource) {
         auto it = regex_method.second.find(session->request->method);
         if(it != regex_method.second.end()) {
           regex::smatch sm_res;
           if(regex::regex_match(session->request->path, sm_res, regex_method.first)) {
             session->request->path_match = std::move(sm_res);
-            write_response(session, it->second);
+            write(session, it->second);
             return;
           }
         }
       }
       auto it = default_resource.find(session->request->method);
       if(it != default_resource.end())
-        write_response(session, it->second);
+        write(session, it->second);
     }
 
-    void write_response(const std::shared_ptr<Session> &session,
-                        std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> &resource_function) {
+    void write(const std::shared_ptr<Session> &session,
+               std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> &resource_function) {
       session->connection->set_timeout(config.timeout_content);
       auto response = std::shared_ptr<Response>(new Response(session, config.timeout_content), [this](Response *response_ptr) {
         auto response = std::shared_ptr<Response>(response_ptr);
@@ -651,13 +651,13 @@ namespace SimpleWeb {
                 return;
               else if(case_insensitive_equal(it->second, "keep-alive")) {
                 auto new_session = std::make_shared<Session>(this->config.max_request_streambuf_size, response->session->connection);
-                this->read_request_and_content(new_session);
+                this->read(new_session);
                 return;
               }
             }
             if(response->session->request->http_version >= "1.1") {
               auto new_session = std::make_shared<Session>(this->config.max_request_streambuf_size, response->session->connection);
-              this->read_request_and_content(new_session);
+              this->read(new_session);
               return;
             }
           }
@@ -707,7 +707,7 @@ namespace SimpleWeb {
           error_code ec;
           session->connection->socket->set_option(option, ec);
 
-          this->read_request_and_content(session);
+          this->read(session);
         }
         else if(this->on_error)
           this->on_error(session->request, ec);
