@@ -556,7 +556,7 @@ namespace SimpleWeb {
           getline(session->response->content, line);
           bytes_transferred -= line.size() + 1;
           line.pop_back();
-          unsigned long length;
+          unsigned long length = 0;
           try {
             length = stoul(line, 0, 16);
           }
