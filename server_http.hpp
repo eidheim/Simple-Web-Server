@@ -460,11 +460,11 @@ namespace SimpleWeb {
           }
 
           // If content, read that as well
-          auto it = session->request->header.find("Content-Length");
-          if(it != session->request->header.end()) {
+          auto header_it = session->request->header.find("Content-Length");
+          if(header_it != session->request->header.end()) {
             unsigned long long content_length = 0;
             try {
-              content_length = stoull(it->second);
+              content_length = stoull(header_it->second);
             }
             catch(const std::exception &e) {
               if(this->on_error)
@@ -496,12 +496,109 @@ namespace SimpleWeb {
             else
               this->find_resource(session);
           }
+          else if((header_it = session->request->header.find("Transfer-Encoding")) != session->request->header.end() && header_it->second == "chunked") {
+            auto chunks_streambuf = std::make_shared<asio::streambuf>(this->config.max_request_streambuf_size);
+            this->read_chunked_transfer_encoded(session, chunks_streambuf);
+          }
           else
             this->find_resource(session);
         }
         else if(this->on_error)
           this->on_error(session->request, ec);
       });
+    }
+
+    void read_chunked_transfer_encoded(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunks_streambuf) {
+      session->connection->set_timeout(config.timeout_content);
+      asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n", [this, session, chunks_streambuf](const error_code &ec, size_t bytes_transferred) {
+        session->connection->cancel_timeout();
+        auto lock = session->connection->handler_runner->continue_lock();
+        if(!lock)
+          return;
+        if((!ec || ec == asio::error::not_found) && session->request->streambuf.size() == session->request->streambuf.max_size()) {
+          auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+          response->write(StatusCode::client_error_payload_too_large);
+          response->send();
+          if(this->on_error)
+            this->on_error(session->request, make_error_code::make_error_code(errc::message_size));
+          return;
+        }
+        if(!ec) {
+          std::string line;
+          getline(session->request->content, line);
+          bytes_transferred -= line.size() + 1;
+          line.pop_back();
+          unsigned long length = 0;
+          try {
+            length = stoul(line, 0, 16);
+          }
+          catch(...) {
+            if(this->on_error)
+              this->on_error(session->request, make_error_code::make_error_code(errc::protocol_error));
+            return;
+          }
+
+          auto num_additional_bytes = session->request->streambuf.size() - bytes_transferred;
+
+          if((2 + length) > num_additional_bytes) {
+            session->connection->set_timeout(config.timeout_content);
+            asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(2 + length - num_additional_bytes), [this, session, chunks_streambuf, length](const error_code &ec, size_t /*bytes_transferred*/) {
+              session->connection->cancel_timeout();
+              auto lock = session->connection->handler_runner->continue_lock();
+              if(!lock)
+                return;
+              if(!ec) {
+                if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
+                  auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+                  response->write(StatusCode::client_error_payload_too_large);
+                  response->send();
+                  if(this->on_error)
+                    this->on_error(session->request, make_error_code::make_error_code(errc::message_size));
+                  return;
+                }
+                this->read_chunked_transfer_encoded_chunk(session, chunks_streambuf, length);
+              }
+              else if(this->on_error)
+                this->on_error(session->request, ec);
+            });
+          }
+          else
+            this->read_chunked_transfer_encoded_chunk(session, chunks_streambuf, length);
+        }
+        else if(this->on_error)
+          this->on_error(session->request, ec);
+      });
+    }
+
+    void read_chunked_transfer_encoded_chunk(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunks_streambuf, unsigned long length) {
+      std::ostream tmp_stream(chunks_streambuf.get());
+      if(length > 0) {
+        std::unique_ptr<char[]> buffer(new char[length]);
+        session->request->content.read(buffer.get(), static_cast<std::streamsize>(length));
+        tmp_stream.write(buffer.get(), static_cast<std::streamsize>(length));
+        if(chunks_streambuf->size() == chunks_streambuf->max_size()) {
+          auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+          response->write(StatusCode::client_error_payload_too_large);
+          response->send();
+          if(this->on_error)
+            this->on_error(session->request, make_error_code::make_error_code(errc::message_size));
+          return;
+        }
+      }
+
+      // Remove "\r\n"
+      session->request->content.get();
+      session->request->content.get();
+
+      if(length > 0)
+        read_chunked_transfer_encoded(session, chunks_streambuf);
+      else {
+        if(chunks_streambuf->size() > 0) {
+          std::ostream ostream(&session->request->streambuf);
+          ostream << chunks_streambuf.get();
+        }
+        this->find_resource(session);
+      }
     }
 
     void find_resource(const std::shared_ptr<Session> &session) {

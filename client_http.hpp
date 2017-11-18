@@ -492,7 +492,7 @@ namespace SimpleWeb {
               session->callback(session->connection, ec);
           }
           else if((header_it = session->response->header.find("Transfer-Encoding")) != session->response->header.end() && header_it->second == "chunked") {
-            auto chunks_streambuf = std::make_shared<asio::streambuf>();
+            auto chunks_streambuf = std::make_shared<asio::streambuf>(this->config.max_response_streambuf_size);
             this->read_chunked_transfer_encoded(session, chunks_streambuf);
           }
           else if(session->response->http_version < "1.1" || ((header_it = session->response->header.find("Session")) != session->response->header.end() && header_it->second == "close")) {
@@ -613,8 +613,8 @@ namespace SimpleWeb {
         read_chunked_transfer_encoded(session, chunks_streambuf);
       else {
         if(chunks_streambuf->size() > 0) {
-          std::ostream response_stream(&session->response->streambuf);
-          response_stream << chunks_streambuf.get();
+          std::ostream ostream(&session->response->streambuf);
+          ostream << chunks_streambuf.get();
         }
         error_code ec;
         session->callback(session->connection, ec);
