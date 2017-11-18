@@ -252,8 +252,14 @@ namespace SimpleWeb {
       };
 
       std::ostream write_stream(session->request_streambuf.get());
-      if(content.size() > 0)
-        write_stream << "Content-Length: " << content.size() << "\r\n";
+      if(content.size() > 0) {
+        auto header_it = header.find("Content-Length");
+        if(header_it == header.end()) {
+          header_it = header.find("Transfer-Encoding");
+          if(header_it == header.end() || header_it->second != "chunked")
+            write_stream << "Content-Length: " << content.size() << "\r\n";
+        }
+      }
       write_stream << "\r\n"
                    << content;
 
@@ -314,8 +320,14 @@ namespace SimpleWeb {
       auto content_length = content.tellg();
       content.seekg(0, std::ios::beg);
       std::ostream write_stream(session->request_streambuf.get());
-      if(content_length > 0)
-        write_stream << "Content-Length: " << content_length << "\r\n";
+      if(content_length > 0) {
+        auto header_it = header.find("Content-Length");
+        if(header_it == header.end()) {
+          header_it = header.find("Transfer-Encoding");
+          if(header_it == header.end() || header_it->second != "chunked")
+            write_stream << "Content-Length: " << content_length << "\r\n";
+        }
+      }
       write_stream << "\r\n";
       if(content_length > 0)
         write_stream << content.rdbuf();
