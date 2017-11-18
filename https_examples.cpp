@@ -135,8 +135,8 @@ int main() {
 
       SimpleWeb::CaseInsensitiveMultimap header;
 
-//    Uncomment the following line to enable Cache-Control
-//    header.emplace("Cache-Control", "max-age=86400");
+      // Uncomment the following line to enable Cache-Control
+      // header.emplace("Cache-Control", "max-age=86400");
 
 #ifdef HAVE_OPENSSL
 //    Uncomment the following lines to enable ETag
