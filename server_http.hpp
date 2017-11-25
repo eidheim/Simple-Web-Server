@@ -198,6 +198,9 @@ namespace SimpleWeb {
 
       std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
 
+      /// The time point when the request header was fully read.
+      std::chrono::system_clock::time_point header_read_time;
+
       std::string remote_endpoint_address() noexcept {
         try {
           return remote_endpoint->address().to_string();
@@ -437,6 +440,7 @@ namespace SimpleWeb {
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
+        session->request->header_read_time = std::chrono::system_clock::now();
         if((!ec || ec == asio::error::not_found) && session->request->streambuf.size() == session->request->streambuf.max_size()) {
           auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
           response->write(StatusCode::client_error_payload_too_large);
