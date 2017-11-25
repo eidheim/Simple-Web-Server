@@ -72,8 +72,8 @@ namespace SimpleWeb {
     server_error_network_authentication_required
   };
 
-  const inline std::vector<std::pair<StatusCode, std::string>> &status_codes() noexcept {
-    const static std::vector<std::pair<StatusCode, std::string>> status_codes = {
+  inline const std::map<StatusCode, std::string> &status_code_strings() {
+    static const std::map<StatusCode, std::string> status_code_strings = {
         {StatusCode::unknown, ""},
         {StatusCode::information_continue, "100 Continue"},
         {StatusCode::information_switching_protocols, "101 Switching Protocols"},
@@ -136,36 +136,30 @@ namespace SimpleWeb {
         {StatusCode::server_error_loop_detected, "508 Loop Detected"},
         {StatusCode::server_error_not_extended, "510 Not Extended"},
         {StatusCode::server_error_network_authentication_required, "511 Network Authentication Required"}};
-    return status_codes;
+    return status_code_strings;
   }
 
-  inline StatusCode status_code(const std::string &status_code_str) noexcept {
+  inline StatusCode status_code(const std::string &status_code_string) noexcept {
     class StringToStatusCode : public std::unordered_map<std::string, SimpleWeb::StatusCode> {
     public:
       StringToStatusCode() {
-        for(auto &status_code : SimpleWeb::status_codes())
+        for(auto &status_code : status_code_strings())
           emplace(status_code.second, status_code.first);
       }
     };
     static StringToStatusCode string_to_status_code;
-    auto pos = string_to_status_code.find(status_code_str);
+    auto pos = string_to_status_code.find(status_code_string);
     if(pos == string_to_status_code.end())
       return StatusCode::unknown;
     return pos->second;
   }
 
-  const inline std::string &status_code(StatusCode status_code_enum) noexcept {
-    class StatusCodeToString : public std::map<SimpleWeb::StatusCode, std::string> {
-    public:
-      StatusCodeToString() {
-        for(auto &status_code : SimpleWeb::status_codes())
-          emplace(status_code.first, status_code.second);
-      }
-    };
-    static StatusCodeToString status_code_to_string;
-    auto pos = status_code_to_string.find(status_code_enum);
-    if(pos == status_code_to_string.end())
-      return status_codes()[0].second;
+  inline const std::string &status_code(StatusCode status_code_enum) noexcept {
+    auto pos = status_code_strings().find(status_code_enum);
+    if(pos == status_code_strings().end()) {
+      static std::string empty_string;
+      return empty_string;
+    }
     return pos->second;
   }
 } // namespace SimpleWeb
