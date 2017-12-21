@@ -470,7 +470,7 @@ namespace SimpleWeb {
             try {
               content_length = stoull(header_it->second);
             }
-            catch(const std::exception &e) {
+            catch(const std::exception &) {
               if(this->on_error)
                 this->on_error(session->request, make_error_code::make_error_code(errc::protocol_error));
               return;
