@@ -46,10 +46,8 @@ namespace SimpleWeb {
       result.reserve(value.size()); // Minimum size of result
 
       for(auto &chr : value) {
-        if(chr == ' ')
-          result += '+';
-        else if(chr == '!' || chr == '#' || chr == '$' || (chr >= '&' && chr <= ',') || chr == '/' || chr == ':' || chr == ';' || chr == '=' || chr == '?' || chr == '@' || chr == '[' || chr == ']')
-          result += std::string("%") + hex_chars[chr >> 4] + hex_chars[chr & 15];
+        if(!((chr >= '0' && chr <= '9') || (chr >= 'A' && chr <= 'Z') || (chr >= 'a' && chr <= 'z') || chr == '-' || chr == '.' || chr == '_' || chr == '~'))
+          result += std::string("%") + hex_chars[static_cast<unsigned char>(chr) >> 4] + hex_chars[static_cast<unsigned char>(chr) & 15];
         else
           result += chr;
       }
