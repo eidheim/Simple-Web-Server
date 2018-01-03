@@ -48,7 +48,7 @@ namespace SimpleWeb {
       for(auto &chr : value) {
         if(chr == ' ')
           result += '+';
-        else if(chr == '!' || chr == '#' || chr == '$' || (chr >= '&' && chr <= ',') || (chr >= '/' && chr <= ';') || chr == '=' || chr == '?' || chr == '@' || chr == '[' || chr == ']')
+        else if(chr == '!' || chr == '#' || chr == '$' || (chr >= '&' && chr <= ',') || chr == '/' || chr == ':' || chr == ';' || chr == '=' || chr == '?' || chr == '@' || chr == '[' || chr == ']')
           result += std::string("%") + hex_chars[chr >> 4] + hex_chars[chr & 15];
         else
           result += chr;

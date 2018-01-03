@@ -121,8 +121,8 @@ int main() {
   assert(hash("tesT") == hash("test"));
   assert(hash("test") != hash("tset"));
 
-  auto percent_decoded = "testing æøå !#$&'()*+,/:;=?@[]";
-  auto percent_encoded = "testing+æøå+%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D";
+  auto percent_decoded = "testing æøå !#$&'()*+,/:;=?@[]123";
+  auto percent_encoded = "testing+æøå+%21%23%24%26%27%28%29%2A%2B%2C%2F%3A%3B%3D%3F%40%5B%5D123";
   assert(Percent::encode(percent_decoded) == percent_encoded);
   assert(Percent::decode(percent_encoded) == percent_decoded);
   assert(Percent::decode(Percent::encode(percent_decoded)) == percent_decoded);
