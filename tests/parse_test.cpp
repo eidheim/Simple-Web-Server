@@ -77,9 +77,12 @@ public:
     ostream stream(&response->streambuf);
     stream << "HTTP/1.1 200 OK\r\n";
     stream << "TestHeader: test\r\n";
-    stream << "TestHeader2:test2\r\n";
+    stream << "TestHeader2:  test2\r\n";
     stream << "TestHeader3:test3a\r\n";
     stream << "TestHeader3:test3b\r\n";
+    stream << "TestHeader4:\r\n";
+    stream << "TestHeader5: \r\n";
+    stream << "TestHeader6:  \r\n";
     stream << "\r\n";
 
     assert(ResponseMessage::parse(response->content, response->http_version, response->status_code, response->header));
@@ -87,7 +90,7 @@ public:
     assert(response->http_version == "1.1");
     assert(response->status_code == "200 OK");
 
-    assert(response->header.size() == 4);
+    assert(response->header.size() == 7);
     auto header_it = response->header.find("TestHeader");
     assert(header_it != response->header.end() && header_it->second == "test");
     header_it = response->header.find("TestHeader2");
@@ -105,6 +108,13 @@ public:
     assert(range.first != response->header.end() && range.second != response->header.end() &&
            ((first->second == "test3a" && second->second == "test3b") ||
             (first->second == "test3b" && second->second == "test3a")));
+
+    header_it = response->header.find("TestHeader4");
+    assert(header_it != response->header.end() && header_it->second == "");
+    header_it = response->header.find("TestHeader5");
+    assert(header_it != response->header.end() && header_it->second == "");
+    header_it = response->header.find("TestHeader6");
+    assert(header_it != response->header.end() && header_it->second == "");
   }
 };
 

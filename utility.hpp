@@ -142,12 +142,10 @@ namespace SimpleWeb {
       std::size_t param_end;
       while((param_end = line.find(':')) != std::string::npos) {
         std::size_t value_start = param_end + 1;
-        if(value_start < line.size()) {
-          if(line[value_start] == ' ')
-            value_start++;
-          if(value_start < line.size())
-            result.emplace(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1));
-        }
+        while(value_start + 1 < line.size() && line[value_start] == ' ')
+          ++value_start;
+        if(value_start < line.size())
+          result.emplace(line.substr(0, param_end), line.substr(value_start, line.size() - value_start - 1));
 
         getline(stream, line);
       }
