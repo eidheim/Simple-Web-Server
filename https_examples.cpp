@@ -200,6 +200,7 @@ int main() {
 
   server.on_error = [](shared_ptr<HttpsServer::Request> /*request*/, const SimpleWeb::error_code & /*ec*/) {
     // Handle errors here
+    // Note that connection timeouts will also call this handle with ec set to SimpleWeb::errc::operation_canceled
   };
 
   thread server_thread([&server]() {
