@@ -425,7 +425,7 @@ namespace SimpleWeb {
       std::unique_ptr<asio::streambuf> streambuf(new asio::streambuf());
       std::ostream write_stream(streambuf.get());
       write_stream << method << " " << corrected_path << " HTTP/1.1\r\n";
-      write_stream << "Host: " << host << "\r\n";
+      write_stream << "Host: " << host << ":" << std::to_string(port) << "\r\n";
       for(auto &h : header)
         write_stream << h.first << ": " << h.second << "\r\n";
       return streambuf;
