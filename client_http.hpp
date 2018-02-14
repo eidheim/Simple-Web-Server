@@ -361,6 +361,7 @@ namespace SimpleWeb {
 
     std::string host;
     unsigned short port;
+    unsigned short default_port;
 
     std::unique_ptr<asio::ip::tcp::resolver::query> query;
 
@@ -372,7 +373,7 @@ namespace SimpleWeb {
     std::size_t concurrent_synchronous_requests = 0;
     std::mutex concurrent_synchronous_requests_mutex;
 
-    ClientBase(const std::string &host_port, unsigned short default_port) noexcept : handler_runner(new ScopeRunner()) {
+    ClientBase(const std::string &host_port, unsigned short default_port) noexcept : default_port(default_port), handler_runner(new ScopeRunner()) {
       auto parsed_host_port = parse_host_port(host_port, default_port);
       host = parsed_host_port.first;
       port = parsed_host_port.second;
@@ -425,7 +426,10 @@ namespace SimpleWeb {
       std::unique_ptr<asio::streambuf> streambuf(new asio::streambuf());
       std::ostream write_stream(streambuf.get());
       write_stream << method << " " << corrected_path << " HTTP/1.1\r\n";
-      write_stream << "Host: " << host << ":" << std::to_string(port) << "\r\n";
+      write_stream << "Host: " << host;
+      if(port != default_port)
+        write_stream << ':' << std::to_string(port);
+      write_stream << "\r\n";
       for(auto &h : header)
         write_stream << h.first << ": " << h.second << "\r\n";
       return streambuf;
