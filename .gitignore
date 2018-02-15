@@ -21,3 +21,7 @@ io_test
 parse_test
 crypto_test
 status_code_test
+
+.idea
+/debug
+/release

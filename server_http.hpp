@@ -44,26 +44,27 @@ namespace SimpleWeb {
 #endif
 
 namespace SimpleWeb {
-  template <class socket_type>
+  template <class web_socket_type>
   class Server;
 
-  template <class socket_type>
   class ServerBase {
   protected:
+    class Connection;
     class Session;
 
   public:
     class Response : public std::enable_shared_from_this<Response>, public std::ostream {
-      friend class ServerBase<socket_type>;
-      friend class Server<socket_type>;
+      friend class ServerBase;
 
+    protected:
       asio::streambuf streambuf;
 
       std::shared_ptr<Session> session;
       long timeout_content;
 
-      Response(std::shared_ptr<Session> session, long timeout_content) noexcept : std::ostream(&streambuf), session(std::move(session)), timeout_content(timeout_content) {}
+      Response(std::shared_ptr<Session> session, long timeout_content) noexcept : std::ostream(&streambuf), session(std::move(session)), timeout_content(timeout_content) { }
 
+    private:
       template <typename size_type>
       void write_header(const CaseInsensitiveMultimap &header, size_type size) {
         bool content_length_written = false;
@@ -87,18 +88,12 @@ namespace SimpleWeb {
         return streambuf.size();
       }
 
+
       /// Use this function if you need to recursively send parts of a longer message
       void send(const std::function<void(const error_code &)> &callback = nullptr) noexcept {
         session->connection->set_timeout(timeout_content);
         auto self = this->shared_from_this(); // Keep Response instance alive through the following async_write
-        asio::async_write(*session->connection->socket, streambuf, [self, callback](const error_code &ec, std::size_t /*bytes_transferred*/) {
-          self->session->connection->cancel_timeout();
-          auto lock = self->session->connection->handler_runner->continue_lock();
-          if(!lock)
-            return;
-          if(callback)
-            callback(ec);
-        });
+        async_write(callback);
       }
 
       /// Write directly to stream buffer using std::ostream::write
@@ -151,10 +146,13 @@ namespace SimpleWeb {
       /// This is useful when implementing a HTTP/1.0-server sending content
       /// without specifying the content length.
       bool close_connection_after_response = false;
+
+    private:
+      virtual void async_write(const std::function<void(const error_code &)> &callback) = 0;
     };
 
     class Content : public std::istream {
-      friend class ServerBase<socket_type>;
+      friend class ServerBase;
 
     public:
       std::size_t size() noexcept {
@@ -178,8 +176,7 @@ namespace SimpleWeb {
     };
 
     class Request {
-      friend class ServerBase<socket_type>;
-      friend class Server<socket_type>;
+      friend class ServerBase;
       friend class Session;
 
       asio::streambuf streambuf;
@@ -223,23 +220,26 @@ namespace SimpleWeb {
   protected:
     class Connection : public std::enable_shared_from_this<Connection> {
     public:
-      template <typename... Args>
-      Connection(std::shared_ptr<ScopeRunner> handler_runner, Args &&... args) noexcept : handler_runner(std::move(handler_runner)), socket(new socket_type(std::forward<Args>(args)...)) {}
+      Connection(std::shared_ptr<ScopeRunner> handler_runner) noexcept : handler_runner(std::move(handler_runner)) {}
+      virtual ~Connection() {};
 
       std::shared_ptr<ScopeRunner> handler_runner;
 
-      std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
+      // std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
       std::mutex socket_close_mutex;
 
       std::unique_ptr<asio::steady_timer> timer;
 
       std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
 
+      virtual asio::ip::tcp::socket::lowest_layer_type& lowest_layer() = 0;
+      virtual asio::io_service& get_io_service() = 0;
+
       void close() noexcept {
         error_code ec;
         std::unique_lock<std::mutex> lock(socket_close_mutex); // The following operations seems to be needed to run sequentially
-        socket->lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
-        socket->lowest_layer().close(ec);
+        lowest_layer().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
+        lowest_layer().close(ec);
       }
 
       void set_timeout(long seconds) noexcept {
@@ -248,7 +248,7 @@ namespace SimpleWeb {
           return;
         }
 
-        timer = std::unique_ptr<asio::steady_timer>(new asio::steady_timer(socket->get_io_service()));
+        timer = std::unique_ptr<asio::steady_timer>(new asio::steady_timer(get_io_service()));
         timer->expires_from_now(std::chrono::seconds(seconds));
         auto self = this->shared_from_this();
         timer->async_wait([self](const error_code &ec) {
@@ -266,11 +266,12 @@ namespace SimpleWeb {
     };
 
     class Session {
+      friend class ServerBase;
     public:
       Session(std::size_t max_request_streambuf_size, std::shared_ptr<Connection> connection) noexcept : connection(std::move(connection)) {
         if(!this->connection->remote_endpoint) {
           error_code ec;
-          this->connection->remote_endpoint = std::make_shared<asio::ip::tcp::endpoint>(this->connection->socket->lowest_layer().remote_endpoint(ec));
+          this->connection->remote_endpoint = std::make_shared<asio::ip::tcp::endpoint>(this->connection->lowest_layer().remote_endpoint(ec));
         }
         request = std::shared_ptr<Request>(new Request(max_request_streambuf_size, this->connection->remote_endpoint));
       }
@@ -281,7 +282,7 @@ namespace SimpleWeb {
 
   public:
     class Config {
-      friend class ServerBase<socket_type>;
+      friend class ServerBase;
 
       Config(unsigned short port) noexcept : port(port) {}
 
@@ -321,13 +322,12 @@ namespace SimpleWeb {
 
   public:
     /// Warning: do not add or remove resources after start() is called
-    std::map<regex_orderable, std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)>>> resource;
+    std::map<regex_orderable, std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase::Response>, std::shared_ptr<typename ServerBase::Request>)>>> resource;
 
-    std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)>> default_resource;
+    std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase::Response>, std::shared_ptr<typename ServerBase::Request>)>> default_resource;
 
-    std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request>, const error_code &)> on_error;
+    std::function<void(std::shared_ptr<typename ServerBase::Request>, const error_code &)> on_error;
 
-    std::function<void(std::unique_ptr<socket_type> &, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
 
     /// If you have your own asio::io_service, store its pointer here before running start().
     std::shared_ptr<asio::io_service> io_service;
@@ -411,38 +411,28 @@ namespace SimpleWeb {
 
     ServerBase(unsigned short port) noexcept : config(port), connections(new std::unordered_set<Connection *>()), connections_mutex(new std::mutex()), handler_runner(new ScopeRunner()) {}
 
+    virtual Response* create_response(std::shared_ptr<Session> session, long timeout_content) = 0;
     virtual void accept() = 0;
 
-    template <typename... Args>
-    std::shared_ptr<Connection> create_connection(Args &&... args) noexcept {
-      auto connections = this->connections;
-      auto connections_mutex = this->connections_mutex;
-      auto connection = std::shared_ptr<Connection>(new Connection(handler_runner, std::forward<Args>(args)...), [connections, connections_mutex](Connection *connection) {
-        {
-          std::unique_lock<std::mutex> lock(*connections_mutex);
-          auto it = connections->find(connection);
-          if(it != connections->end())
-            connections->erase(it);
-        }
-        delete connection;
-      });
-      {
-        std::unique_lock<std::mutex> lock(*connections_mutex);
-        connections->emplace(connection.get());
-      }
-      return connection;
-    }
+    virtual void async_read_until(std::shared_ptr<Connection> connection, asio::streambuf& streambuf, const std::string& eol,
+                                  std::function<void(const error_code &ec, size_t bytes_transferred)> lambda) = 0;
+    virtual void async_read(std::shared_ptr<Connection> connection, asio::streambuf& streambuf, std::size_t length,
+                                  std::function<void(const error_code &ec, size_t bytes_transferred)> lambda) = 0;
 
-    void read(const std::shared_ptr<Session> &session) {
+    virtual void do_upgrade (const std::shared_ptr<Session> &session) = 0;
+
+      void read(const std::shared_ptr<Session> &session) {
       session->connection->set_timeout(config.timeout_request);
-      asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n\r\n", [this, session](const error_code &ec, std::size_t bytes_transferred) {
+        std::function<void(const error_code &ec, size_t bytes_transferred)> lambda =
+            [this, session](const error_code &ec, size_t bytes_transferred) {
+
         session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
         session->request->header_read_time = std::chrono::system_clock::now();
         if((!ec || ec == asio::error::not_found) && session->request->streambuf.size() == session->request->streambuf.max_size()) {
-          auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+          auto response = std::shared_ptr<Response>(create_response(session, this->config.timeout_content));
           response->write(StatusCode::client_error_payload_too_large);
           response->send();
           if(this->on_error)
@@ -477,14 +467,17 @@ namespace SimpleWeb {
             }
             if(content_length > num_additional_bytes) {
               session->connection->set_timeout(config.timeout_content);
-              asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, std::size_t /*bytes_transferred*/) {
+
+              std::function<void(const error_code &ec, size_t bytes_transferred)> lambda2 =
+                  [this, session](const error_code &ec, size_t /* bytes_transferred */) {
+
                 session->connection->cancel_timeout();
                 auto lock = session->connection->handler_runner->continue_lock();
                 if(!lock)
                   return;
                 if(!ec) {
                   if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
-                    auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+                    auto response = std::shared_ptr<Response>(create_response(session, this->config.timeout_content));
                     response->write(StatusCode::client_error_payload_too_large);
                     response->send();
                     if(this->on_error)
@@ -495,8 +488,11 @@ namespace SimpleWeb {
                 }
                 else if(this->on_error)
                   this->on_error(session->request, ec);
-              });
-            }
+              };
+
+              async_read(session->connection, session->request->streambuf, content_length - num_additional_bytes, lambda2);
+
+              }
             else
               this->find_resource(session);
           }
@@ -509,18 +505,24 @@ namespace SimpleWeb {
         }
         else if(this->on_error)
           this->on_error(session->request, ec);
-      });
-    }
+      };
 
-    void read_chunked_transfer_encoded(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunks_streambuf) {
+        async_read_until(session->connection, session->request->streambuf, "\r\n\r\n", lambda);
+      }
+
+    void read_chunked_transfer_encoded(const std::shared_ptr<Session> &session,
+                                       const std::shared_ptr<asio::streambuf> &chunks_streambuf) {
       session->connection->set_timeout(config.timeout_content);
-      asio::async_read_until(*session->connection->socket, session->request->streambuf, "\r\n", [this, session, chunks_streambuf](const error_code &ec, size_t bytes_transferred) {
+
+      std::function<void(const error_code &ec, size_t bytes_transferred)> lambda =
+          [this, session, chunks_streambuf](const error_code &ec, size_t bytes_transferred) {
+
         session->connection->cancel_timeout();
         auto lock = session->connection->handler_runner->continue_lock();
         if(!lock)
           return;
         if((!ec || ec == asio::error::not_found) && session->request->streambuf.size() == session->request->streambuf.max_size()) {
-          auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+          auto response = std::shared_ptr<Response>(create_response(session, this->config.timeout_content));
           response->write(StatusCode::client_error_payload_too_large);
           response->send();
           if(this->on_error)
@@ -546,14 +548,17 @@ namespace SimpleWeb {
 
           if((2 + length) > num_additional_bytes) {
             session->connection->set_timeout(config.timeout_content);
-            asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(2 + length - num_additional_bytes), [this, session, chunks_streambuf, length](const error_code &ec, size_t /*bytes_transferred*/) {
+
+            std::function<void(const error_code &ec, size_t bytes_transferred)> lambda2 =
+              [this, session, chunks_streambuf, length](const error_code &ec, size_t /* bytes_transferred */) {
+
               session->connection->cancel_timeout();
               auto lock = session->connection->handler_runner->continue_lock();
               if(!lock)
                 return;
               if(!ec) {
                 if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
-                  auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+                  auto response = std::shared_ptr<Response>(create_response(session, this->config.timeout_content));
                   response->write(StatusCode::client_error_payload_too_large);
                   response->send();
                   if(this->on_error)
@@ -564,14 +569,19 @@ namespace SimpleWeb {
               }
               else if(this->on_error)
                 this->on_error(session->request, ec);
-            });
+            };
+
+            async_read(session->connection, session->request->streambuf, 2 + length - num_additional_bytes, lambda2);
+
           }
           else
             this->read_chunked_transfer_encoded_chunk(session, chunks_streambuf, length);
         }
         else if(this->on_error)
           this->on_error(session->request, ec);
-      });
+      };
+
+      async_read_until(session->connection, session->request->streambuf, "\r\n", lambda);
     }
 
     void read_chunked_transfer_encoded_chunk(const std::shared_ptr<Session> &session, const std::shared_ptr<asio::streambuf> &chunks_streambuf, unsigned long length) {
@@ -581,7 +591,7 @@ namespace SimpleWeb {
         session->request->content.read(buffer.get(), static_cast<std::streamsize>(length));
         tmp_stream.write(buffer.get(), static_cast<std::streamsize>(length));
         if(chunks_streambuf->size() == chunks_streambuf->max_size()) {
-          auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+          auto response = std::shared_ptr<Response>(create_response(session, this->config.timeout_content));
           response->write(StatusCode::client_error_payload_too_large);
           response->send();
           if(this->on_error)
@@ -607,21 +617,8 @@ namespace SimpleWeb {
 
     void find_resource(const std::shared_ptr<Session> &session) {
       // Upgrade connection
-      if(on_upgrade) {
-        auto it = session->request->header.find("Upgrade");
-        if(it != session->request->header.end()) {
-          // remove connection from connections
-          {
-            std::unique_lock<std::mutex> lock(*connections_mutex);
-            auto it = connections->find(session->connection.get());
-            if(it != connections->end())
-              connections->erase(it);
-          }
+      do_upgrade(session);
 
-          on_upgrade(session->connection->socket, session->request);
-          return;
-        }
-      }
       // Find path- and method-match, and call write
       for(auto &regex_method : resource) {
         auto it = regex_method.second.find(session->request->method);
@@ -640,9 +637,9 @@ namespace SimpleWeb {
     }
 
     void write(const std::shared_ptr<Session> &session,
-               std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> &resource_function) {
+               std::function<void(std::shared_ptr<typename ServerBase::Response>, std::shared_ptr<typename ServerBase::Request>)> &resource_function) {
       session->connection->set_timeout(config.timeout_content);
-      auto response = std::shared_ptr<Response>(new Response(session, config.timeout_content), [this](Response *response_ptr) {
+      auto response = std::shared_ptr<Response>(create_response(session, config.timeout_content), [this](Response *response_ptr) {
         auto response = std::shared_ptr<Response>(response_ptr);
         response->send([this, response](const error_code &ec) {
           if(!ec) {
@@ -681,17 +678,80 @@ namespace SimpleWeb {
     }
   };
 
-  template <class socket_type>
-  class Server : public ServerBase<socket_type> {};
+  template <class web_socket_type>
+  class Server : public ServerBase {};
 
   using HTTP = asio::ip::tcp::socket;
 
   template <>
-  class Server<HTTP> : public ServerBase<HTTP> {
+  class Server<HTTP> : public ServerBase {
   public:
-    Server() noexcept : ServerBase<HTTP>::ServerBase(80) {}
+    Server() noexcept : ServerBase::ServerBase(80) {}
 
-  protected:
+    std::function<void(std::unique_ptr<HTTP> &, std::shared_ptr<typename ServerBase::Request>)> on_upgrade;
+
+  private:
+    template <class HTTP>
+    class HttpConnection: public Connection {
+      friend class Server<HTTP>;
+      friend class ServerBase;
+
+      template <typename... Args>
+      HttpConnection(std::shared_ptr<ScopeRunner> handler_runner, Args &&... args) noexcept : Connection(handler_runner), socket(new HTTP(std::forward<Args>(args)...)) {}
+
+      ~HttpConnection() {};
+
+      std::unique_ptr<HTTP> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
+
+      asio::ip::tcp::socket::lowest_layer_type& lowest_layer() override { return socket->lowest_layer(); }
+      asio::io_service& get_io_service() override { return socket->get_io_service(); }
+    };
+
+    class HttpResponse: public Response {
+      friend class Server<HTTP>;
+
+      HttpResponse(std::shared_ptr<Session> session, long timeout_content) noexcept : Response(session, timeout_content) {}
+
+      void async_write(const std::function<void(const error_code &)> &callback) override {
+        auto session = this->session;
+
+        asio::async_write(*static_cast<HttpConnection<HTTP>*>(session->connection.get())->socket
+            , streambuf,
+            [session, callback](const error_code& ec, std::size_t /*bytes_transferred*/) {
+              session->connection->cancel_timeout();
+              auto lock = session->connection->handler_runner->continue_lock();
+              if (!lock)
+                return;
+              if (callback)
+                callback(ec);
+            });
+      }
+    };
+
+    Response* create_response(std::shared_ptr<Session> session, long timeout_content) override {
+      return new HttpResponse(session, timeout_content);
+    }
+
+    template <typename... Args>
+    std::shared_ptr<HttpConnection<HTTP>> create_connection(Args &&... args) noexcept {
+      auto connections = this->connections;
+      auto connections_mutex = this->connections_mutex;
+      auto connection = std::shared_ptr<HttpConnection<HTTP>>(new HttpConnection<HTTP>(handler_runner, std::forward<Args>(args)...), [connections, connections_mutex](Connection *connection) {
+        {
+          std::unique_lock<std::mutex> lock(*connections_mutex);
+          auto it = connections->find(connection);
+          if(it != connections->end())
+            connections->erase(it);
+        }
+        delete connection;
+      });
+      {
+        std::unique_lock<std::mutex> lock(*connections_mutex);
+        connections->emplace(connection.get());
+      }
+      return connection;
+    }
+
     void accept() override {
       auto connection = create_connection(*io_service);
 
@@ -709,13 +769,45 @@ namespace SimpleWeb {
         if(!ec) {
           asio::ip::tcp::no_delay option(true);
           error_code ec;
-          session->connection->socket->set_option(option, ec);
+          connection->socket->set_option(option, ec);
 
           this->read(session);
         }
         else if(this->on_error)
           this->on_error(session->request, ec);
       });
+    }
+
+    void async_read(std::shared_ptr<Connection> connection, asio::streambuf& streambuf, std::size_t length,
+                            std::function<void(const error_code &ec, size_t bytes_transferred)> lambda) {
+
+      asio::async_read(*static_cast<HttpConnection<HTTP>*>(connection.get())->socket,
+                       streambuf, asio::transfer_exactly(length), lambda);
+    }
+
+    void async_read_until(std::shared_ptr<Connection> connection, asio::streambuf& streambuf, const std::string& eol,
+                          std::function<void(const error_code &ec, size_t bytes_transferred)> lambda) override {
+      asio::async_read_until(*static_cast<HttpConnection<HTTP>*>(connection.get())->socket,
+                             streambuf, eol, lambda);
+    }
+
+    void do_upgrade (const std::shared_ptr<Session>& session) {
+      if(on_upgrade) {
+        auto it = session->request->header.find("Upgrade");
+        if(it != session->request->header.end()) {
+          // remove connection from connections
+          {
+            std::unique_lock<std::mutex> lock(*connections_mutex);
+            auto it = connections->find(session->connection.get());
+            if(it != connections->end())
+              connections->erase(it);
+          }
+
+          on_upgrade(static_cast<HttpConnection<HTTP>*>(session->connection.get())->socket, session->request);
+          return;
+        }
+      }
+
     }
   };
 } // namespace SimpleWeb
