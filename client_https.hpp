@@ -13,11 +13,11 @@ namespace SimpleWeb {
   using HTTPS = asio::ssl::stream<asio::ip::tcp::socket>;
 
   template <>
-  class Client<HTTPS> : public ClientBase<HTTPS> {
+  class Client<HTTPS> : public ClientTemplate<HTTPS> {
   public:
     Client(const std::string &server_port_path, bool verify_certificate = true, const std::string &cert_file = std::string(),
            const std::string &private_key_file = std::string(), const std::string &verify_file = std::string())
-        : ClientBase<HTTPS>::ClientBase(server_port_path, 443), context(asio::ssl::context::tlsv12) {
+        : ClientTemplate<HTTPS>::ClientTemplate(server_port_path, 443), context(asio::ssl::context::tlsv12) {
       if(cert_file.size() > 0 && private_key_file.size() > 0) {
         context.use_certificate_chain_file(cert_file);
         context.use_private_key_file(private_key_file, asio::ssl::context::pem);

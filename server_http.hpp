@@ -11,6 +11,8 @@
 #include <thread>
 #include <unordered_set>
 
+; // <- libclang bug workaround
+
 #ifdef USE_STANDALONE_ASIO
 #include <asio.hpp>
 #include <asio/steady_timer.hpp>
@@ -44,25 +46,81 @@ namespace SimpleWeb {
 #endif
 
 namespace SimpleWeb {
-  template <class socket_type>
-  class Server;
-
-  template <class socket_type>
   class ServerBase {
-  protected:
-    class Session;
-
   public:
-    class Response : public std::enable_shared_from_this<Response>, public std::ostream {
-      friend class ServerBase<socket_type>;
-      friend class Server<socket_type>;
+    class Content : public std::istream {
+      friend class ServerBase;
+
+    public:
+      std::size_t size() noexcept {
+        return streambuf.size();
+      }
+      /// Convenience function to return std::string. The stream buffer is consumed.
+      std::string string() noexcept {
+        try {
+          std::stringstream ss;
+          ss << rdbuf();
+          return ss.str();
+        }
+        catch(...) {
+          return std::string();
+        }
+      }
+
+    private:
+      asio::streambuf &streambuf;
+      Content(asio::streambuf &streambuf) noexcept : std::istream(&streambuf), streambuf(streambuf) {}
+    };
+
+    class Request {
+      template <typename SocketType>
+      friend class ServerTemplate;
 
       asio::streambuf streambuf;
 
-      std::shared_ptr<Session> session;
+      Request(std::size_t max_request_streambuf_size, std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint) noexcept
+          : streambuf(max_request_streambuf_size), content(streambuf), remote_endpoint(std::move(remote_endpoint)) {}
+
+    public:
+      std::string method, path, query_string, http_version;
+
+      Content content;
+
+      CaseInsensitiveMultimap header;
+
+      regex::smatch path_match;
+
+      std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
+
+      /// The time point when the request header was fully read.
+      std::chrono::system_clock::time_point header_read_time;
+
+      std::string remote_endpoint_address() noexcept {
+        try {
+          return remote_endpoint->address().to_string();
+        }
+        catch(...) {
+          return std::string();
+        }
+      }
+
+      unsigned short remote_endpoint_port() noexcept {
+        return remote_endpoint->port();
+      }
+
+      /// Returns query keys with percent-decoded values.
+      CaseInsensitiveMultimap parse_query_string() noexcept {
+        return SimpleWeb::QueryString::parse(query_string);
+      }
+    };
+
+    class Response : public std::ostream {
+    protected:
+      asio::streambuf streambuf;
+
       long timeout_content;
 
-      Response(std::shared_ptr<Session> session, long timeout_content) noexcept : std::ostream(&streambuf), session(std::move(session)), timeout_content(timeout_content) {}
+      Response(long timeout_content) noexcept : std::ostream(&streambuf), timeout_content(timeout_content) {}
 
       template <typename size_type>
       void write_header(const CaseInsensitiveMultimap &header, size_type size) {
@@ -88,18 +146,7 @@ namespace SimpleWeb {
       }
 
       /// Use this function if you need to recursively send parts of a longer message
-      void send(const std::function<void(const error_code &)> &callback = nullptr) noexcept {
-        session->connection->set_timeout(timeout_content);
-        auto self = this->shared_from_this(); // Keep Response instance alive through the following async_write
-        asio::async_write(*session->connection->socket, streambuf, [self, callback](const error_code &ec, std::size_t /*bytes_transferred*/) {
-          self->session->connection->cancel_timeout();
-          auto lock = self->session->connection->handler_runner->continue_lock();
-          if(!lock)
-            return;
-          if(callback)
-            callback(ec);
-        });
-      }
+      virtual void send(const std::function<void(const error_code &)> &callback = nullptr) noexcept = 0;
 
       /// Write directly to stream buffer using std::ostream::write
       void write(const char_type *ptr, std::streamsize n) {
@@ -153,82 +200,127 @@ namespace SimpleWeb {
       bool close_connection_after_response = false;
     };
 
-    class Content : public std::istream {
-      friend class ServerBase<socket_type>;
+  public:
+    class Config {
+      friend class ServerBase;
+
+      Config(unsigned short port) noexcept : port(port) {}
 
     public:
-      std::size_t size() noexcept {
-        return streambuf.size();
-      }
-      /// Convenience function to return std::string. The stream buffer is consumed.
-      std::string string() noexcept {
-        try {
-          std::stringstream ss;
-          ss << rdbuf();
-          return ss.str();
-        }
-        catch(...) {
-          return std::string();
-        }
-      }
-
-    private:
-      asio::streambuf &streambuf;
-      Content(asio::streambuf &streambuf) noexcept : std::istream(&streambuf), streambuf(streambuf) {}
+      /// Port number to use. Defaults to 80 for HTTP and 443 for HTTPS.
+      unsigned short port;
+      /// If io_service is not set, number of threads that the server will use when start() is called.
+      /// Defaults to 1 thread.
+      std::size_t thread_pool_size = 1;
+      /// Timeout on request handling. Defaults to 5 seconds.
+      long timeout_request = 5;
+      /// Timeout on content handling. Defaults to 300 seconds.
+      long timeout_content = 300;
+      /// Maximum size of request stream buffer. Defaults to architecture maximum.
+      /// Reaching this limit will result in a message_size error code.
+      std::size_t max_request_streambuf_size = std::numeric_limits<std::size_t>::max();
+      /// IPv4 address in dotted decimal form or IPv6 address in hexadecimal notation.
+      /// If empty, the address will be any address.
+      std::string address;
+      /// Set to false to avoid binding the socket to an address that is already in use. Defaults to true.
+      bool reuse_address = true;
     };
+    /// Set before calling start().
+    Config config;
 
-    class Request {
-      friend class ServerBase<socket_type>;
-      friend class Server<socket_type>;
-      friend class Session;
-
-      asio::streambuf streambuf;
-
-      Request(std::size_t max_request_streambuf_size, std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint) noexcept
-          : streambuf(max_request_streambuf_size), content(streambuf), remote_endpoint(std::move(remote_endpoint)) {}
+  private:
+    class regex_orderable : public regex::regex {
+      std::string str;
 
     public:
-      std::string method, path, query_string, http_version;
-
-      Content content;
-
-      CaseInsensitiveMultimap header;
-
-      regex::smatch path_match;
-
-      std::shared_ptr<asio::ip::tcp::endpoint> remote_endpoint;
-
-      /// The time point when the request header was fully read.
-      std::chrono::system_clock::time_point header_read_time;
-
-      std::string remote_endpoint_address() noexcept {
-        try {
-          return remote_endpoint->address().to_string();
-        }
-        catch(...) {
-          return std::string();
-        }
-      }
-
-      unsigned short remote_endpoint_port() noexcept {
-        return remote_endpoint->port();
-      }
-
-      /// Returns query keys with percent-decoded values.
-      CaseInsensitiveMultimap parse_query_string() noexcept {
-        return SimpleWeb::QueryString::parse(query_string);
+      regex_orderable(const char *regex_cstr) : regex::regex(regex_cstr), str(regex_cstr) {}
+      regex_orderable(std::string regex_str) : regex::regex(regex_str), str(std::move(regex_str)) {}
+      bool operator<(const regex_orderable &rhs) const noexcept {
+        return str < rhs.str;
       }
     };
 
   protected:
+    bool internal_io_service = false;
+
+    std::unique_ptr<asio::ip::tcp::acceptor> acceptor;
+    std::vector<std::thread> threads;
+
+    virtual void accept() = 0;
+
+  public:
+    /// Warning: do not add or remove resources after start() is called
+    std::map<regex_orderable, std::map<std::string, std::function<void(std::shared_ptr<Response>, std::shared_ptr<Request>)>>> resource;
+
+    std::map<std::string, std::function<void(std::shared_ptr<Response>, std::shared_ptr<Request>)>> default_resource;
+
+    std::function<void(std::shared_ptr<Request>, const error_code &)> on_error;
+
+    /// If you have your own asio::io_service, store its pointer here before running start().
+    std::shared_ptr<asio::io_service> io_service;
+
+    ServerBase(unsigned short port) : config(port) {}
+
+    virtual void start() {
+      if(!io_service) {
+        io_service = std::make_shared<asio::io_service>();
+        internal_io_service = true;
+      }
+
+      if(io_service->stopped())
+        io_service->reset();
+
+      asio::ip::tcp::endpoint endpoint;
+      if(config.address.size() > 0)
+        endpoint = asio::ip::tcp::endpoint(asio::ip::address::from_string(config.address), config.port);
+      else
+        endpoint = asio::ip::tcp::endpoint(asio::ip::tcp::v4(), config.port);
+
+      if(!acceptor)
+        acceptor = std::unique_ptr<asio::ip::tcp::acceptor>(new asio::ip::tcp::acceptor(*io_service));
+      acceptor->open(endpoint.protocol());
+      acceptor->set_option(asio::socket_base::reuse_address(config.reuse_address));
+      acceptor->bind(endpoint);
+      acceptor->listen();
+
+      accept();
+
+      if(internal_io_service) {
+        // If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
+        threads.clear();
+        for(std::size_t c = 1; c < config.thread_pool_size; c++) {
+          threads.emplace_back([this]() {
+            this->io_service->run();
+          });
+        }
+
+        // Main thread
+        if(config.thread_pool_size > 0)
+          io_service->run();
+
+        // Wait for the rest of the threads, if any, to finish as well
+        for(auto &t : threads)
+          t.join();
+      }
+    }
+
+    /// Stop accepting new requests, and close current connections.
+    virtual void stop() noexcept = 0;
+
+    virtual ~ServerBase() {}
+  }; // namespace SimpleWeb
+
+  template <typename SocketType>
+  class ServerTemplate : public ServerBase {
+  protected:
     class Connection : public std::enable_shared_from_this<Connection> {
     public:
       template <typename... Args>
-      Connection(std::shared_ptr<ScopeRunner> handler_runner, Args &&... args) noexcept : handler_runner(std::move(handler_runner)), socket(new socket_type(std::forward<Args>(args)...)) {}
+      Connection(std::shared_ptr<ScopeRunner> handler_runner, Args &&... args) noexcept : handler_runner(std::move(handler_runner)), socket(new SocketType(std::forward<Args>(args)...)) {}
 
       std::shared_ptr<ScopeRunner> handler_runner;
 
-      std::unique_ptr<socket_type> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
+      std::unique_ptr<SocketType> socket; // Socket must be unique_ptr since asio::ssl::stream<asio::ip::tcp::socket> is not movable
       std::mutex socket_close_mutex;
 
       std::unique_ptr<asio::steady_timer> timer;
@@ -279,104 +371,33 @@ namespace SimpleWeb {
       std::shared_ptr<Request> request;
     };
 
-  public:
-    class Config {
-      friend class ServerBase<socket_type>;
+    class ResponseExtended : public Response, public std::enable_shared_from_this<ResponseExtended> {
+      friend class ServerTemplate;
 
-      Config(unsigned short port) noexcept : port(port) {}
+      std::shared_ptr<Session> session;
 
-    public:
-      /// Port number to use. Defaults to 80 for HTTP and 443 for HTTPS.
-      unsigned short port;
-      /// If io_service is not set, number of threads that the server will use when start() is called.
-      /// Defaults to 1 thread.
-      std::size_t thread_pool_size = 1;
-      /// Timeout on request handling. Defaults to 5 seconds.
-      long timeout_request = 5;
-      /// Timeout on content handling. Defaults to 300 seconds.
-      long timeout_content = 300;
-      /// Maximum size of request stream buffer. Defaults to architecture maximum.
-      /// Reaching this limit will result in a message_size error code.
-      std::size_t max_request_streambuf_size = std::numeric_limits<std::size_t>::max();
-      /// IPv4 address in dotted decimal form or IPv6 address in hexadecimal notation.
-      /// If empty, the address will be any address.
-      std::string address;
-      /// Set to false to avoid binding the socket to an address that is already in use. Defaults to true.
-      bool reuse_address = true;
-    };
-    /// Set before calling start().
-    Config config;
-
-  private:
-    class regex_orderable : public regex::regex {
-      std::string str;
+      ResponseExtended(std::shared_ptr<Session> session, long timeout_content) noexcept : Response(timeout_content), session(std::move(session)) {}
 
     public:
-      regex_orderable(const char *regex_cstr) : regex::regex(regex_cstr), str(regex_cstr) {}
-      regex_orderable(std::string regex_str) : regex::regex(regex_str), str(std::move(regex_str)) {}
-      bool operator<(const regex_orderable &rhs) const noexcept {
-        return str < rhs.str;
+      void send(const std::function<void(const error_code &)> &callback = nullptr) noexcept override {
+        session->connection->set_timeout(timeout_content);
+        auto self = this->shared_from_this(); // Keep Response instance alive through the following async_write
+        asio::async_write(*session->connection->socket, streambuf, [self, callback](const error_code &ec, std::size_t /*bytes_transferred*/) {
+          self->session->connection->cancel_timeout();
+          auto lock = self->session->connection->handler_runner->continue_lock();
+          if(!lock)
+            return;
+          if(callback)
+            callback(ec);
+        });
       }
     };
 
   public:
-    /// Warning: do not add or remove resources after start() is called
-    std::map<regex_orderable, std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)>>> resource;
-
-    std::map<std::string, std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)>> default_resource;
-
-    std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Request>, const error_code &)> on_error;
-
-    std::function<void(std::unique_ptr<socket_type> &, std::shared_ptr<typename ServerBase<socket_type>::Request>)> on_upgrade;
-
-    /// If you have your own asio::io_service, store its pointer here before running start().
-    std::shared_ptr<asio::io_service> io_service;
-
-    virtual void start() {
-      if(!io_service) {
-        io_service = std::make_shared<asio::io_service>();
-        internal_io_service = true;
-      }
-
-      if(io_service->stopped())
-        io_service->reset();
-
-      asio::ip::tcp::endpoint endpoint;
-      if(config.address.size() > 0)
-        endpoint = asio::ip::tcp::endpoint(asio::ip::address::from_string(config.address), config.port);
-      else
-        endpoint = asio::ip::tcp::endpoint(asio::ip::tcp::v4(), config.port);
-
-      if(!acceptor)
-        acceptor = std::unique_ptr<asio::ip::tcp::acceptor>(new asio::ip::tcp::acceptor(*io_service));
-      acceptor->open(endpoint.protocol());
-      acceptor->set_option(asio::socket_base::reuse_address(config.reuse_address));
-      acceptor->bind(endpoint);
-      acceptor->listen();
-
-      accept();
-
-      if(internal_io_service) {
-        // If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
-        threads.clear();
-        for(std::size_t c = 1; c < config.thread_pool_size; c++) {
-          threads.emplace_back([this]() {
-            this->io_service->run();
-          });
-        }
-
-        // Main thread
-        if(config.thread_pool_size > 0)
-          io_service->run();
-
-        // Wait for the rest of the threads, if any, to finish as well
-        for(auto &t : threads)
-          t.join();
-      }
-    }
+    std::function<void(std::unique_ptr<SocketType> &, std::shared_ptr<Request>)> on_upgrade;
 
     /// Stop accepting new requests, and close current connections.
-    void stop() noexcept {
+    void stop() noexcept override {
       if(acceptor) {
         error_code ec;
         acceptor->close(ec);
@@ -393,25 +414,18 @@ namespace SimpleWeb {
       }
     }
 
-    virtual ~ServerBase() noexcept {
+    ~ServerTemplate() {
       handler_runner->stop();
       stop();
     }
 
   protected:
-    bool internal_io_service = false;
-
-    std::unique_ptr<asio::ip::tcp::acceptor> acceptor;
-    std::vector<std::thread> threads;
-
     std::shared_ptr<std::unordered_set<Connection *>> connections;
     std::shared_ptr<std::mutex> connections_mutex;
 
     std::shared_ptr<ScopeRunner> handler_runner;
 
-    ServerBase(unsigned short port) noexcept : config(port), connections(new std::unordered_set<Connection *>()), connections_mutex(new std::mutex()), handler_runner(new ScopeRunner()) {}
-
-    virtual void accept() = 0;
+    ServerTemplate(unsigned short port) noexcept : ServerBase(port), connections(new std::unordered_set<Connection *>()), connections_mutex(new std::mutex()), handler_runner(new ScopeRunner()) {}
 
     template <typename... Args>
     std::shared_ptr<Connection> create_connection(Args &&... args) noexcept {
@@ -442,7 +456,7 @@ namespace SimpleWeb {
           return;
         session->request->header_read_time = std::chrono::system_clock::now();
         if((!ec || ec == asio::error::not_found) && session->request->streambuf.size() == session->request->streambuf.max_size()) {
-          auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+          auto response = std::shared_ptr<ResponseExtended>(new ResponseExtended(session, this->config.timeout_content));
           response->write(StatusCode::client_error_payload_too_large);
           response->send();
           if(this->on_error)
@@ -484,7 +498,7 @@ namespace SimpleWeb {
                   return;
                 if(!ec) {
                   if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
-                    auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+                    auto response = std::shared_ptr<ResponseExtended>(new ResponseExtended(session, this->config.timeout_content));
                     response->write(StatusCode::client_error_payload_too_large);
                     response->send();
                     if(this->on_error)
@@ -520,7 +534,7 @@ namespace SimpleWeb {
         if(!lock)
           return;
         if((!ec || ec == asio::error::not_found) && session->request->streambuf.size() == session->request->streambuf.max_size()) {
-          auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+          auto response = std::shared_ptr<ResponseExtended>(new ResponseExtended(session, this->config.timeout_content));
           response->write(StatusCode::client_error_payload_too_large);
           response->send();
           if(this->on_error)
@@ -553,7 +567,7 @@ namespace SimpleWeb {
                 return;
               if(!ec) {
                 if(session->request->streambuf.size() == session->request->streambuf.max_size()) {
-                  auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+                  auto response = std::shared_ptr<ResponseExtended>(new ResponseExtended(session, this->config.timeout_content));
                   response->write(StatusCode::client_error_payload_too_large);
                   response->send();
                   if(this->on_error)
@@ -581,7 +595,7 @@ namespace SimpleWeb {
         session->request->content.read(buffer.get(), static_cast<std::streamsize>(length));
         tmp_stream.write(buffer.get(), static_cast<std::streamsize>(length));
         if(chunks_streambuf->size() == chunks_streambuf->max_size()) {
-          auto response = std::shared_ptr<Response>(new Response(session, this->config.timeout_content));
+          auto response = std::shared_ptr<ResponseExtended>(new ResponseExtended(session, this->config.timeout_content));
           response->write(StatusCode::client_error_payload_too_large);
           response->send();
           if(this->on_error)
@@ -639,11 +653,10 @@ namespace SimpleWeb {
         write(session, it->second);
     }
 
-    void write(const std::shared_ptr<Session> &session,
-               std::function<void(std::shared_ptr<typename ServerBase<socket_type>::Response>, std::shared_ptr<typename ServerBase<socket_type>::Request>)> &resource_function) {
+    void write(const std::shared_ptr<Session> &session, std::function<void(std::shared_ptr<Response>, std::shared_ptr<Request>)> &resource_function) {
       session->connection->set_timeout(config.timeout_content);
-      auto response = std::shared_ptr<Response>(new Response(session, config.timeout_content), [this](Response *response_ptr) {
-        auto response = std::shared_ptr<Response>(response_ptr);
+      auto response = std::shared_ptr<ResponseExtended>(new ResponseExtended(session, config.timeout_content), [this](ResponseExtended *response_ptr) {
+        auto response = std::shared_ptr<ResponseExtended>(response_ptr);
         response->send([this, response](const error_code &ec) {
           if(!ec) {
             if(response->close_connection_after_response)
@@ -681,15 +694,15 @@ namespace SimpleWeb {
     }
   };
 
-  template <class socket_type>
-  class Server : public ServerBase<socket_type> {};
-
   using HTTP = asio::ip::tcp::socket;
 
+  template <typename = void>
+  class Server : public ServerBase {};
+
   template <>
-  class Server<HTTP> : public ServerBase<HTTP> {
+  class Server<HTTP> : public ServerTemplate<HTTP> {
   public:
-    Server() noexcept : ServerBase<HTTP>::ServerBase(80) {}
+    Server() noexcept : ServerTemplate<HTTP>::ServerTemplate(80) {}
 
   protected:
     void accept() override {
@@ -709,7 +722,7 @@ namespace SimpleWeb {
         if(!ec) {
           asio::ip::tcp::no_delay option(true);
           error_code ec;
-          session->connection->socket->set_option(option, ec);
+          connection->socket->set_option(option, ec);
 
           this->read(session);
         }
