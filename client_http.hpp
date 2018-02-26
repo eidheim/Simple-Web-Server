@@ -16,7 +16,16 @@ namespace SimpleWeb {
   using errc = std::errc;
   using system_error = std::system_error;
   namespace make_error_code = std;
-  using string_view = const std::string &; // TODO c++17: use std::string_view
+#ifdef __has_include 
+  #if __has_include(<string_view>)
+    #include<string_view>
+    using string_view = std::string_view;
+    #define __has_string_view 1
+  #endif
+#endif
+#ifndef __has_string_view
+  using string_view = const std::string &;
+#endif
 } // namespace SimpleWeb
 #else
 #include <boost/asio.hpp>
