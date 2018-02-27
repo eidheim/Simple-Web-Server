@@ -16,16 +16,6 @@ namespace SimpleWeb {
   using errc = std::errc;
   using system_error = std::system_error;
   namespace make_error_code = std;
-#ifdef __has_include 
-  #if __has_include(<string_view>)
-    #include<string_view>
-    using string_view = std::string_view;
-    #define __has_string_view 1
-  #endif
-#endif
-#ifndef __has_string_view
-  using string_view = const std::string &;
-#endif
 } // namespace SimpleWeb
 #else
 #include <boost/asio.hpp>
@@ -37,8 +27,17 @@ namespace SimpleWeb {
   namespace errc = boost::system::errc;
   using system_error = boost::system::system_error;
   namespace make_error_code = boost::system::errc;
-  using string_view = boost::string_ref;
 } // namespace SimpleWeb
+#endif
+
+#if defined(__has_include) && __has_include(<string_view>)
+#include <string_view>
+namespace SimpleWeb { using string_view = std::string_view; }
+#elif !defined(USE_STANDALONE_ASIO)
+#include <boost/utility/string_ref.hpp>
+namespace SimpleWeb { using string_view = boost::string_ref; }  
+#else
+namespace SimpleWeb { using string_view = const std::string &; }
 #endif
 
 namespace SimpleWeb {
