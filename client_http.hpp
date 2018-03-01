@@ -20,7 +20,6 @@ namespace SimpleWeb {
 #else
 #include <boost/asio.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/utility/string_ref.hpp>
 namespace SimpleWeb {
   namespace asio = boost::asio;
   using error_code = boost::system::error_code;
