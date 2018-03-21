@@ -109,7 +109,7 @@ namespace SimpleWeb {
       /// Convenience function for writing status line, potential header fields, and empty content
       void write(StatusCode status_code = StatusCode::success_ok, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
-        write_header(header, 0);
+        write_header(header, -1);
       }
 
       /// Convenience function for writing status line, header fields, and content
@@ -144,6 +144,15 @@ namespace SimpleWeb {
       /// Convenience function for writing success status line, and header fields
       void write(const CaseInsensitiveMultimap &header) {
         write(StatusCode::success_ok, std::string(), header);
+      }
+
+      void write_more(const std::string &content) {
+        *this << content;
+      }
+
+      void set_nodelay() {
+        asio::ip::tcp::no_delay option(true);
+        session->connection->socket->set_option(option);
       }
 
       /// If true, force server to close the connection after the response have been sent.
