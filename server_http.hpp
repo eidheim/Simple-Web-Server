@@ -109,7 +109,7 @@ namespace SimpleWeb {
       /// Convenience function for writing status line, potential header fields, and empty content
       void write(StatusCode status_code = StatusCode::success_ok, const CaseInsensitiveMultimap &header = CaseInsensitiveMultimap()) {
         *this << "HTTP/1.1 " << SimpleWeb::status_code(status_code) << "\r\n";
-        write_header(header, -1);
+        write_header(header, 0);
       }
 
       /// Convenience function for writing status line, header fields, and content
