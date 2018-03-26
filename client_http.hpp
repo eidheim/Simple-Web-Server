@@ -29,7 +29,7 @@ namespace SimpleWeb {
 } // namespace SimpleWeb
 #endif
 
-#if defined(__has_include) && __has_include(<string_view>) && (__cplusplus >= 201402L || (defined(_MSC_VER) && _MSC_VER >= 1910))
+#if __cplusplus >= 201402L || (defined(_MSC_VER) && _MSC_VER >= 1910)
 #include <string_view>
 namespace SimpleWeb { using string_view = std::string_view; }
 #elif !defined(USE_STANDALONE_ASIO)
