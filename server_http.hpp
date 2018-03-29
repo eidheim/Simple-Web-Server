@@ -146,6 +146,15 @@ namespace SimpleWeb {
         write(StatusCode::success_ok, std::string(), header);
       }
 
+      void write_more(const std::string &content) {
+        *this << content;
+      }
+
+      void set_nodelay() {
+        asio::ip::tcp::no_delay option(true);
+        session->connection->socket->set_option(option);
+      }
+
       /// If true, force server to close the connection after the response have been sent.
       ///
       /// This is useful when implementing a HTTP/1.0-server sending content
