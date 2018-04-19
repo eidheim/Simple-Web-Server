@@ -332,7 +332,7 @@ namespace SimpleWeb {
     /// If you have your own asio::io_service, store its pointer here before running start().
     std::shared_ptr<asio::io_service> io_service;
 
-    virtual void start() {
+    virtual unsigned short bindAndPrepare() {
       if(!io_service) {
         io_service = std::make_shared<asio::io_service>();
         internal_io_service = true;
@@ -356,6 +356,10 @@ namespace SimpleWeb {
 
       accept();
 
+      return acceptor->local_endpoint().port();
+    }
+
+    virtual void runServer() {
       if(internal_io_service) {
         // If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
         threads.clear();
@@ -373,6 +377,11 @@ namespace SimpleWeb {
         for(auto &t : threads)
           t.join();
       }
+    }
+
+    virtual void start() {
+      bindAndPrepare();
+      runServer();
     }
 
     /// Stop accepting new requests, and close current connections.
