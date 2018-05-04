@@ -17,7 +17,6 @@ namespace SimpleWeb {
 
   template <>
   class Server<HTTPS> : public ServerBase<HTTPS> {
-    std::string session_id_context;
     bool set_session_id_context = false;
 
   public:
@@ -33,19 +32,18 @@ namespace SimpleWeb {
       }
     }
 
-    void start() override {
+  protected:
+    asio::ssl::context context;
+
+    void after_bind() override {
       if(set_session_id_context) {
         // Creating session_id_context from address:port but reversed due to small SSL_MAX_SSL_SESSION_ID_LENGTH
-        session_id_context = std::to_string(config.port) + ':';
+        auto session_id_context = std::to_string(acceptor->local_endpoint().port()) + ':';
         session_id_context.append(config.address.rbegin(), config.address.rend());
         SSL_CTX_set_session_id_context(context.native_handle(), reinterpret_cast<const unsigned char *>(session_id_context.data()),
                                        std::min<std::size_t>(session_id_context.size(), SSL_MAX_SSL_SESSION_ID_LENGTH));
       }
-      ServerBase::start();
     }
-
-  protected:
-    asio::ssl::context context;
 
     void accept() override {
       auto connection = create_connection(*io_service, context);

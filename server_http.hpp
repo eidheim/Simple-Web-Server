@@ -286,7 +286,7 @@ namespace SimpleWeb {
       Config(unsigned short port) noexcept : port(port) {}
 
     public:
-      /// Port number to use. Defaults to 80 for HTTP and 443 for HTTPS.
+      /// Port number to use. Defaults to 80 for HTTP and 443 for HTTPS. Set to 0 get an assigned port.
       unsigned short port;
       /// If io_service is not set, number of threads that the server will use when start() is called.
       /// Defaults to 1 thread.
@@ -332,35 +332,43 @@ namespace SimpleWeb {
     /// If you have your own asio::io_service, store its pointer here before running start().
     std::shared_ptr<asio::io_service> io_service;
 
-    virtual unsigned short bindAndPrepare() {
-      if(!io_service) {
-        io_service = std::make_shared<asio::io_service>();
-        internal_io_service = true;
-      }
-
-      if(io_service->stopped())
-        io_service->reset();
-
+    /// If you know the server port in advance, use start() instead.
+    /// Returns assigned port. If io_service is not set, an internal io_service is created instead.
+    /// Call before accept_and_run().
+    unsigned short bind() {
       asio::ip::tcp::endpoint endpoint;
       if(config.address.size() > 0)
         endpoint = asio::ip::tcp::endpoint(asio::ip::address::from_string(config.address), config.port);
       else
         endpoint = asio::ip::tcp::endpoint(asio::ip::tcp::v4(), config.port);
 
+      if(!io_service) {
+        io_service = std::make_shared<asio::io_service>();
+        internal_io_service = true;
+      }
+
       if(!acceptor)
         acceptor = std::unique_ptr<asio::ip::tcp::acceptor>(new asio::ip::tcp::acceptor(*io_service));
       acceptor->open(endpoint.protocol());
       acceptor->set_option(asio::socket_base::reuse_address(config.reuse_address));
       acceptor->bind(endpoint);
-      acceptor->listen();
 
-      accept();
+      after_bind();
 
       return acceptor->local_endpoint().port();
     }
 
-    virtual void runServer() {
+    /// If you know the server port in advance, use start() instead.
+    /// Accept requests, and if io_service was not set before calling bind(), run the internal io_service instead.
+    /// Call after bind().
+    void accept_and_run() {
+      acceptor->listen();
+      accept();
+
       if(internal_io_service) {
+        if(io_service->stopped())
+          io_service->reset();
+
         // If thread_pool_size>1, start m_io_service.run() in (thread_pool_size-1) threads for thread-pooling
         threads.clear();
         for(std::size_t c = 1; c < config.thread_pool_size; c++) {
@@ -379,9 +387,10 @@ namespace SimpleWeb {
       }
     }
 
-    virtual void start() {
-      bindAndPrepare();
-      runServer();
+    /// Start the server by calling bind() and accept_and_run()
+    void start() {
+      bind();
+      accept_and_run();
     }
 
     /// Stop accepting new requests, and close current connections.
@@ -420,6 +429,7 @@ namespace SimpleWeb {
 
     ServerBase(unsigned short port) noexcept : config(port), connections(new std::unordered_set<Connection *>()), connections_mutex(new std::mutex()), handler_runner(new ScopeRunner()) {}
 
+    virtual void after_bind() {}
     virtual void accept() = 0;
 
     template <typename... Args>
