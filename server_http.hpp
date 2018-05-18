@@ -89,9 +89,17 @@ namespace SimpleWeb {
 
       /// Use this function if you need to recursively send parts of a longer message
       void send(const std::function<void(const error_code &)> &callback = nullptr) noexcept {
+        // Take a snapshot of the stream buffer. Otherwise async_write may not
+        // have consumed the buffer before the next call, in which case the
+        // data from the first call may be sent twice. Use a captured shared
+        // pointer to keep the snapshot alive during the async call.
+        auto stream_snapshot = std::make_shared<asio::streambuf>();
+        std::ostream snapshot_writer(stream_snapshot.get());
+        snapshot_writer << &streambuf;
+
         session->connection->set_timeout(timeout_content);
         auto self = this->shared_from_this(); // Keep Response instance alive through the following async_write
-        asio::async_write(*session->connection->socket, streambuf, [self, callback](const error_code &ec, std::size_t /*bytes_transferred*/) {
+        asio::async_write(*session->connection->socket, *stream_snapshot, [self, callback, stream_snapshot](const error_code &ec, std::size_t /*bytes_transferred*/) {
           self->session->connection->cancel_timeout();
           auto lock = self->session->connection->handler_runner->continue_lock();
           if(!lock)

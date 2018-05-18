@@ -69,6 +69,20 @@ int main() {
     assert(request->remote_endpoint_port() != 0);
   };
 
+  server.resource["^/string/dup$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
+    auto content = request->content.string();
+
+    // Send content twice, before it has a chance to be written to the socket.
+    *response << "HTTP/1.1 200 OK\r\nContent-Length: " << (content.length() * 2) << "\r\n\r\n"
+              << content;
+    response->send();
+    *response << content;
+    response->send();
+
+    assert(!request->remote_endpoint_address().empty());
+    assert(request->remote_endpoint_port() != 0);
+  };
+
   server.resource["^/string2$"]["POST"] = [](shared_ptr<HttpServer::Response> response, shared_ptr<HttpServer::Request> request) {
     response->write(request->content.string());
   };
@@ -200,6 +214,15 @@ int main() {
       auto r = client.request("POST", "/string", content);
       output << r->content.rdbuf();
       assert(output.str() == "A string");
+    }
+
+    {
+      // Test rapid calls to Response::send
+      stringstream output;
+      stringstream content("A string\n");
+      auto r = client.request("POST", "/string/dup", content);
+      output << r->content.rdbuf();
+      assert(output.str() == "A string\nA string\n");
     }
 
     {
