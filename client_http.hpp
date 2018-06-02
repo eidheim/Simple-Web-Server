@@ -62,9 +62,11 @@ namespace SimpleWeb {
       /// Convenience function to return std::string. The stream buffer is consumed.
       std::string string() noexcept {
         try {
-          std::stringstream ss;
-          ss << rdbuf();
-          return ss.str();
+          std::string str;
+          auto size = streambuf.size();
+          str.resize(size);
+          read(&str[0], static_cast<std::streamsize>(size));
+          return str;
         }
         catch(...) {
           return std::string();
