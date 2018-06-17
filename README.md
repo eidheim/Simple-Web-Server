@@ -33,12 +33,21 @@ See particularly the JSON-POST (using Boost.PropertyTree) and the GET /match/[nu
 ### Compile and run
 
 Compile with a C++11 compliant compiler:
+
+#### Cmake
 ```sh
 mkdir build
 cd build
 cmake ..
-make
-cd ..
+```
+
+#### Meson
+
+```
+mkdir build
+cd build
+meson
+ninja
 ```
 
 #### HTTP
@@ -55,3 +64,27 @@ Run the server and client examples: `./build/https_examples`
 
 Direct your favorite browser to for instance https://localhost:8080/
 
+### Using Simple-Web-Server As a Messon Subproject
+
+for more information regarding meson subprojects see: https://github.com/mesonbuild/meson/wiki/Subprojects
+
+Create a file `/path/to/yourproject/subprojects/simple-web-server.wrap`
+which contains
+```
+[wrap-git]
+directory = simple-web-server
+url = https://github.com/eidheim/Simple-Web-Server.git
+revision = head
+```
+
+In your projects top most meson.build file add
+```
+# load the simple web server as a subproject
+sws_sp = subproject('simple-web-server')
+
+# get include files, add this to the include list of targets that use Simple Web Server
+sws_inc = simple_web_server_sp.get_variable('inc')
+
+# get dependency list, ass this to the dependency list of targets that use Simple Web Server
+sws_deps = simple_web_server_sp.get_variable('deps')
+```
