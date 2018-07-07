@@ -40,6 +40,7 @@ else()
 endif()
 if(WIN32)
     target_link_libraries(simple-web-server INTERFACE ws2_32 wsock32)
+    add_definitions(-DBOOST_ALL_NO_LIB)
 endif()
 
 if(APPLE)
