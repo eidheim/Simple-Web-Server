@@ -498,7 +498,7 @@ namespace SimpleWeb {
             }
             if(content_length > num_additional_bytes) {
               session->connection->set_timeout(config.timeout_content);
-              asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly(content_length - num_additional_bytes), [this, session](const error_code &ec, std::size_t /*bytes_transferred*/) {
+              asio::async_read(*session->connection->socket, session->request->streambuf, asio::transfer_exactly((size_t)content_length - num_additional_bytes), [this, session](const error_code &ec, std::size_t /*bytes_transferred*/) {
                 session->connection->cancel_timeout();
                 auto lock = session->connection->handler_runner->continue_lock();
                 if(!lock)
